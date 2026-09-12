@@ -2,318 +2,273 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os"
+	"strings"
 	"time"
 
 	"github.com/Faithful001/aegis/internal/domain/auth/dto"
 	"github.com/Faithful001/aegis/internal/domain/user"
-	"github.com/Faithful001/aegis/internal/infra/db"
-	infraredis "github.com/Faithful001/aegis/internal/infra/redis"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
-const (
-	TokenTypeAccess  = "access"
-	TokenTypeRefresh = "refresh"
-
-	DefaultAccessTokenExpiry  = 15 * time.Minute
-	DefaultRefreshTokenExpiry = 7 * 24 * time.Hour
-
-	RedisBlacklistKeyPrefix = "blacklist:jti:"
-)
-
-type JWTClaims struct {
-	UserID    uuid.UUID `json:"user_id"`
-	Email     string    `json:"email"`
-	TokenType string    `json:"token_type"`
-	jwt.RegisteredClaims
+type AuthService struct {
+	userRepo      user.Repository
+	blacklistRepo TokenBlacklistRepository
+	tokenService  TokenService
+	hasher        PasswordHasher
 }
 
-type AuthService struct{}
-
-func NewAuthService() *AuthService {
-	return &AuthService{}
+func NewAuthService(
+	userRepo user.Repository,
+	blacklistRepo TokenBlacklistRepository,
+	tokenService TokenService,
+	hasher PasswordHasher,
+) *AuthService {
+	return &AuthService{
+		userRepo:      userRepo,
+		blacklistRepo: blacklistRepo,
+		tokenService:  tokenService,
+		hasher:        hasher,
+	}
 }
 
-func (s *AuthService) Register(payload dto.RegisterRequest) (*dto.AuthResponse, error) {
-	var existingUser user.User
-	if err := db.DB.Where("email = ?", payload.Email).First(&existingUser).Error; err == nil {
-		return nil, errors.New("user with this email already exists")
+func (s *AuthService) Register(ctx context.Context, req dto.RegisterRequest) (*dto.AuthResponse, error) {
+	email := strings.TrimSpace(strings.ToLower(req.Email))
+
+	existing, err := s.userRepo.GetByEmail(ctx, email)
+	if err == nil && existing != nil {
+		return nil, user.ErrEmailAlreadyExists
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
+	hashedPassword, err := s.hasher.Hash(req.Password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	newUser := user.User{
-		FirstName:  payload.FirstName,
-		LastName:   payload.LastName,
-		Email:      payload.Email,
-		Password:   string(hashedPassword),
-		IsVerified: false,
-	}
-
-	if err := db.DB.Create(&newUser).Error; err != nil {
-		return nil, fmt.Errorf("failed to create user: %w", err)
-	}
-
-	return s.GenerateTokenPair(&newUser)
-}
-
-func (s *AuthService) Login(payload dto.LoginRequest) (*dto.AuthResponse, error) {
-	var foundUser user.User
-	if err := db.DB.Where("email = ?", payload.Email).First(&foundUser).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("invalid credentials")
-		}
-		return nil, fmt.Errorf("database query error: %w", err)
-	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(payload.Password)); err != nil {
-		return nil, errors.New("invalid credentials")
-	}
-
-	return s.GenerateTokenPair(&foundUser)
-}
-
-func (s *AuthService) RefreshToken(payload dto.RefreshRequest) (*dto.AuthResponse, error) {
-	claims, err := s.ValidateToken(payload.RefreshToken, TokenTypeRefresh)
+	newUser, err := user.NewUser(req.FirstName, req.LastName, email, hashedPassword)
 	if err != nil {
-		return nil, fmt.Errorf("invalid refresh token: %w", err)
+		return nil, err
 	}
 
-	// Blacklist current refresh token in Redis (rotation mechanism)
-	if err := s.BlacklistToken(claims, "refreshed"); err != nil {
-		return nil, fmt.Errorf("failed to rotate refresh token: %w", err)
+	if err := s.userRepo.Create(ctx, newUser); err != nil {
+		return nil, fmt.Errorf("failed to persist user: %w", err)
 	}
 
-	var foundUser user.User
-	if err := db.DB.Where("id = ?", claims.UserID).First(&foundUser).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("user not found")
-		}
-		return nil, fmt.Errorf("database query error: %w", err)
-	}
-
-	return s.GenerateTokenPair(&foundUser)
-}
-
-func (s *AuthService) Logout(accessTokenStr string, refreshTokenStr string) error {
-	if accessTokenStr != "" {
-		claims, err := s.parseTokenClaims(accessTokenStr)
-		if err == nil && claims != nil {
-			_ = s.BlacklistToken(claims, "logout")
-		}
-	}
-
-	if refreshTokenStr != "" {
-		claims, err := s.parseTokenClaims(refreshTokenStr)
-		if err == nil && claims != nil {
-			_ = s.BlacklistToken(claims, "logout")
-		}
-	}
-
-	return nil
-}
-
-func (s *AuthService) GenerateTokenPair(u *user.User) (*dto.AuthResponse, error) {
-	jwtSecret := s.getJWTSecret()
-	accessExpiry := s.getAccessTokenExpiry()
-	refreshExpiry := s.getRefreshTokenExpiry()
-
-	now := time.Now()
-
-	// 1. Access Token
-	accessJTI := uuid.New().String()
-	accessClaims := JWTClaims{
-		UserID:    u.ID,
-		Email:     u.Email,
-		TokenType: TokenTypeAccess,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        accessJTI,
-			Subject:   u.ID.String(),
-			Issuer:    "aegis",
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(accessExpiry)),
-		},
-	}
-
-	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
-	accessTokenString, err := accessToken.SignedString(jwtSecret)
+	tokenPair, _, _, err := s.tokenService.GenerateTokenPair(newUser.ID, newUser.Email)
 	if err != nil {
-		return nil, fmt.Errorf("failed to sign access token: %w", err)
-	}
-
-	// 2. Refresh Token
-	refreshJTI := uuid.New().String()
-	refreshClaims := JWTClaims{
-		UserID:    u.ID,
-		Email:     u.Email,
-		TokenType: TokenTypeRefresh,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        refreshJTI,
-			Subject:   u.ID.String(),
-			Issuer:    "aegis",
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(refreshExpiry)),
-		},
-	}
-
-	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
-	refreshTokenString, err := refreshToken.SignedString(jwtSecret)
-	if err != nil {
-		return nil, fmt.Errorf("failed to sign refresh token: %w", err)
+		return nil, fmt.Errorf("failed to generate token pair: %w", err)
 	}
 
 	return &dto.AuthResponse{
-		AccessToken:  accessTokenString,
-		RefreshToken: refreshTokenString,
-		TokenType:    "Bearer",
-		ExpiresIn:    int64(accessExpiry.Seconds()),
-		User:         u,
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		TokenType:    tokenPair.TokenType,
+		ExpiresIn:    tokenPair.ExpiresIn,
+		User:         newUser,
 	}, nil
 }
 
-func (s *AuthService) ValidateToken(tokenStr string, expectedType string) (*JWTClaims, error) {
-	claims, err := s.parseTokenClaims(tokenStr)
+func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*dto.AuthResponse, error) {
+	email := strings.TrimSpace(strings.ToLower(req.Email))
+
+	userEntity, err := s.userRepo.GetByEmail(ctx, email)
+	if err != nil {
+		return nil, ErrInvalidCredentials
+	}
+
+	if !userEntity.IsActive() {
+		return nil, user.ErrUserInactive
+	}
+
+	if err := s.hasher.Compare(userEntity.Password, req.Password); err != nil {
+		return nil, ErrInvalidCredentials
+	}
+
+	tokenPair, _, _, err := s.tokenService.GenerateTokenPair(userEntity.ID, userEntity.Email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate token pair: %w", err)
+	}
+
+	return &dto.AuthResponse{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		TokenType:    tokenPair.TokenType,
+		ExpiresIn:    tokenPair.ExpiresIn,
+		User:         userEntity,
+	}, nil
+}
+
+func (s *AuthService) RefreshToken(ctx context.Context, req dto.RefreshRequest) (*dto.AuthResponse, error) {
+	claims, err := s.tokenService.ValidateToken(req.RefreshToken, TokenTypeRefresh)
 	if err != nil {
 		return nil, err
 	}
 
-	if expectedType != "" && claims.TokenType != expectedType {
-		return nil, fmt.Errorf("invalid token type: expected %s, got %s", expectedType, claims.TokenType)
-	}
-
-	// Check if token JTI is blacklisted (fast sub-millisecond Redis check)
-	isBlacklisted, err := s.IsTokenBlacklisted(claims.ID)
+	isBlacklisted, err := s.blacklistRepo.IsTokenBlacklisted(ctx, claims.JTI)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check token blacklist status: %w", err)
+		return nil, fmt.Errorf("failed to verify token blacklist: %w", err)
 	}
 	if isBlacklisted {
-		return nil, errors.New("token has been revoked")
+		return nil, ErrTokenRevoked
 	}
 
-	return claims, nil
+	// Rotate refresh token
+	_ = s.blacklistRepo.BlacklistToken(ctx, claims.JTI, claims.UserID, TokenTypeRefresh, claims.ExpiresAt, "refreshed")
+
+	userEntity, err := s.userRepo.GetByID(ctx, claims.UserID)
+	if err != nil {
+		return nil, user.ErrUserNotFound
+	}
+
+	if !userEntity.IsActive() {
+		return nil, user.ErrUserInactive
+	}
+
+	tokenPair, _, _, err := s.tokenService.GenerateTokenPair(userEntity.ID, userEntity.Email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate new token pair: %w", err)
+	}
+
+	return &dto.AuthResponse{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		TokenType:    tokenPair.TokenType,
+		ExpiresIn:    tokenPair.ExpiresIn,
+		User:         userEntity,
+	}, nil
 }
 
-func (s *AuthService) IsTokenBlacklisted(jti string) (bool, error) {
-	if jti == "" {
-		return false, nil
-	}
-
-	// 1. Fast Redis in-memory lookup
-	if redisClient := infraredis.GetClient(); redisClient != nil {
-		key := fmt.Sprintf("%s%s", RedisBlacklistKeyPrefix, jti)
-		count, err := redisClient.Exists(context.Background(), key).Result()
-		if err == nil {
-			return count > 0, nil
+func (s *AuthService) Logout(ctx context.Context, req dto.LogoutRequest) error {
+	if req.AccessToken != "" {
+		claims, err := s.tokenService.ValidateToken(req.AccessToken, TokenTypeAccess)
+		if err == nil && claims != nil {
+			_ = s.blacklistRepo.BlacklistToken(ctx, claims.JTI, claims.UserID, TokenTypeAccess, claims.ExpiresAt, "logout")
 		}
 	}
 
-	// 2. Fallback to Database if Redis is not configured
-	if db.DB != nil {
-		var blacklisted BlacklistedToken
-		err := db.DB.Where("jti = ? AND expires_at > ?", jti, time.Now()).First(&blacklisted).Error
-		if err == nil {
-			return true, nil
+	if req.RefreshToken != "" {
+		claims, err := s.tokenService.ValidateToken(req.RefreshToken, TokenTypeRefresh)
+		if err == nil && claims != nil {
+			_ = s.blacklistRepo.BlacklistToken(ctx, claims.JTI, claims.UserID, TokenTypeRefresh, claims.ExpiresAt, "logout")
 		}
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, nil
-		}
-		return false, err
-	}
-
-	return false, nil
-}
-
-func (s *AuthService) BlacklistToken(claims *JWTClaims, reason string) error {
-	if claims == nil || claims.ID == "" {
-		return nil
-	}
-
-	var expiresAt time.Time
-	if claims.ExpiresAt != nil {
-		expiresAt = claims.ExpiresAt.Time
-	} else {
-		expiresAt = time.Now().Add(DefaultRefreshTokenExpiry)
-	}
-
-	remaining := time.Until(expiresAt)
-	if remaining <= 0 {
-		return nil
-	}
-
-	// 1. Store in Redis with TTL matching remaining token lifetime
-	if redisClient := infraredis.GetClient(); redisClient != nil {
-		key := fmt.Sprintf("%s%s", RedisBlacklistKeyPrefix, claims.ID)
-		_ = redisClient.Set(context.Background(), key, "revoked", remaining).Err()
-	}
-
-	// 2. Also persist in DB for audit trail if DB is connected
-	if db.DB != nil {
-		entry := BlacklistedToken{
-			JTI:       claims.ID,
-			UserID:    claims.UserID,
-			TokenType: claims.TokenType,
-			ExpiresAt: expiresAt,
-			Reason:    reason,
-		}
-		_ = db.DB.Create(&entry).Error
 	}
 
 	return nil
 }
 
-func (s *AuthService) parseTokenClaims(tokenStr string) (*JWTClaims, error) {
-	jwtSecret := s.getJWTSecret()
-
-	token, err := jwt.ParseWithClaims(tokenStr, &JWTClaims{}, func(t *jwt.Token) (interface{}, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
-		}
-		return jwtSecret, nil
-	})
-
+func (s *AuthService) ValidateAccessToken(ctx context.Context, tokenStr string) (*TokenClaims, error) {
+	claims, err := s.tokenService.ValidateToken(tokenStr, TokenTypeAccess)
 	if err != nil {
 		return nil, err
 	}
 
-	claims, ok := token.Claims.(*JWTClaims)
-	if !ok || !token.Valid {
-		return nil, errors.New("invalid token claims")
+	isBlacklisted, err := s.blacklistRepo.IsTokenBlacklisted(ctx, claims.JTI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify token blacklist: %w", err)
+	}
+	if isBlacklisted {
+		return nil, ErrTokenRevoked
 	}
 
 	return claims, nil
 }
 
-func (s *AuthService) getJWTSecret() []byte {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		secret = "aegis_default_jwt_secret_key_change_in_production"
-	}
-	return []byte(secret)
+type APIKeyService struct {
+	apiKeyRepo   APIKeyRepository
+	keyGenerator *APIKeyGenerator
 }
 
-func (s *AuthService) getAccessTokenExpiry() time.Duration {
-	if val := os.Getenv("ACCESS_TOKEN_EXPIRY"); val != "" {
-		if d, err := time.ParseDuration(val); err == nil {
-			return d
-		}
+func NewAPIKeyService(apiKeyRepo APIKeyRepository, keyGenerator *APIKeyGenerator) *APIKeyService {
+	return &APIKeyService{
+		apiKeyRepo:   apiKeyRepo,
+		keyGenerator: keyGenerator,
 	}
-	return DefaultAccessTokenExpiry
 }
 
-func (s *AuthService) getRefreshTokenExpiry() time.Duration {
-	if val := os.Getenv("REFRESH_TOKEN_EXPIRY"); val != "" {
-		if d, err := time.ParseDuration(val); err == nil {
-			return d
+func (s *APIKeyService) CreateAPIKey(ctx context.Context, orgID, projectID, userID uuid.UUID, req dto.CreateAPIKeyRequest) (*dto.CreatedAPIKeyResponse, error) {
+	generated, err := s.keyGenerator.Generate()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate secure key: %w", err)
+	}
+
+	apiKeyEntity := &APIKey{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		ProjectID:      projectID,
+		UserID:         userID,
+		Name:           req.Name,
+		KeyPrefix:      generated.KeyPrefix,
+		KeyHash:        generated.KeyHash,
+		Status:         APIKeyStatusActive,
+		ExpiresAt:      req.ExpiresAt,
+		CreatedAt:      time.Now().UTC(),
+		UpdatedAt:      time.Now().UTC(),
+	}
+
+	if err := s.apiKeyRepo.Create(ctx, apiKeyEntity); err != nil {
+		return nil, fmt.Errorf("failed to store API key: %w", err)
+	}
+
+	return &dto.CreatedAPIKeyResponse{
+		ID:        apiKeyEntity.ID,
+		Name:      apiKeyEntity.Name,
+		SecretKey: generated.PlaintextKey,
+		KeyPrefix: generated.KeyPrefix,
+		ExpiresAt: apiKeyEntity.ExpiresAt,
+		CreatedAt: apiKeyEntity.CreatedAt,
+	}, nil
+}
+
+func (s *APIKeyService) RevokeAPIKey(ctx context.Context, keyID uuid.UUID) error {
+	return s.apiKeyRepo.Revoke(ctx, keyID)
+}
+
+func (s *APIKeyService) ListProjectAPIKeys(ctx context.Context, projectID uuid.UUID) ([]*dto.APIKeyResponse, error) {
+	keys, err := s.apiKeyRepo.ListByProject(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]*dto.APIKeyResponse, len(keys))
+	for i, k := range keys {
+		responses[i] = &dto.APIKeyResponse{
+			ID:             k.ID,
+			OrganizationID: k.OrganizationID,
+			ProjectID:      k.ProjectID,
+			UserID:         k.UserID,
+			Name:           k.Name,
+			KeyPrefix:      k.KeyPrefix,
+			Status:         string(k.Status),
+			ExpiresAt:      k.ExpiresAt,
+			LastUsedAt:     k.LastUsedAt,
+			CreatedAt:      k.CreatedAt,
 		}
 	}
-	return DefaultRefreshTokenExpiry
+	return responses, nil
+}
+
+func (s *APIKeyService) AuthenticateAPIKey(ctx context.Context, plaintextKey string) (*dto.AuthenticatedPrincipal, error) {
+	if plaintextKey == "" {
+		return nil, ErrAPIKeyNotFound
+	}
+
+	hash := HashAPIKey(plaintextKey)
+	key, err := s.apiKeyRepo.GetByHash(ctx, hash)
+	if err != nil {
+		return nil, ErrAPIKeyNotFound
+	}
+
+	if !key.IsActive() {
+		return nil, ErrAPIKeyInactive
+	}
+
+	_ = s.apiKeyRepo.UpdateLastUsed(ctx, key.ID)
+
+	return &dto.AuthenticatedPrincipal{
+		APIKeyID:       key.ID,
+		OrganizationID: key.OrganizationID,
+		ProjectID:      key.ProjectID,
+		UserID:         key.UserID,
+		KeyPrefix:      key.KeyPrefix,
+	}, nil
 }

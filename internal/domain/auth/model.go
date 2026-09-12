@@ -7,6 +7,22 @@ import (
 	"gorm.io/gorm"
 )
 
+type TokenType string
+
+const (
+	TokenTypeAccess  TokenType = "access"
+	TokenTypeRefresh TokenType = "refresh"
+)
+
+type TokenClaims struct {
+	JTI       string    `json:"jti"`
+	UserID    uuid.UUID `json:"user_id"`
+	Email     string    `json:"email"`
+	TokenType TokenType `json:"token_type"`
+	ExpiresAt time.Time `json:"expires_at"`
+	IssuedAt  time.Time `json:"issued_at"`
+}
+
 type BlacklistedToken struct {
 	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	JTI       string    `gorm:"type:varchar(255);not null;index" json:"jti"`

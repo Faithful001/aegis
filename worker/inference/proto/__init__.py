@@ -1,0 +1,1 @@
+# Aegis worker proto package

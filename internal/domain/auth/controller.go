@@ -1,11 +1,13 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/Faithful001/aegis/internal/domain/auth/dto"
+	"github.com/Faithful001/aegis/internal/domain/user"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type AuthController struct {
@@ -13,89 +15,86 @@ type AuthController struct {
 }
 
 func NewAuthController(authService *AuthService) *AuthController {
-	return &AuthController{
-		authService: authService,
-	}
+	return &AuthController{authService: authService}
 }
 
 func (h *AuthController) Register(c *gin.Context) {
 	var req dto.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Invalid request payload",
-			"error":   err.Error(),
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
-	res, err := h.authService.Register(req)
+	result, err := h.authService.Register(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		if errors.Is(err, user.ErrEmailAlreadyExists) {
+			c.JSON(http.StatusConflict, gin.H{"success": false, "error": err.Error()})
+			return
+		}
+		if errors.Is(err, user.ErrInvalidUserData) {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
-		"message": "User registered successfully",
-		"data":    res,
+		"message": "user registered successfully",
+		"data":    result,
 	})
 }
 
 func (h *AuthController) Login(c *gin.Context) {
 	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Invalid request payload",
-			"error":   err.Error(),
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
-	res, err := h.authService.Login(req)
+	result, err := h.authService.Login(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		if errors.Is(err, ErrInvalidCredentials) || errors.Is(err, user.ErrUserNotFound) {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "invalid email or password"})
+			return
+		}
+		if errors.Is(err, user.ErrUserInactive) {
+			c.JSON(http.StatusForbidden, gin.H{"success": false, "error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "Login successful",
-		"data":    res,
+		"message": "login successful",
+		"data":    result,
 	})
 }
 
 func (h *AuthController) RefreshToken(c *gin.Context) {
 	var req dto.RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Refresh token is required",
-			"error":   err.Error(),
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
-	res, err := h.authService.RefreshToken(req)
+	result, err := h.authService.RefreshToken(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		if errors.Is(err, ErrTokenRevoked) || errors.Is(err, ErrTokenExpired) || errors.Is(err, ErrInvalidToken) {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "Token refreshed successfully",
-		"data":    res,
+		"message": "token refreshed successfully",
+		"data":    result,
 	})
 }
 
@@ -103,27 +102,82 @@ func (h *AuthController) Logout(c *gin.Context) {
 	var req dto.LogoutRequest
 	_ = c.ShouldBindJSON(&req)
 
-	// Extract access token from Authorization header
-	var accessToken string
-	authHeader := c.GetHeader("Authorization")
-	if authHeader != "" {
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
-			accessToken = parts[1]
-		}
-	}
-
-	if err := h.authService.Logout(accessToken, req.RefreshToken); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Failed to logout",
-			"error":   err.Error(),
-		})
-		return
-	}
+	_ = h.authService.Logout(c.Request.Context(), req)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "Logged out successfully",
+		"message": "logged out successfully",
 	})
+}
+
+type APIKeyController struct {
+	apiKeyService *APIKeyService
+}
+
+func NewAPIKeyController(apiKeyService *APIKeyService) *APIKeyController {
+	return &APIKeyController{apiKeyService: apiKeyService}
+}
+
+func (h *APIKeyController) Create(c *gin.Context) {
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized"})
+		return
+	}
+	userID := userIDVal.(uuid.UUID)
+
+	projectID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid project id"})
+		return
+	}
+
+	var req dto.CreateAPIKeyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	keyResult, err := h.apiKeyService.CreateAPIKey(c.Request.Context(), uuid.Nil, projectID, userID, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"message": "API key created successfully. Save your secret key now as it cannot be shown again.",
+		"data":    keyResult,
+	})
+}
+
+func (h *APIKeyController) List(c *gin.Context) {
+	projectID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid project id"})
+		return
+	}
+
+	keys, err := h.apiKeyService.ListProjectAPIKeys(c.Request.Context(), projectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": keys})
+}
+
+func (h *APIKeyController) Revoke(c *gin.Context) {
+	keyID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid api key id"})
+		return
+	}
+
+	if err := h.apiKeyService.RevokeAPIKey(c.Request.Context(), keyID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "API key revoked successfully"})
 }

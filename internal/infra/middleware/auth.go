@@ -38,7 +38,7 @@ func AuthMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 		}
 
 		tokenStr := parts[1]
-		claims, err := authService.ValidateToken(tokenStr, auth.TokenTypeAccess)
+		claims, err := authService.ValidateAccessToken(c.Request.Context(), tokenStr)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
@@ -74,11 +74,11 @@ func GetUserEmail(c *gin.Context) (string, bool) {
 	return email, ok
 }
 
-func GetClaims(c *gin.Context) (*auth.JWTClaims, bool) {
+func GetClaims(c *gin.Context) (*auth.TokenClaims, bool) {
 	val, exists := c.Get(ContextKeyClaims)
 	if !exists {
 		return nil, false
 	}
-	claims, ok := val.(*auth.JWTClaims)
+	claims, ok := val.(*auth.TokenClaims)
 	return claims, ok
 }

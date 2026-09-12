@@ -1,12 +1,23 @@
 package user
 
-type UserService struct{}
+import (
+	"context"
 
-func NewUserService() *UserService {
-	return &UserService{}
+	"github.com/google/uuid"
+)
+
+type Service struct {
+	repo Repository
 }
 
-func (u *UserService) CreateUser() (*User, error) {
+func NewService(repo Repository) *Service {
+	return &Service{repo: repo}
+}
 
-	return nil, nil
+func (s *Service) GetUserByID(ctx context.Context, id uuid.UUID) (*User, error) {
+	return s.repo.GetByID(ctx, id)
+}
+
+func (s *Service) GetUserByEmail(ctx context.Context, email string) (*User, error) {
+	return s.repo.GetByEmail(ctx, email)
 }
