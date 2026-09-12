@@ -1,3 +1,4 @@
 .env
 tmp
 worker/.venv
+aegsi.exe
