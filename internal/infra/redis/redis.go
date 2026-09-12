@@ -2,7 +2,6 @@ package redis
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -13,8 +12,6 @@ import (
 )
 
 var Client *redis.Client
-
-const BlacklistKeyPrefix = "blacklist:jti:"
 
 func InitRedis() {
 	if err := godotenv.Load(); err != nil {
@@ -64,31 +61,4 @@ func InitRedis() {
 
 func GetClient() *redis.Client {
 	return Client
-}
-
-func BlacklistToken(ctx context.Context, jti string, expiration time.Duration) error {
-	if Client == nil || jti == "" {
-		return nil
-	}
-
-	if expiration <= 0 {
-		return nil
-	}
-
-	key := fmt.Sprintf("%s%s", BlacklistKeyPrefix, jti)
-	return Client.Set(ctx, key, "revoked", expiration).Err()
-}
-
-func IsTokenBlacklisted(ctx context.Context, jti string) (bool, error) {
-	if Client == nil || jti == "" {
-		return false, nil
-	}
-
-	key := fmt.Sprintf("%s%s", BlacklistKeyPrefix, jti)
-	count, err := Client.Exists(ctx, key).Result()
-	if err != nil {
-		return false, err
-	}
-
-	return count > 0, nil
 }

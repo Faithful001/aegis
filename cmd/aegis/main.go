@@ -6,12 +6,17 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/auth"
 	"github.com/Faithful001/aegis/internal/domain/user"
 	"github.com/Faithful001/aegis/internal/infra/db"
+	"github.com/Faithful001/aegis/internal/infra/redis"
 	"github.com/Faithful001/aegis/internal/router"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	// Initialize PostgreSQL database
 	db.InitDB()
+
+	// Initialize Redis cache
+	redis.InitRedis()
 
 	// Run auto migrations
 	if err := db.AutoMigrate(&user.User{}, &auth.BlacklistedToken{}); err != nil {

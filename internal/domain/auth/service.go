@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/auth/dto"
 	"github.com/Faithful001/aegis/internal/domain/user"
 	"github.com/Faithful001/aegis/internal/infra/db"
+	infraredis "github.com/Faithful001/aegis/internal/infra/redis"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -21,6 +23,8 @@ const (
 
 	DefaultAccessTokenExpiry  = 15 * time.Minute
 	DefaultRefreshTokenExpiry = 7 * 24 * time.Hour
+
+	RedisBlacklistKeyPrefix = "blacklist:jti:"
 )
 
 type JWTClaims struct {
@@ -84,7 +88,7 @@ func (s *AuthService) RefreshToken(payload dto.RefreshRequest) (*dto.AuthRespons
 		return nil, fmt.Errorf("invalid refresh token: %w", err)
 	}
 
-	// Blacklist current refresh token (rotation mechanism)
+	// Blacklist current refresh token in Redis (rotation mechanism)
 	if err := s.BlacklistToken(claims, "refreshed"); err != nil {
 		return nil, fmt.Errorf("failed to rotate refresh token: %w", err)
 	}
@@ -186,7 +190,7 @@ func (s *AuthService) ValidateToken(tokenStr string, expectedType string) (*JWTC
 		return nil, fmt.Errorf("invalid token type: expected %s, got %s", expectedType, claims.TokenType)
 	}
 
-	// Check if token JTI is blacklisted
+	// Check if token JTI is blacklisted (fast sub-millisecond Redis check)
 	isBlacklisted, err := s.IsTokenBlacklisted(claims.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check token blacklist status: %w", err)
@@ -203,15 +207,29 @@ func (s *AuthService) IsTokenBlacklisted(jti string) (bool, error) {
 		return false, nil
 	}
 
-	var blacklisted BlacklistedToken
-	err := db.DB.Where("jti = ? AND expires_at > ?", jti, time.Now()).First(&blacklisted).Error
-	if err == nil {
-		return true, nil
+	// 1. Fast Redis in-memory lookup
+	if redisClient := infraredis.GetClient(); redisClient != nil {
+		key := fmt.Sprintf("%s%s", RedisBlacklistKeyPrefix, jti)
+		count, err := redisClient.Exists(context.Background(), key).Result()
+		if err == nil {
+			return count > 0, nil
+		}
 	}
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return false, nil
+
+	// 2. Fallback to Database if Redis is not configured
+	if db.DB != nil {
+		var blacklisted BlacklistedToken
+		err := db.DB.Where("jti = ? AND expires_at > ?", jti, time.Now()).First(&blacklisted).Error
+		if err == nil {
+			return true, nil
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
 	}
-	return false, err
+
+	return false, nil
 }
 
 func (s *AuthService) BlacklistToken(claims *JWTClaims, reason string) error {
@@ -226,21 +244,27 @@ func (s *AuthService) BlacklistToken(claims *JWTClaims, reason string) error {
 		expiresAt = time.Now().Add(DefaultRefreshTokenExpiry)
 	}
 
-	// Only store if the token hasn't already expired
-	if expiresAt.Before(time.Now()) {
+	remaining := time.Until(expiresAt)
+	if remaining <= 0 {
 		return nil
 	}
 
-	entry := BlacklistedToken{
-		JTI:       claims.ID,
-		UserID:    claims.UserID,
-		TokenType: claims.TokenType,
-		ExpiresAt: expiresAt,
-		Reason:    reason,
+	// 1. Store in Redis with TTL matching remaining token lifetime
+	if redisClient := infraredis.GetClient(); redisClient != nil {
+		key := fmt.Sprintf("%s%s", RedisBlacklistKeyPrefix, claims.ID)
+		_ = redisClient.Set(context.Background(), key, "revoked", remaining).Err()
 	}
 
-	if err := db.DB.Create(&entry).Error; err != nil {
-		return fmt.Errorf("failed to blacklist token: %w", err)
+	// 2. Also persist in DB for audit trail if DB is connected
+	if db.DB != nil {
+		entry := BlacklistedToken{
+			JTI:       claims.ID,
+			UserID:    claims.UserID,
+			TokenType: claims.TokenType,
+			ExpiresAt: expiresAt,
+			Reason:    reason,
+		}
+		_ = db.DB.Create(&entry).Error
 	}
 
 	return nil
