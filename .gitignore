@@ -1,4 +1,5 @@
 .env
 tmp
 worker/.venv
-aegsi.exe
+aegis.exe
+AGENT.md
