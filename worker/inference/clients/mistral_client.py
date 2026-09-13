@@ -79,6 +79,7 @@ class MistralClient:
             prompt_summary = " ".join(
                 m.content for m in messages if isinstance(m, HumanMessage)
             )
+            
             mock_text = (
                 f"Aegis async mock response for model '{model}'. "
                 f"Query received: {prompt_summary}"
