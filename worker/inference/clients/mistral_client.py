@@ -16,7 +16,7 @@ class MistralClient:
 
     def __init__(self):
         self.api_key = config.mistral_api_key
-        self._llm_cache: dict = {}
+        self._llm_cache: dict = {} # cache_key -> ChatMistralAI
 
     def _get_llm(self, model: str, temperature: float, max_tokens: int):
         from langchain_mistralai import ChatMistralAI

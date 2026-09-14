@@ -30,7 +30,7 @@ class InferenceChain:
         total_prompt_chars = sum(len(m.content) for m in lc_messages)
         estimated_prompt_tokens = max(1, total_prompt_chars // 4)
 
-        astream_gen = self.client.astream_chat(
+        astream_gen = self.client.astream_chat( #astream_gen is a tuple (content, prompt_toks, completion_toks)
             messages=lc_messages,
             model=model,
             temperature=temp,

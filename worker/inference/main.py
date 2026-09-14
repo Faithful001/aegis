@@ -45,10 +45,10 @@ async def serve():
         await server.stop(grace=5)
         logger.info("Worker stopped.")
 
-    if sys.platform != "win32":
-        loop = asyncio.get_event_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, lambda: asyncio.ensure_future(shutdown()))
+    # if sys.platform != "win32":
+    loop = asyncio.get_event_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, lambda: asyncio.ensure_future(shutdown()))
 
     await server.wait_for_termination()
 
