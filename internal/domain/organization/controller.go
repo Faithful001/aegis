@@ -10,10 +10,10 @@ import (
 )
 
 type Controller struct {
-	orgService *Service
+	orgService *OrganizationService
 }
 
-func NewController(orgService *Service) *Controller {
+func NewController(orgService *OrganizationService) *Controller {
 	return &Controller{orgService: orgService}
 }
 

@@ -15,11 +15,13 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/organization"
 	"github.com/Faithful001/aegis/internal/domain/project"
 	"github.com/Faithful001/aegis/internal/domain/user"
+	"github.com/Faithful001/aegis/internal/domain/worker"
 	infraAuth "github.com/Faithful001/aegis/internal/infra/auth"
 	"github.com/Faithful001/aegis/internal/infra/config"
 	"github.com/Faithful001/aegis/internal/infra/db"
 	"github.com/Faithful001/aegis/internal/infra/observability"
 	"github.com/Faithful001/aegis/internal/infra/redis"
+	"github.com/Faithful001/aegis/internal/infra/workerregistry"
 	"github.com/Faithful001/aegis/internal/router"
 )
 
@@ -67,11 +69,25 @@ func main() {
 		logger.Warn("Redis is not connected. Ephemeral state operating with fallback.")
 	}
 
+	// 4b. Initialize Worker Registry & Heartbeat Monitor (Phase 8)
+	var workerReg worker.WorkerRegistry
+	if redisClient != nil {
+		workerReg = workerregistry.NewRedisWorkerRegistry(redisClient)
+		logger.Info("Worker registry backed by Redis")
+	} else {
+		workerReg = workerregistry.NewMemoryWorkerRegistry()
+		logger.Warn("Worker registry using in-memory fallback (not suitable for production)")
+	}
+	workerSvc := worker.NewWorkerService(workerReg, worker.DefaultHeartbeatMonitorConfig(), logger)
+	workerSvc.StartHeartbeatMonitor(context.Background())
+	defer workerSvc.StopHeartbeatMonitor()
+	logger.Info("Worker heartbeat monitor started")
+
 	// 5. Initialize Domain Repositories
-	userRepo := user.NewGormRepository(database)
+	userRepo := user.NewUserRepository(database)
 	blacklistRepo := auth.NewTokenBlacklistRepository(redisClient, database)
-	orgRepo := organization.NewGormRepository(database)
-	projectRepo := project.NewGormRepository(database)
+	orgRepo := organization.NewOrganizationRepository(database)
+	projectRepo := project.NewProjectRepository(database)
 	apiKeyRepo := auth.NewAPIKeyRepository(database)
 
 	// 6. Initialize Domain Hasher, Generators & Services
@@ -86,8 +102,8 @@ func main() {
 
 	authService := auth.NewAuthService(userRepo, blacklistRepo, tokenService, hasher)
 	apiKeyService := auth.NewAPIKeyService(apiKeyRepo, apiKeyGenerator)
-	orgService := organization.NewService(orgRepo, userRepo)
-	projectService := project.NewService(projectRepo, orgRepo)
+	orgService := organization.NewOrganizationService(orgRepo, userRepo)
+	projectService := project.NewProjectService(projectRepo, orgRepo)
 
 	// 7. Initialize Inference Worker Client & Service
 	var workerClient inference.WorkerClient
@@ -101,14 +117,14 @@ func main() {
 	}
 	defer workerClient.Close()
 
-	inferenceService := inference.NewService(workerClient)
+	inferenceService := inference.NewInferenceService(workerClient)
 
 	// 8. Initialize Domain Controllers
 	authController := auth.NewAuthController(authService)
 	apiKeyController := auth.NewAPIKeyController(apiKeyService)
 	orgController := organization.NewController(orgService)
-	projectController := project.NewController(projectService)
-	inferenceController := inference.NewController(inferenceService)
+	projectController := project.NewProjectController(projectService)
+	inferenceController := inference.NewInferenceController(inferenceService)
 
 	// 9. Setup HTTP Engine
 	engine := router.SetupRouter(router.RouterConfig{

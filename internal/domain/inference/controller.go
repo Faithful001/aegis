@@ -13,15 +13,15 @@ import (
 	"github.com/google/uuid"
 )
 
-type Controller struct {
-	service *Service
+type InferenceController struct {
+	service *InferenceService
 }
 
-func NewController(service *Service) *Controller {
-	return &Controller{service: service}
+func NewInferenceController(service *InferenceService) *InferenceController {
+	return &InferenceController{service: service}
 }
 
-func (ctrl *Controller) HandleChatCompletion(c *gin.Context) {
+func (ctrl *InferenceController) HandleChatCompletion(c *gin.Context) {
 	var req dto.ChatCompletionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -67,7 +67,7 @@ func (ctrl *Controller) HandleChatCompletion(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-func (ctrl *Controller) handleStreamChatCompletion(
+func (ctrl *InferenceController) handleStreamChatCompletion(
 	c *gin.Context,
 	reqID string,
 	orgUUID, projectUUID uuid.UUID,
@@ -147,7 +147,7 @@ func (ctrl *Controller) handleStreamChatCompletion(
 	c.Writer.Flush()
 }
 
-func (ctrl *Controller) handleInferenceError(c *gin.Context, err error) {
+func (ctrl *InferenceController) handleInferenceError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrModelNotSupported):
 		c.JSON(http.StatusBadRequest, gin.H{

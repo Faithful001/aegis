@@ -9,10 +9,10 @@ import (
 )
 
 type TenantAuthorizer struct {
-	orgRepo organization.Repository
+	orgRepo organization.IOrganizationRepository
 }
 
-func NewTenantAuthorizer(orgRepo organization.Repository) *TenantAuthorizer {
+func NewTenantAuthorizer(orgRepo organization.IOrganizationRepository) *TenantAuthorizer {
 	return &TenantAuthorizer{orgRepo: orgRepo}
 }
 

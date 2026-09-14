@@ -10,12 +10,12 @@ import (
 	"github.com/google/uuid"
 )
 
-type Controller struct {
-	projectService *Service
+type ProjectController struct {
+	projectService *ProjectService
 }
 
-func NewController(projectService *Service) *Controller {
-	return &Controller{projectService: projectService}
+func NewProjectController(projectService *ProjectService) *ProjectController {
+	return &ProjectController{projectService: projectService}
 }
 
 func getUserID(c *gin.Context) (uuid.UUID, bool) {
@@ -27,7 +27,7 @@ func getUserID(c *gin.Context) (uuid.UUID, bool) {
 	return id, ok
 }
 
-func (h *Controller) Create(c *gin.Context) {
+func (h *ProjectController) Create(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized"})
@@ -67,7 +67,7 @@ func (h *Controller) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"success": true, "data": proj})
 }
 
-func (h *Controller) List(c *gin.Context) {
+func (h *ProjectController) List(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized"})
@@ -93,7 +93,7 @@ func (h *Controller) List(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": projects})
 }
 
-func (h *Controller) Get(c *gin.Context) {
+func (h *ProjectController) Get(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized"})

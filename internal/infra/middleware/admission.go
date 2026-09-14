@@ -21,7 +21,7 @@ type chatCompletionBody struct {
 	MaxTokens int `json:"max_tokens"`
 }
 
-func AdmissionMiddleware(admissionService *admission.Service) gin.HandlerFunc {
+func AdmissionMiddleware(admissionService *admission.AdmissionService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if admissionService == nil {
 			c.Next()

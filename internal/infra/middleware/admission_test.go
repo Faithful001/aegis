@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func setupAdmissionTestRouter(admSvc *admission.Service) *gin.Engine {
+func setupAdmissionTestRouter(admSvc *admission.AdmissionService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(AdmissionMiddleware(admSvc))
@@ -29,7 +29,7 @@ func TestAdmissionMiddleware_Accept(t *testing.T) {
 		MaxQueueWaitTime:     100 * time.Millisecond,
 		MaxTokensPerRequest:  1000,
 	}
-	admSvc := admission.NewService(cfg)
+	admSvc := admission.NewAdmissionService(cfg)
 	router := setupAdmissionTestRouter(admSvc)
 
 	body, _ := json.Marshal(gin.H{
@@ -58,7 +58,7 @@ func TestAdmissionMiddleware_Reject503Overloaded(t *testing.T) {
 		MaxQueueWaitTime:     10 * time.Millisecond,
 		MaxTokensPerRequest:  1000,
 	}
-	admSvc := admission.NewService(cfg)
+	admSvc := admission.NewAdmissionService(cfg)
 
 	// Occupy sole concurrency slot
 	admReq := admission.AdmissionRequest{RequestID: "occupy_1", EstimatedInputTokens: 10, MaxOutputTokens: 10}

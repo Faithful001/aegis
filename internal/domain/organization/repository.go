@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type Repository interface {
+type IOrganizationRepository interface {
 	Create(ctx context.Context, org *Organization, ownerID uuid.UUID) error
 	GetByID(ctx context.Context, id uuid.UUID) (*Organization, error)
 	GetBySlug(ctx context.Context, slug string) (*Organization, error)
@@ -21,15 +21,15 @@ type Repository interface {
 	RemoveMember(ctx context.Context, orgID, userID uuid.UUID) error
 }
 
-type GormRepository struct {
+type OrganizationRepository struct {
 	db *gorm.DB
 }
 
-func NewGormRepository(db *gorm.DB) *GormRepository {
-	return &GormRepository{db: db}
+func NewOrganizationRepository(db *gorm.DB) IOrganizationRepository {
+	return &OrganizationRepository{db: db}
 }
 
-func (r *GormRepository) Create(ctx context.Context, org *Organization, ownerID uuid.UUID) error {
+func (r *OrganizationRepository) Create(ctx context.Context, org *Organization, ownerID uuid.UUID) error {
 	if r.db == nil {
 		return errors.New("database connection is nil")
 	}
@@ -50,7 +50,7 @@ func (r *GormRepository) Create(ctx context.Context, org *Organization, ownerID 
 	})
 }
 
-func (r *GormRepository) GetByID(ctx context.Context, id uuid.UUID) (*Organization, error) {
+func (r *OrganizationRepository) GetByID(ctx context.Context, id uuid.UUID) (*Organization, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -64,7 +64,7 @@ func (r *GormRepository) GetByID(ctx context.Context, id uuid.UUID) (*Organizati
 	return &org, nil
 }
 
-func (r *GormRepository) GetBySlug(ctx context.Context, slug string) (*Organization, error) {
+func (r *OrganizationRepository) GetBySlug(ctx context.Context, slug string) (*Organization, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -78,7 +78,7 @@ func (r *GormRepository) GetBySlug(ctx context.Context, slug string) (*Organizat
 	return &org, nil
 }
 
-func (r *GormRepository) ListByUser(ctx context.Context, userID uuid.UUID) ([]*Organization, error) {
+func (r *OrganizationRepository) ListByUser(ctx context.Context, userID uuid.UUID) ([]*Organization, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -90,21 +90,21 @@ func (r *GormRepository) ListByUser(ctx context.Context, userID uuid.UUID) ([]*O
 	return orgs, err
 }
 
-func (r *GormRepository) Update(ctx context.Context, org *Organization) error {
+func (r *OrganizationRepository) Update(ctx context.Context, org *Organization) error {
 	if r.db == nil {
 		return errors.New("database connection is nil")
 	}
 	return r.db.WithContext(ctx).Save(org).Error
 }
 
-func (r *GormRepository) AddMember(ctx context.Context, member *OrganizationMember) error {
+func (r *OrganizationRepository) AddMember(ctx context.Context, member *OrganizationMember) error {
 	if r.db == nil {
 		return errors.New("database connection is nil")
 	}
 	return r.db.WithContext(ctx).Create(member).Error
 }
 
-func (r *GormRepository) GetMember(ctx context.Context, orgID, userID uuid.UUID) (*OrganizationMember, error) {
+func (r *OrganizationRepository) GetMember(ctx context.Context, orgID, userID uuid.UUID) (*OrganizationMember, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -118,7 +118,7 @@ func (r *GormRepository) GetMember(ctx context.Context, orgID, userID uuid.UUID)
 	return &member, nil
 }
 
-func (r *GormRepository) ListMembers(ctx context.Context, orgID uuid.UUID) ([]*OrganizationMember, error) {
+func (r *OrganizationRepository) ListMembers(ctx context.Context, orgID uuid.UUID) ([]*OrganizationMember, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -127,7 +127,7 @@ func (r *GormRepository) ListMembers(ctx context.Context, orgID uuid.UUID) ([]*O
 	return members, err
 }
 
-func (r *GormRepository) RemoveMember(ctx context.Context, orgID, userID uuid.UUID) error {
+func (r *OrganizationRepository) RemoveMember(ctx context.Context, orgID, userID uuid.UUID) error {
 	if r.db == nil {
 		return errors.New("database connection is nil")
 	}

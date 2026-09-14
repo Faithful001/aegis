@@ -10,7 +10,7 @@ import (
 
 func TestInferenceService_ExecuteChatCompletion(t *testing.T) {
 	mockClient := NewMockWorkerClient()
-	service := NewService(mockClient)
+	service := NewInferenceService(mockClient)
 
 	orgID := uuid.New()
 	projectID := uuid.New()
@@ -49,7 +49,7 @@ func TestInferenceService_ExecuteChatCompletion(t *testing.T) {
 
 func TestInferenceService_ValidationErrors(t *testing.T) {
 	mockClient := NewMockWorkerClient()
-	service := NewService(mockClient)
+	service := NewInferenceService(mockClient)
 
 	orgID := uuid.New()
 	projectID := uuid.New()
@@ -92,7 +92,7 @@ func TestInferenceService_ValidationErrors(t *testing.T) {
 
 func TestInferenceService_ExecuteStreamChatCompletion(t *testing.T) {
 	mockClient := NewMockWorkerClient()
-	service := NewService(mockClient)
+	service := NewInferenceService(mockClient)
 
 	orgID := uuid.New()
 	projectID := uuid.New()

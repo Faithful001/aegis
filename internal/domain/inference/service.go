@@ -9,17 +9,17 @@ import (
 	"github.com/google/uuid"
 )
 
-type Service struct {
+type InferenceService struct {
 	workerClient WorkerClient
 }
 
-func NewService(workerClient WorkerClient) *Service {
-	return &Service{
+func NewInferenceService(workerClient WorkerClient) *InferenceService {
+	return &InferenceService{
 		workerClient: workerClient,
 	}
 }
 
-func (s *Service) ExecuteChatCompletion(
+func (s *InferenceService) ExecuteChatCompletion(
 	ctx context.Context,
 	reqID string,
 	orgID, projectID uuid.UUID,
@@ -79,7 +79,7 @@ func (s *Service) ExecuteChatCompletion(
 	}, nil
 }
 
-func (s *Service) ExecuteStreamChatCompletion(
+func (s *InferenceService) ExecuteStreamChatCompletion(
 	ctx context.Context,
 	reqID string,
 	orgID, projectID uuid.UUID,

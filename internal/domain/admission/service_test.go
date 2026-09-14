@@ -13,7 +13,7 @@ func TestAdmissionService_Accept(t *testing.T) {
 		MaxQueueWaitTime:     100 * time.Millisecond,
 		MaxTokensPerRequest:  1000,
 	}
-	svc := NewService(cfg)
+	svc := NewAdmissionService(cfg)
 
 	req := AdmissionRequest{
 		RequestID:            "req_01",
@@ -51,7 +51,7 @@ func TestAdmissionService_RejectMaxTokensExceeded(t *testing.T) {
 		MaxQueueWaitTime:     100 * time.Millisecond,
 		MaxTokensPerRequest:  100,
 	}
-	svc := NewService(cfg)
+	svc := NewAdmissionService(cfg)
 
 	req := AdmissionRequest{
 		RequestID:            "req_oversized",
@@ -72,7 +72,7 @@ func TestAdmissionService_QueueAndAcquire(t *testing.T) {
 		MaxQueueWaitTime:     500 * time.Millisecond,
 		MaxTokensPerRequest:  1000,
 	}
-	svc := NewService(cfg)
+	svc := NewAdmissionService(cfg)
 
 	req1 := AdmissionRequest{RequestID: "req_1", EstimatedInputTokens: 10, MaxOutputTokens: 10}
 	req2 := AdmissionRequest{RequestID: "req_2", EstimatedInputTokens: 10, MaxOutputTokens: 10}
@@ -114,7 +114,7 @@ func TestAdmissionService_QueueTimeout(t *testing.T) {
 		MaxQueueWaitTime:     50 * time.Millisecond,
 		MaxTokensPerRequest:  1000,
 	}
-	svc := NewService(cfg)
+	svc := NewAdmissionService(cfg)
 
 	req1 := AdmissionRequest{RequestID: "req_1", EstimatedInputTokens: 10, MaxOutputTokens: 10}
 	req2 := AdmissionRequest{RequestID: "req_2", EstimatedInputTokens: 10, MaxOutputTokens: 10}

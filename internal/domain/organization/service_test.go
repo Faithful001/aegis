@@ -112,7 +112,7 @@ func TestOrganizationService_Lifecycle(t *testing.T) {
 	userRepo := &mockUserRepo{users: map[uuid.UUID]*user.User{userID: {ID: userID, Email: "owner@example.com"}}}
 	orgRepo := newMockOrgRepo()
 
-	svc := organization.NewService(orgRepo, userRepo)
+	svc := organization.NewOrganizationService(orgRepo, userRepo)
 	ctx := context.Background()
 
 	// 1. Create Organization

@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type Repository interface {
+type IProjectRepository interface {
 	Create(ctx context.Context, p *Project) error
 	GetByID(ctx context.Context, id uuid.UUID) (*Project, error)
 	GetByOrgAndSlug(ctx context.Context, orgID uuid.UUID, slug string) (*Project, error)
@@ -17,22 +17,22 @@ type Repository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-type GormRepository struct {
+type ProjectRepository struct {
 	db *gorm.DB
 }
 
-func NewGormRepository(db *gorm.DB) *GormRepository {
-	return &GormRepository{db: db}
+func NewProjectRepository(db *gorm.DB) *ProjectRepository {
+	return &ProjectRepository{db: db}
 }
 
-func (r *GormRepository) Create(ctx context.Context, p *Project) error {
+func (r *ProjectRepository) Create(ctx context.Context, p *Project) error {
 	if r.db == nil {
 		return errors.New("database connection is nil")
 	}
 	return r.db.WithContext(ctx).Create(p).Error
 }
 
-func (r *GormRepository) GetByID(ctx context.Context, id uuid.UUID) (*Project, error) {
+func (r *ProjectRepository) GetByID(ctx context.Context, id uuid.UUID) (*Project, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -46,7 +46,7 @@ func (r *GormRepository) GetByID(ctx context.Context, id uuid.UUID) (*Project, e
 	return &p, nil
 }
 
-func (r *GormRepository) GetByOrgAndSlug(ctx context.Context, orgID uuid.UUID, slug string) (*Project, error) {
+func (r *ProjectRepository) GetByOrgAndSlug(ctx context.Context, orgID uuid.UUID, slug string) (*Project, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -60,7 +60,7 @@ func (r *GormRepository) GetByOrgAndSlug(ctx context.Context, orgID uuid.UUID, s
 	return &p, nil
 }
 
-func (r *GormRepository) ListByOrganization(ctx context.Context, orgID uuid.UUID) ([]*Project, error) {
+func (r *ProjectRepository) ListByOrganization(ctx context.Context, orgID uuid.UUID) ([]*Project, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -69,14 +69,14 @@ func (r *GormRepository) ListByOrganization(ctx context.Context, orgID uuid.UUID
 	return projects, err
 }
 
-func (r *GormRepository) Update(ctx context.Context, p *Project) error {
+func (r *ProjectRepository) Update(ctx context.Context, p *Project) error {
 	if r.db == nil {
 		return errors.New("database connection is nil")
 	}
 	return r.db.WithContext(ctx).Save(p).Error
 }
 
-func (r *GormRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *ProjectRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	if r.db == nil {
 		return errors.New("database connection is nil")
 	}

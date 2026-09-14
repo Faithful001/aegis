@@ -9,19 +9,19 @@ import (
 	"github.com/google/uuid"
 )
 
-type Service struct {
-	orgRepo  Repository
-	userRepo user.Repository
+type OrganizationService struct {
+	orgRepo  IOrganizationRepository
+	userRepo user.IUserRepository
 }
 
-func NewService(orgRepo Repository, userRepo user.Repository) *Service {
-	return &Service{
+func NewOrganizationService(orgRepo IOrganizationRepository, userRepo user.IUserRepository) *OrganizationService {
+	return &OrganizationService{
 		orgRepo:  orgRepo,
 		userRepo: userRepo,
 	}
 }
 
-func (s *Service) CreateOrganization(ctx context.Context, userID uuid.UUID, req dto.CreateOrganizationRequest) (*dto.OrganizationResponse, error) {
+func (s *OrganizationService) CreateOrganization(ctx context.Context, userID uuid.UUID, req dto.CreateOrganizationRequest) (*dto.OrganizationResponse, error) {
 	if _, err := s.userRepo.GetByID(ctx, userID); err != nil {
 		return nil, user.ErrUserNotFound
 	}
@@ -50,7 +50,7 @@ func (s *Service) CreateOrganization(ctx context.Context, userID uuid.UUID, req 
 	}, nil
 }
 
-func (s *Service) GetOrganization(ctx context.Context, orgID, userID uuid.UUID) (*dto.OrganizationResponse, error) {
+func (s *OrganizationService) GetOrganization(ctx context.Context, orgID, userID uuid.UUID) (*dto.OrganizationResponse, error) {
 	member, err := s.orgRepo.GetMember(ctx, orgID, userID)
 	if err != nil || member == nil {
 		return nil, ErrUnauthorizedTenant
@@ -71,7 +71,7 @@ func (s *Service) GetOrganization(ctx context.Context, orgID, userID uuid.UUID) 
 	}, nil
 }
 
-func (s *Service) ListUserOrganizations(ctx context.Context, userID uuid.UUID) ([]*dto.OrganizationResponse, error) {
+func (s *OrganizationService) ListUserOrganizations(ctx context.Context, userID uuid.UUID) ([]*dto.OrganizationResponse, error) {
 	orgs, err := s.orgRepo.ListByUser(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -95,7 +95,7 @@ func (s *Service) ListUserOrganizations(ctx context.Context, userID uuid.UUID) (
 	return responses, nil
 }
 
-func (s *Service) AddMember(ctx context.Context, orgID, currentUserID uuid.UUID, req dto.AddMemberRequest) (*dto.MemberResponse, error) {
+func (s *OrganizationService) AddMember(ctx context.Context, orgID, currentUserID uuid.UUID, req dto.AddMemberRequest) (*dto.MemberResponse, error) {
 	callerMember, err := s.orgRepo.GetMember(ctx, orgID, currentUserID)
 	if err != nil || callerMember == nil {
 		return nil, ErrUnauthorizedTenant
@@ -132,7 +132,7 @@ func (s *Service) AddMember(ctx context.Context, orgID, currentUserID uuid.UUID,
 	}, nil
 }
 
-func (s *Service) ListMembers(ctx context.Context, orgID, currentUserID uuid.UUID) ([]*dto.MemberResponse, error) {
+func (s *OrganizationService) ListMembers(ctx context.Context, orgID, currentUserID uuid.UUID) ([]*dto.MemberResponse, error) {
 	member, err := s.orgRepo.GetMember(ctx, orgID, currentUserID)
 	if err != nil || member == nil {
 		return nil, ErrUnauthorizedTenant

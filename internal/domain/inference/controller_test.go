@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func setupTestRouter(ctrl *Controller, orgID, projectID uuid.UUID) *gin.Engine {
+func setupTestRouter(ctrl *InferenceController, orgID, projectID uuid.UUID) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
@@ -26,8 +26,8 @@ func setupTestRouter(ctrl *Controller, orgID, projectID uuid.UUID) *gin.Engine {
 
 func TestController_HandleChatCompletion_Unary(t *testing.T) {
 	mockClient := NewMockWorkerClient()
-	service := NewService(mockClient)
-	ctrl := NewController(service)
+	service := NewInferenceService(mockClient)
+	ctrl := NewInferenceController(service)
 
 	orgID := uuid.New()
 	projectID := uuid.New()
@@ -68,8 +68,8 @@ func TestController_HandleChatCompletion_Unary(t *testing.T) {
 
 func TestController_HandleChatCompletion_Stream(t *testing.T) {
 	mockClient := NewMockWorkerClient()
-	service := NewService(mockClient)
-	ctrl := NewController(service)
+	service := NewInferenceService(mockClient)
+	ctrl := NewInferenceController(service)
 
 	orgID := uuid.New()
 	projectID := uuid.New()
@@ -106,8 +106,8 @@ func TestController_HandleChatCompletion_Stream(t *testing.T) {
 
 func TestController_HandleChatCompletion_Stream_FullSSEValidation(t *testing.T) {
 	mockClient := NewMockWorkerClient()
-	service := NewService(mockClient)
-	ctrl := NewController(service)
+	service := NewInferenceService(mockClient)
+	ctrl := NewInferenceController(service)
 
 	orgID := uuid.New()
 	projectID := uuid.New()

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-type Service struct {
+type AdmissionService struct {
 	cfg               AdmissionConfig
 	activeConcurrency int64
 	queueDepth        int64
@@ -16,7 +16,7 @@ type Service struct {
 	mu                sync.Mutex
 }
 
-func NewService(cfg AdmissionConfig) *Service {
+func NewAdmissionService(cfg AdmissionConfig) *AdmissionService {
 	if cfg.MaxActiveConcurrency <= 0 {
 		cfg.MaxActiveConcurrency = 50
 	}
@@ -30,7 +30,7 @@ func NewService(cfg AdmissionConfig) *Service {
 		cfg.MaxTokensPerRequest = 8192
 	}
 
-	return &Service{
+	return &AdmissionService{
 		cfg:      cfg,
 		slotChan: make(chan struct{}, cfg.MaxQueueDepth),
 	}
@@ -50,12 +50,12 @@ func EstimateTokens(prompt string, maxOutput int) (inputTokens, totalTokens int)
 }
 
 // GetStats returns current concurrency and queue statistics
-func (s *Service) GetStats() (active int64, queued int64) {
+func (s *AdmissionService) GetStats() (active int64, queued int64) {
 	return atomic.LoadInt64(&s.activeConcurrency), atomic.LoadInt64(&s.queueDepth)
 }
 
 // Evaluate determines whether a request can be accepted immediately, queued, or rejected
-func (s *Service) Evaluate(req AdmissionRequest) AdmissionResponse {
+func (s *AdmissionService) Evaluate(req AdmissionRequest) AdmissionResponse {
 	totalTokens := req.TotalEstimatedTokens()
 	if totalTokens > s.cfg.MaxTokensPerRequest {
 		return AdmissionResponse{
@@ -91,7 +91,7 @@ func (s *Service) Evaluate(req AdmissionRequest) AdmissionResponse {
 }
 
 // AcquireSlot handles admission evaluation and queue waiting logic
-func (s *Service) AcquireSlot(ctx context.Context, req AdmissionRequest) (*AdmissionResponse, error) {
+func (s *AdmissionService) AcquireSlot(ctx context.Context, req AdmissionRequest) (*AdmissionResponse, error) {
 	resp := s.Evaluate(req)
 
 	switch resp.Decision {
@@ -141,7 +141,7 @@ func (s *Service) AcquireSlot(ctx context.Context, req AdmissionRequest) (*Admis
 }
 
 // ReleaseSlot notifies waiting requests and decrements active concurrency counter
-func (s *Service) ReleaseSlot() {
+func (s *AdmissionService) ReleaseSlot() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

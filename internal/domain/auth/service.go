@@ -12,14 +12,14 @@ import (
 )
 
 type AuthService struct {
-	userRepo      user.Repository
+	userRepo      user.IUserRepository
 	blacklistRepo TokenBlacklistRepository
 	tokenService  TokenService
 	hasher        PasswordHasher
 }
 
 func NewAuthService(
-	userRepo user.Repository,
+	userRepo user.IUserRepository,
 	blacklistRepo TokenBlacklistRepository,
 	tokenService TokenService,
 	hasher PasswordHasher,

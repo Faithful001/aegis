@@ -23,10 +23,10 @@ type RouterConfig struct {
 	AuthController      *auth.AuthController
 	APIKeyController    *auth.APIKeyController
 	OrgController       *organization.Controller
-	ProjectController   *project.Controller
-	InferenceController *inference.Controller
+	ProjectController   *project.ProjectController
+	InferenceController *inference.InferenceController
 	RateLimiter         ratelimiter.RateLimiter
-	AdmissionService    *admission.Service
+	AdmissionService    *admission.AdmissionService
 }
 
 func SetupRouter(cfg RouterConfig) *gin.Engine {

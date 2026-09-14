@@ -9,19 +9,19 @@ import (
 	"github.com/google/uuid"
 )
 
-type Service struct {
-	projectRepo Repository
-	orgRepo     organization.Repository
+type ProjectService struct {
+	projectRepo IProjectRepository
+	orgRepo     organization.IOrganizationRepository
 }
 
-func NewService(projectRepo Repository, orgRepo organization.Repository) *Service {
-	return &Service{
+func NewProjectService(projectRepo IProjectRepository, orgRepo organization.IOrganizationRepository) *ProjectService {
+	return &ProjectService{
 		projectRepo: projectRepo,
 		orgRepo:     orgRepo,
 	}
 }
 
-func (s *Service) CreateProject(ctx context.Context, orgID, userID uuid.UUID, req dto.CreateProjectRequest) (*dto.ProjectResponse, error) {
+func (s *ProjectService) CreateProject(ctx context.Context, orgID, userID uuid.UUID, req dto.CreateProjectRequest) (*dto.ProjectResponse, error) {
 	member, err := s.orgRepo.GetMember(ctx, orgID, userID)
 	if err != nil || member == nil {
 		return nil, organization.ErrUnauthorizedTenant
@@ -57,7 +57,7 @@ func (s *Service) CreateProject(ctx context.Context, orgID, userID uuid.UUID, re
 	return toProjectResponse(newProject), nil
 }
 
-func (s *Service) GetProject(ctx context.Context, projectID, userID uuid.UUID) (*dto.ProjectResponse, error) {
+func (s *ProjectService) GetProject(ctx context.Context, projectID, userID uuid.UUID) (*dto.ProjectResponse, error) {
 	proj, err := s.projectRepo.GetByID(ctx, projectID)
 	if err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func (s *Service) GetProject(ctx context.Context, projectID, userID uuid.UUID) (
 	return toProjectResponse(proj), nil
 }
 
-func (s *Service) ListOrganizationProjects(ctx context.Context, orgID, userID uuid.UUID) ([]*dto.ProjectResponse, error) {
+func (s *ProjectService) ListOrganizationProjects(ctx context.Context, orgID, userID uuid.UUID) ([]*dto.ProjectResponse, error) {
 	member, err := s.orgRepo.GetMember(ctx, orgID, userID)
 	if err != nil || member == nil {
 		return nil, organization.ErrUnauthorizedTenant
@@ -89,7 +89,7 @@ func (s *Service) ListOrganizationProjects(ctx context.Context, orgID, userID uu
 	return responses, nil
 }
 
-func (s *Service) DeleteProject(ctx context.Context, projectID, userID uuid.UUID) error {
+func (s *ProjectService) DeleteProject(ctx context.Context, projectID, userID uuid.UUID) error {
 	proj, err := s.projectRepo.GetByID(ctx, projectID)
 	if err != nil {
 		return err

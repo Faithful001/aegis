@@ -105,7 +105,7 @@ func TestProjectService_Lifecycle(t *testing.T) {
 	projectRepo := newMockProjectRepo()
 	orgRepo := newMockOrgRepo()
 
-	svc := project.NewService(projectRepo, orgRepo)
+	svc := project.NewProjectService(projectRepo, orgRepo)
 	ctx := context.Background()
 
 	orgID := uuid.New()
