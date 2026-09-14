@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Faithful001/aegis/internal/domain/admission"
 	"github.com/Faithful001/aegis/internal/domain/auth"
 	"github.com/Faithful001/aegis/internal/domain/inference"
 	"github.com/Faithful001/aegis/internal/domain/organization"
@@ -25,6 +26,7 @@ type RouterConfig struct {
 	ProjectController   *project.Controller
 	InferenceController *inference.Controller
 	RateLimiter         ratelimiter.RateLimiter
+	AdmissionService    *admission.Service
 }
 
 func SetupRouter(cfg RouterConfig) *gin.Engine {
@@ -149,6 +151,10 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		inferenceV1.Use(middleware.RateLimitMiddleware(cfg.RateLimiter))
 	} else if redisClient := redis.GetClient(); redisClient != nil {
 		inferenceV1.Use(middleware.RateLimitMiddleware(ratelimiter.NewRedisRateLimiter(redisClient)))
+	}
+
+	if cfg.AdmissionService != nil {
+		inferenceV1.Use(middleware.AdmissionMiddleware(cfg.AdmissionService))
 	}
 	{
 		// Verification / ping endpoint for API Key Principal
