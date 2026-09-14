@@ -11,6 +11,7 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/project"
 	"github.com/Faithful001/aegis/internal/infra/db"
 	"github.com/Faithful001/aegis/internal/infra/middleware"
+	"github.com/Faithful001/aegis/internal/infra/ratelimiter"
 	"github.com/Faithful001/aegis/internal/infra/redis"
 	"github.com/gin-gonic/gin"
 )
@@ -23,6 +24,7 @@ type RouterConfig struct {
 	OrgController       *organization.Controller
 	ProjectController   *project.Controller
 	InferenceController *inference.Controller
+	RateLimiter         ratelimiter.RateLimiter
 }
 
 func SetupRouter(cfg RouterConfig) *gin.Engine {
@@ -142,6 +144,12 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 	// ==================================================
 	inferenceV1 := r.Group("/v1")
 	inferenceV1.Use(middleware.APIKeyAuthMiddleware(cfg.APIKeyService))
+
+	if cfg.RateLimiter != nil {
+		inferenceV1.Use(middleware.RateLimitMiddleware(cfg.RateLimiter))
+	} else if redisClient := redis.GetClient(); redisClient != nil {
+		inferenceV1.Use(middleware.RateLimitMiddleware(ratelimiter.NewRedisRateLimiter(redisClient)))
+	}
 	{
 		// Verification / ping endpoint for API Key Principal
 		inferenceV1.GET("/auth/verify", func(c *gin.Context) {
