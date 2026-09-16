@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,7 +11,7 @@ import (
 )
 
 // UsageRepository defines the persistence contract for usage records.
-type UsageRepository interface {
+type IUsageRepository interface {
 	Create(ctx context.Context, record *UsageRecord) error
 	GetByEventID(ctx context.Context, eventID string) (*UsageRecord, error)
 	GetByRequestID(ctx context.Context, reqID string) (*UsageRecord, error)
@@ -22,16 +21,16 @@ type UsageRepository interface {
 }
 
 // GORMUsageRepository implements UsageRepository using PostgreSQL via GORM.
-type GORMUsageRepository struct {
+type UsageRepository struct {
 	db *gorm.DB
 }
 
 // NewGORMUsageRepository returns a new GORMUsageRepository.
-func NewGORMUsageRepository(db *gorm.DB) *GORMUsageRepository {
-	return &GORMUsageRepository{db: db}
+func NewUsageRepository(db *gorm.DB) IUsageRepository {
+	return &UsageRepository{db: db}
 }
 
-func (r *GORMUsageRepository) Create(ctx context.Context, record *UsageRecord) error {
+func (r *UsageRepository) Create(ctx context.Context, record *UsageRecord) error {
 	if r.db == nil {
 		return errors.New("database connection is nil")
 	}
@@ -49,7 +48,7 @@ func (r *GORMUsageRepository) Create(ctx context.Context, record *UsageRecord) e
 	return nil
 }
 
-func (r *GORMUsageRepository) GetByEventID(ctx context.Context, eventID string) (*UsageRecord, error) {
+func (r *UsageRepository) GetByEventID(ctx context.Context, eventID string) (*UsageRecord, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -65,7 +64,7 @@ func (r *GORMUsageRepository) GetByEventID(ctx context.Context, eventID string) 
 	return &rec, nil
 }
 
-func (r *GORMUsageRepository) GetByRequestID(ctx context.Context, reqID string) (*UsageRecord, error) {
+func (r *UsageRepository) GetByRequestID(ctx context.Context, reqID string) (*UsageRecord, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -81,7 +80,7 @@ func (r *GORMUsageRepository) GetByRequestID(ctx context.Context, reqID string) 
 	return &rec, nil
 }
 
-func (r *GORMUsageRepository) ListByOrganization(ctx context.Context, orgID uuid.UUID, limit, offset int) ([]*UsageRecord, error) {
+func (r *UsageRepository) ListByOrganization(ctx context.Context, orgID uuid.UUID, limit, offset int) ([]*UsageRecord, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -100,7 +99,7 @@ func (r *GORMUsageRepository) ListByOrganization(ctx context.Context, orgID uuid
 	return records, err
 }
 
-func (r *GORMUsageRepository) ListByProject(ctx context.Context, projectID uuid.UUID, limit, offset int) ([]*UsageRecord, error) {
+func (r *UsageRepository) ListByProject(ctx context.Context, projectID uuid.UUID, limit, offset int) ([]*UsageRecord, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -119,7 +118,7 @@ func (r *GORMUsageRepository) ListByProject(ctx context.Context, projectID uuid.
 	return records, err
 }
 
-func (r *GORMUsageRepository) GetTotalUsage(ctx context.Context, orgID uuid.UUID, startTime, endTime time.Time) (totalInput, totalOutput, totalTokens int, err error) {
+func (r *UsageRepository) GetTotalUsage(ctx context.Context, orgID uuid.UUID, startTime, endTime time.Time) (totalInput, totalOutput, totalTokens int, err error) {
 	if r.db == nil {
 		return 0, 0, 0, errors.New("database connection is nil")
 	}
@@ -147,127 +146,4 @@ func (r *GORMUsageRepository) GetTotalUsage(ctx context.Context, orgID uuid.UUID
 	}
 
 	return res.Input, res.Output, res.Total, nil
-}
-
-// MemoryUsageRepository provides an in-memory implementation of UsageRepository.
-type MemoryUsageRepository struct {
-	mu            sync.RWMutex
-	records       []*UsageRecord
-	byEventID     map[string]*UsageRecord
-	byRequestID   map[string]*UsageRecord
-}
-
-// NewMemoryUsageRepository returns an initialised MemoryUsageRepository.
-func NewMemoryUsageRepository() *MemoryUsageRepository {
-	return &MemoryUsageRepository{
-		records:     make([]*UsageRecord, 0),
-		byEventID:   make(map[string]*UsageRecord),
-		byRequestID: make(map[string]*UsageRecord),
-	}
-}
-
-func (m *MemoryUsageRepository) Create(_ context.Context, record *UsageRecord) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if _, exists := m.byEventID[record.EventID]; exists {
-		return ErrDuplicateUsageEvent
-	}
-
-	copyRec := *record
-	m.records = append(m.records, &copyRec)
-	m.byEventID[record.EventID] = &copyRec
-	m.byRequestID[record.RequestID] = &copyRec
-	return nil
-}
-
-func (m *MemoryUsageRepository) GetByEventID(_ context.Context, eventID string) (*UsageRecord, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	rec, ok := m.byEventID[eventID]
-	if !ok {
-		return nil, ErrUsageRecordNotFound
-	}
-	copyRec := *rec
-	return &copyRec, nil
-}
-
-func (m *MemoryUsageRepository) GetByRequestID(_ context.Context, reqID string) (*UsageRecord, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	rec, ok := m.byRequestID[reqID]
-	if !ok {
-		return nil, ErrUsageRecordNotFound
-	}
-	copyRec := *rec
-	return &copyRec, nil
-}
-
-func (m *MemoryUsageRepository) ListByOrganization(_ context.Context, orgID uuid.UUID, limit, offset int) ([]*UsageRecord, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	var matched []*UsageRecord
-	for _, rec := range m.records {
-		if rec.OrganizationID == orgID {
-			copyRec := *rec
-			matched = append(matched, &copyRec)
-		}
-	}
-
-	if offset >= len(matched) {
-		return []*UsageRecord{}, nil
-	}
-
-	end := offset + limit
-	if limit <= 0 || end > len(matched) {
-		end = len(matched)
-	}
-	return matched[offset:end], nil
-}
-
-func (m *MemoryUsageRepository) ListByProject(_ context.Context, projectID uuid.UUID, limit, offset int) ([]*UsageRecord, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	var matched []*UsageRecord
-	for _, rec := range m.records {
-		if rec.ProjectID == projectID {
-			copyRec := *rec
-			matched = append(matched, &copyRec)
-		}
-	}
-
-	if offset >= len(matched) {
-		return []*UsageRecord{}, nil
-	}
-
-	end := offset + limit
-	if limit <= 0 || end > len(matched) {
-		end = len(matched)
-	}
-	return matched[offset:end], nil
-}
-
-func (m *MemoryUsageRepository) GetTotalUsage(_ context.Context, orgID uuid.UUID, startTime, endTime time.Time) (int, int, int, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	var totalInput, totalOutput, totalTokens int
-	for _, rec := range m.records {
-		if rec.OrganizationID == orgID {
-			if !startTime.IsZero() && rec.CreatedAt.Before(startTime) {
-				continue
-			}
-			if !endTime.IsZero() && rec.CreatedAt.After(endTime) {
-				continue
-			}
-			totalInput += rec.InputTokens
-			totalOutput += rec.OutputTokens
-			totalTokens += rec.TotalTokens
-		}
-	}
-	return totalInput, totalOutput, totalTokens, nil
 }

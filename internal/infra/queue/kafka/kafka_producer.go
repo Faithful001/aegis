@@ -1,4 +1,4 @@
-package events
+package kafka
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 // KafkaProducer implements event.EventProducer using segmentio/kafka-go.
 type KafkaProducer struct {
 	brokers []string
-	writers map[string]*kafka.Writer
+	writers map[string]*kafka.Writer // topic -> *kafka.Writer
 	logger  *slog.Logger
 	mu      sync.Mutex
 	closed  bool
@@ -88,6 +88,7 @@ func (p *KafkaProducer) Publish(ctx context.Context, topic string, key string, e
 		"key", key,
 		"event_id", evt.GetID(),
 		"event_type", evt.GetType(),
+		"timestamp", evt.GetTimestamp(),
 	)
 
 	return nil

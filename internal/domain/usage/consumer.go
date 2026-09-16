@@ -6,18 +6,18 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/Faithful001/aegis/internal/infra/events"
+	"github.com/Faithful001/aegis/internal/infra/queue/kafka"
 )
 
 // MeteringConsumer subscribes to usage events on Kafka and delegates recording to UsageService.
 type MeteringConsumer struct {
-	eventConsumer events.EventConsumer
+	eventConsumer kafka.EventConsumer
 	service       *UsageService
 	logger        *slog.Logger
 }
 
 // NewMeteringConsumer returns a new MeteringConsumer.
-func NewMeteringConsumer(eventConsumer events.EventConsumer, service *UsageService, logger *slog.Logger) *MeteringConsumer {
+func NewMeteringConsumer(eventConsumer kafka.EventConsumer, service *UsageService, logger *slog.Logger) *MeteringConsumer {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -34,17 +34,17 @@ func (c *MeteringConsumer) Start(ctx context.Context) error {
 		return fmt.Errorf("event consumer is nil")
 	}
 
-	err := c.eventConsumer.Subscribe(ctx, events.TopicUsageEvents, c.handleUsageEvent)
+	err := c.eventConsumer.Subscribe(ctx, kafka.TopicUsageEvents, c.handleUsageEvent)
 	if err != nil {
-		return fmt.Errorf("failed to subscribe metering consumer to topic %s: %w", events.TopicUsageEvents, err)
+		return fmt.Errorf("failed to subscribe metering consumer to topic %s: %w", kafka.TopicUsageEvents, err)
 	}
 
-	c.logger.Info("Metering consumer started successfully", "topic", events.TopicUsageEvents)
+	c.logger.Info("Metering consumer started successfully", "topic", kafka.TopicUsageEvents)
 	return nil
 }
 
 func (c *MeteringConsumer) handleUsageEvent(ctx context.Context, topic string, key string, payload []byte) error {
-	var evt events.UsageEvent
+	var evt kafka.UsageEvent
 	if err := json.Unmarshal(payload, &evt); err != nil {
 		c.logger.Error("Failed to unmarshal usage event JSON payload", "topic", topic, "error", err)
 		return err

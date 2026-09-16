@@ -21,7 +21,7 @@ type ProjectRepository struct {
 	db *gorm.DB
 }
 
-func NewProjectRepository(db *gorm.DB) *ProjectRepository {
+func NewProjectRepository(db *gorm.DB) IProjectRepository {
 	return &ProjectRepository{db: db}
 }
 

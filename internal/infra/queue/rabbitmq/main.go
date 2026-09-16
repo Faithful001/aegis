@@ -104,6 +104,7 @@ func (r *RabbitMQ) Connect() error {
 		ch, err := conn.Channel()
 
 		if err != nil {
+			_ = conn.Close()
 			lastErr = err
 			continue
 		}

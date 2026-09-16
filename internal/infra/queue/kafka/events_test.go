@@ -1,4 +1,4 @@
-package events_test
+package kafka_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Faithful001/aegis/internal/infra/events"
+	events "github.com/Faithful001/aegis/internal/infra/queue/kafka"
 	"github.com/google/uuid"
 )
 

@@ -1,4 +1,4 @@
-package events
+package kafka
 
 import (
 	"context"
@@ -40,7 +40,7 @@ func (c *KafkaConsumer) Subscribe(ctx context.Context, topic string, handler Eve
 		return fmt.Errorf("kafka consumer is closed")
 	}
 
-	r := kafka.NewReader(kafka.ReaderConfig{
+	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        c.brokers,
 		GroupID:        c.groupID,
 		Topic:          topic,
@@ -50,14 +50,14 @@ func (c *KafkaConsumer) Subscribe(ctx context.Context, topic string, handler Eve
 		CommitInterval: 1 * time.Second,
 		StartOffset:    kafka.FirstOffset,
 	})
-	c.readers = append(c.readers, r)
+	c.readers = append(c.readers, reader)
 	c.mu.Unlock()
 
 	c.logger.Info("Subscribed to Kafka topic reader group", "topic", topic, "group_id", c.groupID)
 
 	go func() {
 		for {
-			m, err := r.ReadMessage(ctx)
+			m, err := reader.ReadMessage(ctx)
 			if err != nil {
 				if ctx.Err() != nil {
 					return

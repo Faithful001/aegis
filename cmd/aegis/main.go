@@ -21,8 +21,8 @@ import (
 	infraAuth "github.com/Faithful001/aegis/internal/infra/auth"
 	"github.com/Faithful001/aegis/internal/infra/config"
 	"github.com/Faithful001/aegis/internal/infra/db"
-	"github.com/Faithful001/aegis/internal/infra/events"
 	"github.com/Faithful001/aegis/internal/infra/observability"
+	events "github.com/Faithful001/aegis/internal/infra/queue/kafka"
 	"github.com/Faithful001/aegis/internal/infra/redis"
 	"github.com/Faithful001/aegis/internal/infra/workerregistry"
 	"github.com/Faithful001/aegis/internal/router"
@@ -77,6 +77,7 @@ func main() {
 	var eventProducer events.EventProducer = events.NewKafkaProducer(cfg.Kafka.Brokers, logger)
 	defer eventProducer.Close()
 	logger.Info("Kafka event infrastructure initialized", "brokers", cfg.Kafka.Brokers)
+
 	var workerReg worker.WorkerRegistry
 	if redisClient != nil {
 		workerReg = workerregistry.NewRedisWorkerRegistry(redisClient)
@@ -96,13 +97,7 @@ func main() {
 	orgRepo := organization.NewOrganizationRepository(database)
 	projectRepo := project.NewProjectRepository(database)
 	apiKeyRepo := auth.NewAPIKeyRepository(database)
-
-	var usageRepo usage.UsageRepository
-	if database != nil {
-		usageRepo = usage.NewGORMUsageRepository(database)
-	} else {
-		usageRepo = usage.NewMemoryUsageRepository()
-	}
+	usageRepo := usage.NewUsageRepository(database)
 
 	// 6. Initialize Domain Hasher, Generators & Services
 	hasher := infraAuth.NewBcryptHasher(0)

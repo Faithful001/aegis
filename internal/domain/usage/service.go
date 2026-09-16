@@ -7,18 +7,18 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/Faithful001/aegis/internal/infra/events"
+	"github.com/Faithful001/aegis/internal/infra/queue/kafka"
 	"github.com/google/uuid"
 )
 
 // UsageService manages model usage records and token metering.
 type UsageService struct {
-	repo   UsageRepository
+	repo   IUsageRepository
 	logger *slog.Logger
 }
 
 // NewUsageService returns a new UsageService.
-func NewUsageService(repo UsageRepository, logger *slog.Logger) *UsageService {
+func NewUsageService(repo IUsageRepository, logger *slog.Logger) *UsageService {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -30,7 +30,7 @@ func NewUsageService(repo UsageRepository, logger *slog.Logger) *UsageService {
 
 // RecordUsageEvent processes an incoming domain UsageEvent and persists an immutable UsageRecord.
 // Enforces database-level idempotency by gracefully returning on duplicate event IDs.
-func (s *UsageService) RecordUsageEvent(ctx context.Context, evt events.UsageEvent) (*UsageRecord, error) {
+func (s *UsageService) RecordUsageEvent(ctx context.Context, evt kafka.UsageEvent) (*UsageRecord, error) {
 	rec, err := NewUsageRecord(
 		evt.EventID,
 		evt.RequestID,
