@@ -17,6 +17,12 @@ type Config struct {
 	JWT         JWTConfig
 	Log         LogConfig
 	Worker      WorkerConfig
+	Kafka       KafkaConfig
+}
+
+type KafkaConfig struct {
+	Brokers []string
+	GroupID string
 }
 
 type WorkerConfig struct {
@@ -80,6 +86,10 @@ func Load() (*Config, error) {
 		},
 		Worker: WorkerConfig{
 			InferenceWorkerAddr: getEnv("INFERENCE_WORKER_ADDR", "localhost:50051"),
+		},
+		Kafka: KafkaConfig{
+			Brokers: []string{getEnv("KAFKA_BROKERS", "localhost:9092")},
+			GroupID: getEnv("KAFKA_GROUP_ID", "aegis-consumer-group"),
 		},
 	}
 

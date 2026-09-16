@@ -14,11 +14,14 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/inference"
 	"github.com/Faithful001/aegis/internal/domain/organization"
 	"github.com/Faithful001/aegis/internal/domain/project"
+	"github.com/Faithful001/aegis/internal/domain/scheduler"
+	"github.com/Faithful001/aegis/internal/domain/usage"
 	"github.com/Faithful001/aegis/internal/domain/user"
 	"github.com/Faithful001/aegis/internal/domain/worker"
 	infraAuth "github.com/Faithful001/aegis/internal/infra/auth"
 	"github.com/Faithful001/aegis/internal/infra/config"
 	"github.com/Faithful001/aegis/internal/infra/db"
+	"github.com/Faithful001/aegis/internal/infra/events"
 	"github.com/Faithful001/aegis/internal/infra/observability"
 	"github.com/Faithful001/aegis/internal/infra/redis"
 	"github.com/Faithful001/aegis/internal/infra/workerregistry"
@@ -50,6 +53,7 @@ func main() {
 			&organization.OrganizationMember{},
 			&project.Project{},
 			&auth.APIKey{},
+			&usage.UsageRecord{},
 		}
 		if err := db.AutoMigrate(migrationModels...); err != nil {
 			logger.Error("Failed to run database migrations", "error", err)
@@ -69,7 +73,10 @@ func main() {
 		logger.Warn("Redis is not connected. Ephemeral state operating with fallback.")
 	}
 
-	// 4b. Initialize Worker Registry & Heartbeat Monitor (Phase 8)
+	// 4c. Initialize Kafka Event Producer (Phase 10)
+	var eventProducer events.EventProducer = events.NewKafkaProducer(cfg.Kafka.Brokers, logger)
+	defer eventProducer.Close()
+	logger.Info("Kafka event infrastructure initialized", "brokers", cfg.Kafka.Brokers)
 	var workerReg worker.WorkerRegistry
 	if redisClient != nil {
 		workerReg = workerregistry.NewRedisWorkerRegistry(redisClient)
@@ -90,6 +97,13 @@ func main() {
 	projectRepo := project.NewProjectRepository(database)
 	apiKeyRepo := auth.NewAPIKeyRepository(database)
 
+	var usageRepo usage.UsageRepository
+	if database != nil {
+		usageRepo = usage.NewGORMUsageRepository(database)
+	} else {
+		usageRepo = usage.NewMemoryUsageRepository()
+	}
+
 	// 6. Initialize Domain Hasher, Generators & Services
 	hasher := infraAuth.NewBcryptHasher(0)
 	apiKeyGenerator := auth.NewAPIKeyGenerator()
@@ -104,8 +118,19 @@ func main() {
 	apiKeyService := auth.NewAPIKeyService(apiKeyRepo, apiKeyGenerator)
 	orgService := organization.NewOrganizationService(orgRepo, userRepo)
 	projectService := project.NewProjectService(projectRepo, orgRepo)
+	usageService := usage.NewUsageService(usageRepo, logger)
 
-	// 7. Initialize Inference Worker Client & Service
+	// Start Metering Consumer (Phase 11)
+	var eventConsumer events.EventConsumer = events.NewKafkaConsumer(cfg.Kafka.Brokers, cfg.Kafka.GroupID, logger)
+	defer eventConsumer.Close()
+	meteringConsumer := usage.NewMeteringConsumer(eventConsumer, usageService, logger)
+	if err := meteringConsumer.Start(context.Background()); err != nil {
+		logger.Warn("Could not start metering consumer background listener", "error", err)
+	}
+
+	// 7. Initialize Inference Worker Client, Capacity Scheduler & Service
+	sched := scheduler.NewWeightedScoreScheduler(workerReg, logger)
+
 	var workerClient inference.WorkerClient
 	grpcWorker, err := inference.NewGRPCWorkerClient(cfg.Worker.InferenceWorkerAddr)
 	if err == nil {
@@ -117,7 +142,7 @@ func main() {
 	}
 	defer workerClient.Close()
 
-	inferenceService := inference.NewInferenceService(workerClient)
+	inferenceService := inference.NewInferenceService(workerClient, sched)
 
 	// 8. Initialize Domain Controllers
 	authController := auth.NewAuthController(authService)

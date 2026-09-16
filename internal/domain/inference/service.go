@@ -2,21 +2,60 @@ package inference
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/Faithful001/aegis/internal/domain/inference/dto"
+	"github.com/Faithful001/aegis/internal/domain/scheduler"
 	"github.com/google/uuid"
 )
 
 type InferenceService struct {
 	workerClient WorkerClient
+	scheduler    scheduler.Scheduler
 }
 
-func NewInferenceService(workerClient WorkerClient) *InferenceService {
+func NewInferenceService(workerClient WorkerClient, sched ...scheduler.Scheduler) *InferenceService {
+	var s scheduler.Scheduler
+	if len(sched) > 0 {
+		s = sched[0]
+	}
 	return &InferenceService{
 		workerClient: workerClient,
+		scheduler:    s,
 	}
+}
+
+func (s *InferenceService) selectWorker(ctx context.Context, req dto.ChatCompletionRequest, job *InferenceJob) error {
+	if s.scheduler == nil {
+		return nil
+	}
+
+	estTokens := req.MaxTokens
+	for _, m := range req.Messages {
+		estTokens += len(m.Content) / 4
+	}
+
+	schedRes, err := s.scheduler.SelectWorker(ctx, scheduler.ScheduleRequest{
+		Model:           req.Model,
+		EstimatedTokens: estTokens,
+	})
+	if err != nil {
+		if errors.Is(err, scheduler.ErrNoWorkersForModel) {
+			return fmt.Errorf("%w: %s", ErrModelNotSupported, req.Model)
+		}
+		if errors.Is(err, scheduler.ErrNoWorkersAvailable) {
+			return ErrWorkerUnavailable
+		}
+		return err
+	}
+
+	if job != nil {
+		job.WorkerID = schedRes.WorkerID
+		job.WorkerAddress = schedRes.Address
+	}
+	return nil
 }
 
 func (s *InferenceService) ExecuteChatCompletion(
@@ -48,6 +87,10 @@ func (s *InferenceService) ExecuteChatCompletion(
 		false,
 	)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := s.selectWorker(ctx, req, job); err != nil {
 		return nil, err
 	}
 
@@ -111,6 +154,10 @@ func (s *InferenceService) ExecuteStreamChatCompletion(
 		return nil, nil, err
 	}
 
+	if err := s.selectWorker(ctx, req, job); err != nil {
+		return nil, nil, err
+	}
+
 	chunkChan, err := s.workerClient.StreamGenerate(ctx, job)
 	if err != nil {
 		return nil, nil, err
@@ -118,3 +165,4 @@ func (s *InferenceService) ExecuteStreamChatCompletion(
 
 	return chunkChan, job, nil
 }
+

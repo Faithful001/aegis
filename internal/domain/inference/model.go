@@ -46,6 +46,8 @@ type InferenceJob struct {
 	Temperature    float32    `json:"temperature"`
 	Stream         bool       `json:"stream"`
 	Status         JobStatus  `json:"status"`
+	WorkerID       string     `json:"worker_id,omitempty"`
+	WorkerAddress  string     `json:"worker_address,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 	CompletedAt    *time.Time `json:"completed_at,omitempty"`
 }
