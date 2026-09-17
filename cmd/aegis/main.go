@@ -79,6 +79,7 @@ func main() {
 	// 4c. Initialize Kafka Event Producer (Phase 10)
 	var eventProducer events.EventProducer = events.NewKafkaProducer(cfg.Kafka.Brokers, logger)
 	defer eventProducer.Close()
+	events.SetBrokers(cfg.Kafka.Brokers)
 	logger.Info("Kafka event infrastructure initialized", "brokers", cfg.Kafka.Brokers)
 
 	var workerReg worker.WorkerRegistry

@@ -16,15 +16,16 @@ var (
 )
 
 const (
-	ProviderOpenAI    = "openai"
-	ProviderAnthropic = "anthropic"
-	ProviderGemini    = "gemini"
-	ProviderMistral   = "mistral"
+	ProviderOpenAI    	= "openai"
+	ProviderAnthropic 	= "anthropic"
+	ProviderGemini    	= "gemini"
+	ProviderMistral   	= "mistral"
+	ProviderOpenRouter	= "openrouter"
 )
 
 func IsSupportedProvider(p string) bool {
 	switch strings.ToLower(strings.TrimSpace(p)) {
-	case ProviderOpenAI, ProviderAnthropic, ProviderGemini, ProviderMistral:
+	case ProviderOpenAI, ProviderAnthropic, ProviderGemini, ProviderMistral, ProviderOpenRouter:
 		return true
 	default:
 		return false

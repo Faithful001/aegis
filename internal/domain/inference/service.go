@@ -89,7 +89,6 @@ func (s *InferenceService) ExecuteChatCompletion(
 		reqID = fmt.Sprintf("req_%s", uuid.New().String())
 	}
 
-	// 1. Check if model routes to a BYOK frontier provider
 	if s.providerGateway != nil && s.providerSvc != nil {
 		if providerName := s.providerGateway.GetProviderForModel(req.Model); providerName != "" {
 			apiKey, baseURL, err := s.providerSvc.GetDecryptedKey(ctx, orgID, providerName)
@@ -120,7 +119,7 @@ func (s *InferenceService) ExecuteChatCompletion(
 		}
 	}
 
-	// 2. Local worker fallback route
+	// Local worker fallback route
 	domainMessages := make([]Message, len(req.Messages))
 	for i, m := range req.Messages {
 		domainMessages[i] = Message{

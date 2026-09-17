@@ -17,10 +17,11 @@ type ProviderRouter struct {
 func NewProviderRouter() *ProviderRouter {
 	return &ProviderRouter{
 		adapters: map[string]ProviderAdapter{
-			domainProvider.ProviderOpenAI:    NewOpenAIAdapter(),
-			domainProvider.ProviderAnthropic: NewAnthropicAdapter(),
-			domainProvider.ProviderGemini:    NewGeminiAdapter(),
-			domainProvider.ProviderMistral:   NewMistralAdapter(),
+			domainProvider.ProviderOpenAI:    	NewOpenAIAdapter(),
+			domainProvider.ProviderAnthropic: 	NewAnthropicAdapter(),
+			domainProvider.ProviderGemini:    	NewGeminiAdapter(),
+			domainProvider.ProviderMistral:   	NewMistralAdapter(),
+			domainProvider.ProviderOpenRouter:	NewOpenRouterAdapter(),
 		},
 	}
 }
@@ -29,7 +30,7 @@ func (r *ProviderRouter) RegisterAdapter(providerName string, adapter ProviderAd
 	r.adapters[strings.ToLower(providerName)] = adapter
 }
 
-// GetProviderForModel returns the provider string ("openai", "anthropic", "gemini", "mistral") or empty string "" if local worker.
+// GetProviderForModel returns the provider string ("openai", "anthropic", "gemini", "mistral", "openrouter") or empty string "".
 func (r *ProviderRouter) GetProviderForModel(model string) string {
 	m := strings.ToLower(strings.TrimSpace(model))
 
@@ -46,7 +47,11 @@ func (r *ProviderRouter) GetProviderForModel(model string) string {
 		return domainProvider.ProviderMistral
 	}
 
-	return "" // Local worker model fallback
+	if strings.Contains(m, "/") {
+		return domainProvider.ProviderOpenRouter
+	}
+
+	return ""
 }
 
 func (r *ProviderRouter) GetAdapter(providerName string) (ProviderAdapter, error) {

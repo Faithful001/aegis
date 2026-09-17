@@ -278,6 +278,13 @@ func (a *AnthropicAdapter) StreamGenerate(
 				}
 			}
 		}
+
+		if err := scanner.Err(); err != nil {
+			outChan <- inference.StreamChunk{
+				Error: err.Error(),
+				Done:  true,
+			}
+		}
 	}()
 
 	return outChan, nil

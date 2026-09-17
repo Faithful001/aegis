@@ -50,6 +50,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 	r.GET("/ready", func(c *gin.Context) {
 		dbStatus := "operational"
 		redisStatus := "operational"
+		kafkaStatus := "operational"
 		isReady := true
 
 		if database := db.GetDB(); database != nil {
@@ -82,6 +83,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			"status": map[string]string{
 				"database": dbStatus,
 				"redis":    redisStatus,
+				"kafka":	kafkaStatus,
 			},
 			"ready": isReady,
 		})

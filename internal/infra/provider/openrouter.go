@@ -15,43 +15,47 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/inference/dto"
 )
 
-type MistralAdapter struct {
+type OpenRouterAdapter struct {
 	httpClient *http.Client
 }
 
-func NewMistralAdapter(httpClient ...*http.Client) *MistralAdapter {
-	client := &http.Client{Timeout: 60 * time.Second}
+func NewOpenRouterAdapter(httpClient ...*http.Client) *OpenRouterAdapter {
+	client := &http.Client{Timeout: 60 *time.Second}
+	
 	if len(httpClient) > 0 && httpClient[0] != nil {
 		client = httpClient[0]
 	}
-	return &MistralAdapter{httpClient: client}
+	return &OpenRouterAdapter{httpClient: client,
+	}
 }
 
-func (a *MistralAdapter) getEndpoint(baseURL string) string {
+func (a *OpenRouterAdapter) getEndpoint(baseURL string) string {
 	if baseURL != "" {
 		return strings.TrimRight(baseURL, "/") + "/chat/completions"
 	}
-	return "https://api.mistral.ai/v1/chat/completions"
+	return "https://openrouter.ai/api/v1/chat/completions"
 }
 
-func (a *MistralAdapter) Generate(
-	ctx context.Context,
+func (a *OpenRouterAdapter) Generate(
+	ctx context.Context, 
 	apiKey, baseURL string,
 	req dto.ChatCompletionRequest,
 ) (*dto.ChatCompletionResponse, error) {
 	req.Stream = false
+	
 	bodyBytes, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 
+	// call the openrouter endpoint
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", a.getEndpoint(baseURL), bytes.NewReader(bodyBytes))
 	if err != nil {
-		return nil, err
+		return nil , err
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	httpReq.Header.Set("Authorization", "Bearer " + apiKey)
 
 	resp, err := a.httpClient.Do(httpReq)
 	if err != nil {
@@ -66,13 +70,13 @@ func (a *MistralAdapter) Generate(
 
 	var completion dto.ChatCompletionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&completion); err != nil {
-		return nil, fmt.Errorf("failed to decode Mistral response: %w", err)
+		return nil, fmt.Errorf("failed to decode OpenRouter response: %w", err)
 	}
 
 	return &completion, nil
 }
 
-func (a *MistralAdapter) StreamGenerate(
+func (a *OpenRouterAdapter) StreamGenerate(
 	ctx context.Context,
 	apiKey, baseURL string,
 	req dto.ChatCompletionRequest,
@@ -102,7 +106,7 @@ func (a *MistralAdapter) StreamGenerate(
 		return nil, fmt.Errorf("%w: HTTP %d - %s", ErrProviderAPIError, resp.StatusCode, string(respBody))
 	}
 
-	outChan := make(chan inference.StreamChunk)
+	outChan := make(chan inference.StreamChunk) // two-way channel
 
 	go func() {
 		defer resp.Body.Close()
@@ -134,6 +138,7 @@ func (a *MistralAdapter) StreamGenerate(
 					continue
 				}
 
+				// Extract delta content
 				var text string
 				if choices, ok := raw["choices"].([]interface{}); ok && len(choices) > 0 {
 					if choice, ok := choices[0].(map[string]interface{}); ok {
@@ -146,6 +151,7 @@ func (a *MistralAdapter) StreamGenerate(
 					}
 				}
 
+				// Check usage if returned by OpenAI
 				if usage, ok := raw["usage"].(map[string]interface{}); ok {
 					if pt, ok := usage["prompt_tokens"].(float64); ok {
 						totalPromptTokens = int(pt)
