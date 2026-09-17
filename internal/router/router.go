@@ -10,6 +10,8 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/inference"
 	"github.com/Faithful001/aegis/internal/domain/organization"
 	"github.com/Faithful001/aegis/internal/domain/project"
+	"github.com/Faithful001/aegis/internal/domain/provider"
+	"github.com/Faithful001/aegis/internal/domain/usage"
 	"github.com/Faithful001/aegis/internal/infra/db"
 	"github.com/Faithful001/aegis/internal/infra/middleware"
 	"github.com/Faithful001/aegis/internal/infra/ratelimiter"
@@ -25,6 +27,8 @@ type RouterConfig struct {
 	OrgController       *organization.Controller
 	ProjectController   *project.ProjectController
 	InferenceController *inference.InferenceController
+	UsageController     *usage.UsageController
+	ProviderController  *provider.ProviderController
 	RateLimiter         ratelimiter.RateLimiter
 	AdmissionService    *admission.AdmissionService
 }
@@ -123,9 +127,21 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 				orgs.POST("/:id/members", cfg.OrgController.AddMember)
 				orgs.GET("/:id/members", cfg.OrgController.ListMembers)
 
+				// BYOK Provider Credentials Management
+				if cfg.ProviderController != nil {
+					orgs.POST("/:id/credentials", cfg.ProviderController.SaveCredential)
+					orgs.GET("/:id/credentials", cfg.ProviderController.ListCredentials)
+					orgs.DELETE("/:id/credentials/:provider", cfg.ProviderController.DeleteCredential)
+				}
+
 				// Organization Projects
 				orgs.POST("/:org_id/projects", cfg.ProjectController.Create)
 				orgs.GET("/:org_id/projects", cfg.ProjectController.List)
+
+				// Organization Usage Metering
+				if cfg.UsageController != nil {
+					orgs.GET("/:id/usage", cfg.UsageController.GetOrganizationUsage)
+				}
 			}
 
 			// Projects & API Keys
@@ -134,6 +150,11 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 				projects.GET("/:id", cfg.ProjectController.Get)
 				projects.POST("/:id/api-keys", cfg.APIKeyController.Create)
 				projects.GET("/:id/api-keys", cfg.APIKeyController.List)
+
+				// Project Usage Metering
+				if cfg.UsageController != nil {
+					projects.GET("/:id/usage", cfg.UsageController.GetProjectUsage)
+				}
 			}
 
 			// Direct API Key Management

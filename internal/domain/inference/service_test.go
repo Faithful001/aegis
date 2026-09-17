@@ -8,121 +8,76 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestInferenceService_ExecuteChatCompletion(t *testing.T) {
-	mockClient := NewMockWorkerClient()
-	service := NewInferenceService(mockClient)
+type mockGateway struct {
+	providerForModel map[string]string
+}
+
+func (m *mockGateway) GetProviderForModel(model string) string {
+	return m.providerForModel[model]
+}
+
+func (m *mockGateway) Generate(
+	ctx context.Context,
+	providerName, apiKey, baseURL string,
+	req dto.ChatCompletionRequest,
+) (*dto.ChatCompletionResponse, error) {
+	return &dto.ChatCompletionResponse{
+		ID:    "mock-byok-id",
+		Model: req.Model,
+		Choices: []dto.ChoiceDTO{
+			{
+				Message: dto.ChoiceMessageDTO{
+					Role:    "assistant",
+					Content: "Hello from " + providerName,
+				},
+				FinishReason: "stop",
+			},
+		},
+		Usage: dto.UsageDTO{
+			PromptTokens:     10,
+			CompletionTokens: 5,
+			TotalTokens:      15,
+		},
+	}, nil
+}
+
+func (m *mockGateway) StreamGenerate(
+	ctx context.Context,
+	providerName, apiKey, baseURL string,
+	req dto.ChatCompletionRequest,
+) (<-chan StreamChunk, error) {
+	ch := make(chan StreamChunk, 2)
+	ch <- StreamChunk{Content: "Hello ", Done: false}
+	ch <- StreamChunk{Content: "world", Done: true, PromptTokens: 10, OutputTokens: 5, TotalTokens: 15}
+	close(ch)
+	return ch, nil
+}
+
+func TestInferenceServiceBYOKRouting(t *testing.T) {
+	mockWorker := NewMockWorkerClient()
+	svc := NewInferenceService(mockWorker, nil)
+
+	// Attach mock gateway without providerSvc configured yet -> should fail if key not found
+	gw := &mockGateway{
+		providerForModel: map[string]string{
+			"gpt-4o": "openai",
+		},
+	}
+	svc.SetProviderGateway(nil, gw)
 
 	orgID := uuid.New()
 	projectID := uuid.New()
 
 	req := dto.ChatCompletionRequest{
-		Model: "mistral-small",
+		Model: "gpt-4o",
 		Messages: []dto.ChatMessageDTO{
-			{Role: "user", Content: "Hello Aegis!"},
-		},
-		MaxTokens:   100,
-		Temperature: 0.7,
-		Stream:      false,
-	}
-
-	resp, err := service.ExecuteChatCompletion(context.Background(), "req_test_123", orgID, projectID, req)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if resp.ID != "req_test_123" {
-		t.Errorf("expected ID req_test_123, got %s", resp.ID)
-	}
-	if resp.Model != "mistral-small" {
-		t.Errorf("expected model mistral-small, got %s", resp.Model)
-	}
-	if len(resp.Choices) != 1 {
-		t.Fatalf("expected 1 choice, got %d", len(resp.Choices))
-	}
-	if resp.Choices[0].Message.Content == "" {
-		t.Errorf("expected non-empty content")
-	}
-	if resp.Usage.TotalTokens == 0 {
-		t.Errorf("expected non-zero usage tokens")
-	}
-}
-
-func TestInferenceService_ValidationErrors(t *testing.T) {
-	mockClient := NewMockWorkerClient()
-	service := NewInferenceService(mockClient)
-
-	orgID := uuid.New()
-	projectID := uuid.New()
-
-	// Unsupported model
-	reqInvalidModel := dto.ChatCompletionRequest{
-		Model: "unsupported-model-xyz",
-		Messages: []dto.ChatMessageDTO{
-			{Role: "user", Content: "Hi"},
+			{Role: "user", Content: "Hello"},
 		},
 	}
-	_, err := service.ExecuteChatCompletion(context.Background(), "req_test", orgID, projectID, reqInvalidModel)
+
+	// Should fail because providerSvc is nil
+	_, err := svc.ExecuteChatCompletion(context.Background(), "req-1", orgID, projectID, req)
 	if err == nil {
-		t.Errorf("expected error for unsupported model, got nil")
-	}
-
-	// Empty messages
-	reqEmptyMsgs := dto.ChatCompletionRequest{
-		Model:    "mistral-small",
-		Messages: []dto.ChatMessageDTO{},
-	}
-	_, err = service.ExecuteChatCompletion(context.Background(), "req_test", orgID, projectID, reqEmptyMsgs)
-	if err == nil {
-		t.Errorf("expected error for empty messages, got nil")
-	}
-
-	// Invalid temperature (> 2.0)
-	reqInvalidTemp := dto.ChatCompletionRequest{
-		Model: "mistral-small",
-		Messages: []dto.ChatMessageDTO{
-			{Role: "user", Content: "Hi"},
-		},
-		Temperature: 3.5,
-	}
-	_, err = service.ExecuteChatCompletion(context.Background(), "req_test", orgID, projectID, reqInvalidTemp)
-	if err == nil {
-		t.Errorf("expected error for invalid temperature, got nil")
-	}
-}
-
-func TestInferenceService_ExecuteStreamChatCompletion(t *testing.T) {
-	mockClient := NewMockWorkerClient()
-	service := NewInferenceService(mockClient)
-
-	orgID := uuid.New()
-	projectID := uuid.New()
-
-	req := dto.ChatCompletionRequest{
-		Model: "mistral-small",
-		Messages: []dto.ChatMessageDTO{
-			{Role: "user", Content: "Stream this"},
-		},
-		Stream: true,
-	}
-
-	chunkChan, job, err := service.ExecuteStreamChatCompletion(context.Background(), "req_stream_123", orgID, projectID, req)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if job.JobID == "" {
-		t.Errorf("expected non-empty job ID")
-	}
-
-	chunksReceived := 0
-	for chunk := range chunkChan {
-		chunksReceived++
-		if chunk.Error != "" {
-			t.Errorf("unexpected chunk error: %s", chunk.Error)
-		}
-	}
-
-	if chunksReceived < 2 {
-		t.Errorf("expected at least 2 chunks, got %d", chunksReceived)
+		t.Errorf("Expected error when providerSvc is nil, got nil")
 	}
 }

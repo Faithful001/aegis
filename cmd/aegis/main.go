@@ -14,6 +14,7 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/inference"
 	"github.com/Faithful001/aegis/internal/domain/organization"
 	"github.com/Faithful001/aegis/internal/domain/project"
+	"github.com/Faithful001/aegis/internal/domain/provider"
 	"github.com/Faithful001/aegis/internal/domain/scheduler"
 	"github.com/Faithful001/aegis/internal/domain/usage"
 	"github.com/Faithful001/aegis/internal/domain/user"
@@ -22,6 +23,7 @@ import (
 	"github.com/Faithful001/aegis/internal/infra/config"
 	"github.com/Faithful001/aegis/internal/infra/db"
 	"github.com/Faithful001/aegis/internal/infra/observability"
+	infraProvider "github.com/Faithful001/aegis/internal/infra/provider"
 	events "github.com/Faithful001/aegis/internal/infra/queue/kafka"
 	"github.com/Faithful001/aegis/internal/infra/redis"
 	"github.com/Faithful001/aegis/internal/infra/workerregistry"
@@ -54,6 +56,7 @@ func main() {
 			&project.Project{},
 			&auth.APIKey{},
 			&usage.UsageRecord{},
+			&provider.ProviderCredential{},
 		}
 		if err := db.AutoMigrate(migrationModels...); err != nil {
 			logger.Error("Failed to run database migrations", "error", err)
@@ -98,6 +101,7 @@ func main() {
 	projectRepo := project.NewProjectRepository(database)
 	apiKeyRepo := auth.NewAPIKeyRepository(database)
 	usageRepo := usage.NewUsageRepository(database)
+	providerRepo := provider.NewProviderCredentialRepository(database)
 
 	// 6. Initialize Domain Hasher, Generators & Services
 	hasher := infraAuth.NewBcryptHasher(0)
@@ -114,6 +118,7 @@ func main() {
 	orgService := organization.NewOrganizationService(orgRepo, userRepo)
 	projectService := project.NewProjectService(projectRepo, orgRepo)
 	usageService := usage.NewUsageService(usageRepo, logger)
+	providerService := provider.NewProviderCredentialService(providerRepo, cfg.JWT.Secret)
 
 	// Start Metering Consumer (Phase 11)
 	var eventConsumer events.EventConsumer = events.NewKafkaConsumer(cfg.Kafka.Brokers, cfg.Kafka.GroupID, logger)
@@ -123,7 +128,7 @@ func main() {
 		logger.Warn("Could not start metering consumer background listener", "error", err)
 	}
 
-	// 7. Initialize Inference Worker Client, Capacity Scheduler & Service
+	// 7. Initialize Inference Worker Client, Capacity Scheduler & BYOK Provider Gateway
 	sched := scheduler.NewWeightedScoreScheduler(workerReg, logger)
 
 	var workerClient inference.WorkerClient
@@ -137,7 +142,12 @@ func main() {
 	}
 	defer workerClient.Close()
 
-	inferenceService := inference.NewInferenceService(workerClient, sched)
+	inferenceService := inference.NewInferenceService(workerClient, sched, eventProducer)
+
+	// Setup Frontier Provider Router
+	providerRouter := infraProvider.NewProviderRouter()
+	inferenceService.SetProviderGateway(providerService, providerRouter)
+	logger.Info("BYOK Frontier Provider Gateway initialized (OpenAI, Anthropic, Gemini, Mistral AI)")
 
 	// 8. Initialize Domain Controllers
 	authController := auth.NewAuthController(authService)
@@ -145,6 +155,8 @@ func main() {
 	orgController := organization.NewController(orgService)
 	projectController := project.NewProjectController(projectService)
 	inferenceController := inference.NewInferenceController(inferenceService)
+	usageController := usage.NewUsageController(usageService)
+	providerController := provider.NewProviderController(providerService)
 
 	// 9. Setup HTTP Engine
 	engine := router.SetupRouter(router.RouterConfig{
@@ -155,6 +167,8 @@ func main() {
 		OrgController:       orgController,
 		ProjectController:   projectController,
 		InferenceController: inferenceController,
+		UsageController:     usageController,
+		ProviderController:  providerController,
 	})
 
 	srv := &http.Server{
