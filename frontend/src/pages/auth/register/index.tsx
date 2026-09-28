@@ -1,0 +1,80 @@
+import React, { useState } from 'react';
+import { useAuth } from '../../../context/AuthContext';
+import { Input } from '../../../components/ui/Input';
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { toast } from 'sonner';
+
+export const RegisterPage: React.FC = () => {
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { register } = useAuth();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await register(email, password, name);
+      toast.success('Account created successfully!');
+      window.location.href = '/';
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="w-full max-w-md p-8 border-surface-border">
+        <div className="text-center mb-6">
+          <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white text-xl font-bold mx-auto mb-3">
+            Ø
+          </div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Create Aegis Account</h2>
+          <p className="text-xs text-zinc-400 mt-1">Get started with distributed AI worker plane</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Full Name"
+            placeholder="Faithful Eromosele"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <Input
+            label="Email Address"
+            type="email"
+            placeholder="developer@aegis.ai"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <Input
+            label="Password"
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+
+          <Button type="submit" className="w-full py-2.5 font-semibold mt-2" disabled={loading}>
+            {loading ? 'Creating Account...' : 'Register'}
+          </Button>
+        </form>
+
+        <p className="text-xs text-center text-zinc-400 mt-6">
+          Already have an account?{' '}
+          <a href="/auth/login" className="text-amber-400 hover:underline font-medium">
+            Sign in
+          </a>
+        </p>
+      </Card>
+    </div>
+  );
+};
+
+export default RegisterPage;
