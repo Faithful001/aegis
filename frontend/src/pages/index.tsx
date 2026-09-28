@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import { MainLayout } from '../components/layout/MainLayout';
-import { ChatPromptInput } from '../components/chat/ChatPromptInput';
-import { ChatMessages } from '../components/chat/ChatMessages';
-import { AppExploreCards } from '../components/chat/AppExploreCards';
-import { useAegis } from '../context/AegisContext';
-import { streamChatCompletion } from '../api/chat';
-import { AddCredentialModal } from '../components/modals/AddCredentialModal';
-import { CreateKeyModal } from '../components/modals/CreateKeyModal';
-import { toast } from 'sonner';
+import React, { useState } from "react";
+import { MainLayout } from "../components/layout/MainLayout";
+import { ChatPromptInput } from "../components/chat/ChatPromptInput";
+import { ChatMessages } from "../components/chat/ChatMessages";
+import { AppExploreCards } from "../components/chat/AppExploreCards";
+import { useAegis } from "../context/AegisContext";
+import { streamChatCompletion } from "../api/chat";
+import { AddCredentialModal } from "../components/modals/AddCredentialModal";
+import { CreateKeyModal } from "../components/modals/CreateKeyModal";
+import { toast } from "sonner";
 
 export const HomePage: React.FC = () => {
   const {
@@ -34,19 +34,19 @@ export const HomePage: React.FC = () => {
     }
 
     const userMsg = {
-      id: 'msg-' + Date.now(),
-      role: 'user' as const,
+      id: "msg-" + Date.now(),
+      role: "user" as const,
       content: promptText,
       timestamp: new Date(),
     };
 
     addMessageToThread(currentThreadId, userMsg);
 
-    const assistantMsgId = 'msg-' + (Date.now() + 1);
+    const assistantMsgId = "msg-" + (Date.now() + 1);
     const initialAssistantMsg = {
       id: assistantMsgId,
-      role: 'assistant' as const,
-      content: '',
+      role: "assistant" as const,
+      content: "",
       timestamp: new Date(),
       model: selectedModel,
     };
@@ -54,7 +54,7 @@ export const HomePage: React.FC = () => {
     addMessageToThread(currentThreadId, initialAssistantMsg);
     setIsStreaming(true);
 
-    const apiKeyToUse = activeApiKey || 'aegis_default_demo_key';
+    const apiKeyToUse = activeApiKey || "aegis_default_demo_key";
 
     await streamChatCompletion(
       apiKeyToUse,
@@ -89,10 +89,6 @@ export const HomePage: React.FC = () => {
               What should we explore?
             </h1>
             <ChatPromptInput onSendMessage={handleSendMessage} disabled={isStreaming} />
-            <AppExploreCards
-              onAddCredential={() => setCredModalOpen(true)}
-              onGenerateKey={() => setKeyModalOpen(true)}
-            />
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">

@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Organization, Project, APIKey, ChatThread, ChatMessage } from '../types/api';
-import { orgsApi } from '../api/orgs';
-import { projectsApi } from '../api/projects';
-import { useAuth } from './AuthContext';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { Organization, Project, APIKey, ChatThread, ChatMessage } from "../types/api";
+import { orgsApi } from "../api/orgs";
+import { projectsApi } from "../api/projects";
+import { useAuth } from "./AuthContext";
 
 interface AegisContextType {
   organizations: Organization[];
@@ -30,10 +30,30 @@ interface AegisContextType {
 const AegisContext = createContext<AegisContextType | undefined>(undefined);
 
 export const AVAILABLE_MODELS = [
-  { id: 'aegis-mistral-7b', name: 'Aegis Mistral 7B', description: 'Distributed self-hosted AI worker', fast: true },
-  { id: 'openrouter/auto', name: 'OpenRouter Auto', description: 'BYOK high performance router', fast: true },
-  { id: 'gpt-4o-mini', name: 'OpenAI GPT-4o Mini', description: 'Direct BYOK provider route', fast: true },
-  { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', description: 'Reasoning and code generation', fast: false },
+  {
+    id: "aegis-mistral-7b",
+    name: "Aegis Mistral 7B",
+    description: "Distributed self-hosted AI worker",
+    fast: true,
+  },
+  {
+    id: "openrouter/auto",
+    name: "OpenRouter Auto",
+    description: "BYOK high performance router",
+    fast: true,
+  },
+  {
+    id: "gpt-4o-mini",
+    name: "OpenAI GPT-4o Mini",
+    description: "Direct BYOK provider route",
+    fast: true,
+  },
+  {
+    id: "claude-3-5-sonnet",
+    name: "Claude 3.5 Sonnet",
+    description: "Reasoning and code generation",
+    fast: false,
+  },
 ];
 
 export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -43,37 +63,13 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [apiKeys, setApiKeys] = useState<APIKey[]>([]);
-  const [activeApiKey, setActiveApiKey] = useState<string>(localStorage.getItem('aegis_user_api_key') || '');
-  const [selectedModel, setSelectedModel] = useState<string>('aegis-mistral-7b');
+  const [activeApiKey, setActiveApiKey] = useState<string>(
+    localStorage.getItem("aegis_user_api_key") || ""
+  );
+  const [selectedModel, setSelectedModel] = useState<string>("aegis-mistral-7b");
 
-  const [chatThreads, setChatThreads] = useState<ChatThread[]>(() => {
-    const saved = localStorage.getItem('aegis_chat_threads');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return [
-      {
-        id: 'default-thread-1',
-        title: 'Distributed System Architecture',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        messages: [
-          {
-            id: 'm1',
-            role: 'assistant',
-            content: 'Welcome to Aegis Distributed AI Inference Platform. How can I assist you with your projects, models, or credentials today?',
-            timestamp: new Date(),
-            model: 'aegis-mistral-7b'
-          }
-        ]
-      }
-    ];
-  });
-  const [activeThreadId, setActiveThreadId] = useState<string | null>('default-thread-1');
-
-  useEffect(() => {
-    localStorage.setItem('aegis_chat_threads', JSON.stringify(chatThreads));
-  }, [chatThreads]);
+  const [chatThreads, setChatThreads] = useState<ChatThread[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>("default-thread-1");
 
   const refreshOrgs = async () => {
     if (!isAuthenticated) return;
@@ -84,7 +80,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setActiveOrg(list[0]);
       }
     } catch (e) {
-      console.error('Error fetching orgs:', e);
+      console.error("Error fetching orgs:", e);
     }
   };
 
@@ -97,7 +93,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setActiveProject(list[0]);
       }
     } catch (e) {
-      console.error('Error fetching projects:', e);
+      console.error("Error fetching projects:", e);
     }
   };
 
@@ -107,7 +103,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const keys = await projectsApi.listApiKeys(activeProject.id);
       setApiKeys(keys);
     } catch (e) {
-      console.error('Error fetching API keys:', e);
+      console.error("Error fetching API keys:", e);
     }
   };
 
@@ -124,10 +120,10 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [activeProject]);
 
   const createNewThread = (): string => {
-    const newId = 'thread-' + Date.now();
+    const newId = "thread-" + Date.now();
     const newThread: ChatThread = {
       id: newId,
-      title: 'New Exploration',
+      title: "New Exploration",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       messages: [],
@@ -143,8 +139,8 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (t.id === threadId) {
           const updatedMessages = [...t.messages, msg];
           let title = t.title;
-          if (t.title === 'New Exploration' && msg.role === 'user') {
-            title = msg.content.slice(0, 30) + (msg.content.length > 30 ? '...' : '');
+          if (t.title === "New Exploration" && msg.role === "user") {
+            title = msg.content.slice(0, 30) + (msg.content.length > 30 ? "..." : "");
           }
           return {
             ...t,
@@ -191,7 +187,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         apiKeys,
         activeApiKey,
         setActiveApiKey: (k) => {
-          localStorage.setItem('aegis_user_api_key', k);
+          localStorage.setItem("aegis_user_api_key", k);
           setActiveApiKey(k);
         },
         selectedModel,
@@ -214,6 +210,6 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
 export const useAegis = () => {
   const ctx = useContext(AegisContext);
-  if (!ctx) throw new Error('useAegis must be used within AegisProvider');
+  if (!ctx) throw new Error("useAegis must be used within AegisProvider");
   return ctx;
 };

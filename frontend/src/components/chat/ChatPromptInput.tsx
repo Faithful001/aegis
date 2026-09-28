@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { Plus, ChevronDown, Mic, Zap, Send } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, ChevronDown, Mic, Send, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAegis, AVAILABLE_MODELS } from '../../context/AegisContext';
 
 interface ChatPromptInputProps {
   onSendMessage: (prompt: string) => void;
@@ -8,6 +10,24 @@ interface ChatPromptInputProps {
 
 export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage, disabled }) => {
   const [input, setInput] = useState('');
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const { selectedModel, setSelectedModel } = useAegis();
+
+  const currentModelObj =
+    AVAILABLE_MODELS.find((m) => m.id === selectedModel) || AVAILABLE_MODELS[0];
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setModelDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -46,15 +66,65 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
             <Plus className="w-4 h-4" />
           </button>
 
-          {/* Right Action Icons: Fast Speed Dropdown, Mic Icon, Send/Voice Wave */}
+          {/* Right Action Icons: Model Selector Dropdown, Mic Icon, Send */}
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
-            >
-              <span>Fast</span>
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
-            </button>
+            {/* Model Selector Dropdown inside prompt bar */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-zinc-800/80 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/60 transition-all"
+              >
+                <span>{currentModelObj.name}</span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${
+                    modelDropdownOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              <AnimatePresence>
+                {modelDropdownOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                    className="absolute right-0 bottom-full mb-2 w-64 bg-surface border border-surface-border rounded-2xl p-1.5 shadow-2xl z-50 space-y-1"
+                  >
+                    <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
+                      Select Model
+                    </div>
+                    {AVAILABLE_MODELS.map((model) => (
+                      <button
+                        key={model.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedModel(model.id);
+                          setModelDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-xl transition-all ${
+                          selectedModel === model.id
+                            ? 'bg-zinc-800 text-white font-medium'
+                            : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-xs font-semibold">
+                          <span className="flex items-center gap-1.5">
+                            {model.name}
+                            {selectedModel === model.id && (
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            )}
+                          </span>
+                          {model.fast && <span className="text-[10px] text-emerald-400">Fast</span>}
+                        </div>
+                        <p className="text-[11px] text-zinc-400 mt-0.5">{model.description}</p>
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             <button
               type="button"
@@ -77,3 +147,5 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
     </div>
   );
 };
+
+
