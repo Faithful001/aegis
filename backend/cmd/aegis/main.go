@@ -29,22 +29,20 @@ import (
 )
 
 func main() {
-	// 1. Load Configuration
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Printf("Failed to load configuration: %v\n", err)
 		os.Exit(1)
 	}
 
-	// 2. Initialize Structured Logger
 	logger := observability.InitLogger(cfg.Log.Level, cfg.Log.Format)
 	logger.Info("Starting Aegis AI Inference Platform Control Plane", "environment", cfg.Environment)
 
-	// 3. Initialize Database (PostgreSQL)
+	// initialize db (postgres)
 	db.InitDB()
 	database := db.GetDB()
 
-	// Run auto migrations for core entities
+	// run auto migrations for the core entities
 	if database != nil {
 		migrationModels := []interface{}{
 			&user.User{},
@@ -61,7 +59,7 @@ func main() {
 		logger.Warn("Database is not connected. Operating in degraded mode.")
 	}
 
-	// 4. Initialize Distributed Cache / Store (Redis)
+	// initialize redis
 	redis.InitRedis()
 	redisClient := redis.GetClient()
 	if redisClient != nil {
@@ -70,7 +68,7 @@ func main() {
 		logger.Warn("Redis is not connected. Ephemeral state operating with fallback.")
 	}
 
-	// 4c. Initialize Kafka Event Producer (Phase 10)
+	// initialize kafka
 	var eventProducer events.EventProducer = events.NewKafkaProducer(cfg.Kafka.Brokers, logger)
 	defer eventProducer.Close()
 	events.SetBrokers(cfg.Kafka.Brokers)
@@ -89,13 +87,13 @@ func main() {
 	defer workerSvc.StopHeartbeatMonitor()
 	logger.Info("Worker heartbeat monitor started")
 
-	// 5. Initialize Domain Repositories
+	// initialize domain repositories
 	userRepo := user.NewUserRepository(database)
 	blacklistRepo := auth.NewTokenBlacklistRepository(redisClient, database)
 	usageRepo := usage.NewUsageRepository(database)
 	providerRepo := provider.NewProviderCredentialRepository(database)
 
-	// 6. Initialize Domain Hasher, Generators & Services
+	// initialize domain hasher, generators and services
 	hasher := infraAuth.NewBcryptHasher(0)
 	tokenService := infraAuth.NewJWTService(
 		cfg.JWT.Secret,
@@ -109,7 +107,7 @@ func main() {
 	usageService := usage.NewUsageService(usageRepo, logger)
 	providerService := provider.NewProviderCredentialService(providerRepo, cfg.JWT.Secret)
 
-	// Start Metering Consumer (Phase 11)
+	// initialize event consumer (kafka)
 	var eventConsumer events.EventConsumer = events.NewKafkaConsumer(cfg.Kafka.Brokers, cfg.Kafka.GroupID, logger)
 	defer eventConsumer.Close()
 	meteringConsumer := usage.NewMeteringConsumer(eventConsumer, usageService, logger)
@@ -117,7 +115,7 @@ func main() {
 		logger.Warn("Could not start metering consumer background listener", "error", err)
 	}
 
-	// 7. Initialize Inference Worker Client, Capacity Scheduler & BYOK Provider Gateway
+	// initialize worker client, capacity scheduler & byok provider gateway
 	sched := scheduler.NewWeightedScoreScheduler(workerReg, logger)
 
 	var workerClient inference.WorkerClient
@@ -133,19 +131,19 @@ func main() {
 
 	inferenceService := inference.NewInferenceService(workerClient, sched, eventProducer)
 
-	// Setup Frontier Provider Router
+	// setup frontier provider router
 	providerRouter := infraProvider.NewProviderRouter()
 	inferenceService.SetProviderGateway(providerService, providerRouter)
 	logger.Info("BYOK Frontier Provider Gateway initialized (OpenAI, Anthropic, Gemini, Mistral AI)")
 
-	// 8. Initialize Domain Controllers
+	// initialize domain controllers
 	authController := auth.NewAuthController(authService)
 	inferenceController := inference.NewInferenceController(inferenceService)
 	usageController := usage.NewUsageController(usageService)
 	providerController := provider.NewProviderController(providerService)
 	userController := user.NewUserController(userService)
 
-	// 9. Setup HTTP Engine
+	// setup http engine
 	engine := router.SetupRouter(router.RouterConfig{
 		AuthService:         authService,
 		AuthController:      authController,
@@ -163,7 +161,7 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// 9. Start Server in Background Goroutine
+	// start server in background goroutine
 	go func() {
 		logger.Info("Aegis HTTP server listening", "port", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -172,7 +170,7 @@ func main() {
 		}
 	}()
 
-	// 10. Graceful Shutdown Listener (SIGINT, SIGTERM)
+	// wait for interrupt signal
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
