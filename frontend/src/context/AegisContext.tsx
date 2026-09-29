@@ -64,7 +64,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [apiKeys, setApiKeys] = useState<APIKey[]>([]);
   const [activeApiKey, setActiveApiKey] = useState<string>(
-    localStorage.getItem("aegis_user_api_key") || ""
+    sessionStorage.getItem("aegis_user_api_key") || ""
   );
   const [selectedModel, setSelectedModel] = useState<string>("aegis-mistral-7b");
 
@@ -187,7 +187,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         apiKeys,
         activeApiKey,
         setActiveApiKey: (k) => {
-          localStorage.setItem("aegis_user_api_key", k);
+          sessionStorage.setItem("aegis_user_api_key", k);
           setActiveApiKey(k);
         },
         selectedModel,

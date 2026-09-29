@@ -16,7 +16,7 @@ export const authApi = {
     try {
       await apiClient.post('/auth/logout');
     } finally {
-      localStorage.removeItem('aegis_jwt_token');
+      sessionStorage.removeItem('aegis_jwt_token');
     }
   },
 

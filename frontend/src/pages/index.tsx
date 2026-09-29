@@ -4,12 +4,15 @@ import { ChatPromptInput } from "../components/chat/ChatPromptInput";
 import { ChatMessages } from "../components/chat/ChatMessages";
 import { AppExploreCards } from "../components/chat/AppExploreCards";
 import { useAegis } from "../context/AegisContext";
+import { useAuth } from "../context/AuthContext";
 import { streamChatCompletion } from "../api/chat";
 import { AddCredentialModal } from "../components/modals/AddCredentialModal";
 import { CreateKeyModal } from "../components/modals/CreateKeyModal";
+import { AuthModal } from "../components/modals/AuthModal";
 import { toast } from "sonner";
 
 export const HomePage: React.FC = () => {
+  const { isAuthenticated } = useAuth();
   const {
     chatThreads,
     activeThreadId,
@@ -23,11 +26,18 @@ export const HomePage: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [credModalOpen, setCredModalOpen] = useState(false);
   const [keyModalOpen, setKeyModalOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   const activeThread = chatThreads.find((t) => t.id === activeThreadId);
   const messages = activeThread?.messages || [];
 
   const handleSendMessage = async (promptText: string) => {
+    if (!isAuthenticated) {
+      toast.info("Please sign in to continue");
+      setAuthModalOpen(true);
+      return;
+    }
+
     let currentThreadId = activeThreadId;
     if (!currentThreadId || messages.length === 0) {
       currentThreadId = createNewThread();
@@ -106,8 +116,10 @@ export const HomePage: React.FC = () => {
 
       <AddCredentialModal open={credModalOpen} onOpenChange={setCredModalOpen} />
       <CreateKeyModal open={keyModalOpen} onOpenChange={setKeyModalOpen} />
+      <AuthModal open={authModalOpen} onOpenChange={setAuthModalOpen} initialMode="login" />
     </MainLayout>
   );
 };
 
 export default HomePage;
+

@@ -11,7 +11,7 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("aegis_jwt_token");
+    const token = sessionStorage.getItem("aegis_jwt_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -25,8 +25,9 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       // Clear token on 401
-      localStorage.removeItem("aegis_jwt_token");
+      sessionStorage.removeItem("aegis_jwt_token");
     }
     return Promise.reject(error);
   }
 );
+
