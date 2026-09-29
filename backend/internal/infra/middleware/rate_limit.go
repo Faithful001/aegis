@@ -63,11 +63,9 @@ func RateLimitMiddleware(limiter ratelimiter.RateLimiter) gin.HandlerFunc {
 				}
 				c.Header(HeaderRetryAfter, strconv.Itoa(retrySecs))
 				c.JSON(http.StatusTooManyRequests, gin.H{
-					"error": gin.H{
-						"message": fmt.Sprintf("Rate limit exceeded for User. Limit: %d RPM.", res.Limit),
-						"type":    "rate_limit_error",
-						"code":    "rate_limit_exceeded",
-					},
+					"success": false,
+					"message": fmt.Sprintf("Rate limit exceeded for User. Limit: %d RPM.", res.Limit),
+					"data":    nil,
 				})
 				c.Abort()
 				return

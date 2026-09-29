@@ -29,7 +29,7 @@ export const authApi = {
     }
   },
 
-  getProfile: async (): Promise<User> => {
+  getMe: async (): Promise<User> => {
     const res = await apiClient.get("/user/me");
     return res.data.data;
   },

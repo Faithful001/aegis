@@ -22,21 +22,21 @@ func NewAuthController(authService *AuthService) *AuthController {
 func (h *AuthController) Register(c *gin.Context) {
 	var req dto.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
 	result, err := h.authService.Register(c.Request.Context(), req)
 	if err != nil {
 		if errors.Is(err, user.ErrEmailAlreadyExists) {
-			c.JSON(http.StatusConflict, gin.H{"success": false, "error": err.Error()})
+			c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
 		if errors.Is(err, user.ErrInvalidUserData) {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
@@ -50,21 +50,21 @@ func (h *AuthController) Register(c *gin.Context) {
 func (h *AuthController) Login(c *gin.Context) {
 	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
 	result, err := h.authService.Login(c.Request.Context(), req)
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) || errors.Is(err, user.ErrUserNotFound) {
-			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "invalid email or password"})
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "invalid email or password", "data": nil})
 			return
 		}
 		if errors.Is(err, user.ErrUserInactive) {
-			c.JSON(http.StatusForbidden, gin.H{"success": false, "error": err.Error()})
+			c.JSON(http.StatusForbidden, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
@@ -78,17 +78,17 @@ func (h *AuthController) Login(c *gin.Context) {
 func (h *AuthController) RefreshToken(c *gin.Context) {
 	var req dto.RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
 	result, err := h.authService.RefreshToken(c.Request.Context(), req)
 	if err != nil {
 		if errors.Is(err, ErrTokenRevoked) || errors.Is(err, ErrTokenExpired) || errors.Is(err, ErrInvalidToken) {
-			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": err.Error()})
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
@@ -123,26 +123,26 @@ func (h *APIKeyController) Create(c *gin.Context) {
 	log.Printf("Creating API key")
 	userIDVal, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized", "data": nil})
 		return
 	}
 	userID := userIDVal.(uuid.UUID)
 
 	projectID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid project id"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid project id", "data": nil})
 		return
 	}
 
 	var req dto.CreateAPIKeyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
 	keyResult, err := h.apiKeyService.CreateAPIKey(c.Request.Context(), projectID, userID, req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
@@ -156,13 +156,13 @@ func (h *APIKeyController) Create(c *gin.Context) {
 func (h *APIKeyController) List(c *gin.Context) {
 	projectID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid project id"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid project id", "data": nil})
 		return
 	}
 
 	keys, err := h.apiKeyService.ListProjectAPIKeys(c.Request.Context(), projectID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
@@ -172,12 +172,12 @@ func (h *APIKeyController) List(c *gin.Context) {
 func (h *APIKeyController) Revoke(c *gin.Context) {
 	keyID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid api key id"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid api key id", "data": nil})
 		return
 	}
 
 	if err := h.apiKeyService.RevokeAPIKey(c.Request.Context(), keyID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 

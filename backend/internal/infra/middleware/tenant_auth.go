@@ -21,7 +21,7 @@ func (a *TenantAuthorizer) RequireOrgMembership() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, ok := GetUserID(c)
 		if !ok {
-			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized", "data": nil})
 			c.Abort()
 			return
 		}
@@ -33,7 +33,7 @@ func (a *TenantAuthorizer) RequireOrgMembership() gin.HandlerFunc {
 
 		orgID, err := uuid.Parse(orgIDStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid organization id"})
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid organization id", "data": nil})
 			c.Abort()
 			return
 		}
@@ -42,7 +42,8 @@ func (a *TenantAuthorizer) RequireOrgMembership() gin.HandlerFunc {
 		if err != nil || member == nil {
 			c.JSON(http.StatusForbidden, gin.H{
 				"success": false,
-				"error":   "you are not a member of this organization",
+				"message": "you are not a member of this organization",
+				"data":    nil,
 			})
 			c.Abort()
 			return
@@ -58,7 +59,7 @@ func (a *TenantAuthorizer) RequireOrgRole(allowedRoles ...organization.OrgRole) 
 	return func(c *gin.Context) {
 		roleVal, exists := c.Get("userRole")
 		if !exists {
-			c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "forbidden"})
+			c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "forbidden", "data": nil})
 			c.Abort()
 			return
 		}
@@ -73,7 +74,8 @@ func (a *TenantAuthorizer) RequireOrgRole(allowedRoles ...organization.OrgRole) 
 
 		c.JSON(http.StatusForbidden, gin.H{
 			"success": false,
-			"error":   "insufficient permissions in this organization",
+			"message": "insufficient permissions in this organization",
+			"data":    nil,
 		})
 		c.Abort()
 	}

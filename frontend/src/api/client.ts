@@ -24,9 +24,10 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      // Clear token on 401
+    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      // Clear token on 401 or 403 and notify AuthContext immediately
       sessionStorage.removeItem("aegis_jwt_token");
+      window.dispatchEvent(new Event("unauthorized"));
     }
     return Promise.reject(error);
   }

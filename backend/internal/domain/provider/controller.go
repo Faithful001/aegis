@@ -30,23 +30,23 @@ func getUserIDFromContext(c *gin.Context) (uuid.UUID, bool) {
 func (ctl *ProviderController) SaveCredential(c *gin.Context) {
 	userID, ok := getUserIDFromContext(c)
 	if !ok || userID == uuid.Nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized", "data": nil})
 		return
 	}
 
 	var req dto.SaveCredentialRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
 	resp, err := ctl.service.SaveCredential(c.Request.Context(), userID, req)
 	if err != nil {
 		if errors.Is(err, ErrInvalidProvider) || errors.Is(err, ErrInvalidCredentialData) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
@@ -60,13 +60,13 @@ func (ctl *ProviderController) SaveCredential(c *gin.Context) {
 func (ctl *ProviderController) ListCredentials(c *gin.Context) {
 	userID, ok := getUserIDFromContext(c)
 	if !ok || userID == uuid.Nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized", "data": nil})
 		return
 	}
 
 	resp, err := ctl.service.ListCredentials(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
@@ -80,21 +80,21 @@ func (ctl *ProviderController) ListCredentials(c *gin.Context) {
 func (ctl *ProviderController) DeleteCredential(c *gin.Context) {
 	userID, ok := getUserIDFromContext(c)
 	if !ok || userID == uuid.Nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized", "data": nil})
 		return
 	}
 
 	provider := c.Param("provider")
 	if err := ctl.service.DeleteCredential(c.Request.Context(), userID, provider); err != nil {
 		if errors.Is(err, ErrCredentialNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
 		if errors.Is(err, ErrInvalidProvider) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 

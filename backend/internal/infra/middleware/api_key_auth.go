@@ -46,11 +46,9 @@ func APIKeyAuthMiddleware(apiKeyService *auth.APIKeyService) gin.HandlerFunc {
 
 		if apiKey == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": gin.H{
-					"message": "Missing API key. Pass via 'Authorization: Bearer <key>' or 'X-API-Key: <key>' header.",
-					"type":    "invalid_request_error",
-					"code":    "api_key_missing",
-				},
+				"success": false,
+				"message": "Missing API key. Pass via 'Authorization: Bearer <key>' or 'X-API-Key: <key>' header.",
+				"data":    nil,
 			})
 			c.Abort()
 			return
@@ -60,11 +58,9 @@ func APIKeyAuthMiddleware(apiKeyService *auth.APIKeyService) gin.HandlerFunc {
 		principal, err := apiKeyService.AuthenticateAPIKey(c.Request.Context(), apiKey)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": gin.H{
-					"message": "Invalid or revoked API key.",
-					"type":    "invalid_request_error",
-					"code":    "invalid_api_key",
-				},
+				"success": false,
+				"message": "Invalid or revoked API key.",
+				"data":    nil,
 			})
 			c.Abort()
 			return

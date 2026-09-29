@@ -21,7 +21,7 @@ func NewUsageController(service *UsageService) *UsageController {
 func (h *UsageController) GetUserUsage(c *gin.Context) {
 	val, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized", "data": nil})
 		return
 	}
 	userID := val.(uuid.UUID)
@@ -43,7 +43,7 @@ func (h *UsageController) GetUserUsage(c *gin.Context) {
 	if summaryMode {
 		inTokens, outTokens, totTokens, err := h.service.GetTotalUsage(c.Request.Context(), userID, startTime, endTime)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
 
@@ -69,7 +69,7 @@ func (h *UsageController) GetUserUsage(c *gin.Context) {
 
 	records, err := h.service.ListByOrganization(c.Request.Context(), userID, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
@@ -91,7 +91,7 @@ func (h *UsageController) GetUserUsage(c *gin.Context) {
 func (h *UsageController) GetOrganizationUsage(c *gin.Context) {
 	orgID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid organization id"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid organization id", "data": nil})
 		return
 	}
 
@@ -112,7 +112,7 @@ func (h *UsageController) GetOrganizationUsage(c *gin.Context) {
 	if summaryMode {
 		inTokens, outTokens, totTokens, err := h.service.GetTotalUsage(c.Request.Context(), orgID, startTime, endTime)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
 
@@ -138,7 +138,7 @@ func (h *UsageController) GetOrganizationUsage(c *gin.Context) {
 
 	records, err := h.service.ListByOrganization(c.Request.Context(), orgID, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
@@ -160,7 +160,7 @@ func (h *UsageController) GetOrganizationUsage(c *gin.Context) {
 func (h *UsageController) GetProjectUsage(c *gin.Context) {
 	projectID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid project id"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid project id", "data": nil})
 		return
 	}
 
@@ -169,7 +169,7 @@ func (h *UsageController) GetProjectUsage(c *gin.Context) {
 
 	records, err := h.service.ListByProject(c.Request.Context(), projectID, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 

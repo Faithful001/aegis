@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { User } from "../types/api";
 import { authApi } from "../api/auth";
+import { router } from "../router";
 
 interface AuthContextType {
   user: User | null;
@@ -25,6 +26,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTokenState(newToken);
   };
 
+  const logoutLocal = () => {
+    sessionStorage.removeItem("aegis_jwt_token");
+    setTokenState(null);
+    setUser(null);
+  };
+
   const formatUser = (rawUser: any): User | null => {
     if (!rawUser) return null;
     const fullName =
@@ -37,34 +44,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   };
 
+  const verifyAndFetchUser = async () => {
+    const currentToken = sessionStorage.getItem("aegis_jwt_token");
+    if (!currentToken) {
+      logoutLocal();
+      setIsLoading(false);
+      return;
+    }
+    try {
+      const u = await authApi.getMe();
+      setUser(formatUser(u));
+    } catch (e) {
+      console.error("Failed to load user profile:", e);
+      logoutLocal();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchUser = async () => {
-      if (!token) {
-        setIsLoading(false);
-        return;
+    // Initial fetch on mount
+    verifyAndFetchUser();
+
+    // Listen for page changes / route navigations
+    const unsubscribeRouter = router.history.subscribe(() => {
+      const currentToken = sessionStorage.getItem("aegis_jwt_token");
+      if (!currentToken) {
+        logoutLocal();
+      } else {
+        verifyAndFetchUser();
       }
-      try {
-        const u = await authApi.getProfile();
-        setUser(formatUser(u));
-      } catch (e) {
-        console.error("Failed to load user profile:", e);
-        sessionStorage.removeItem("aegis_jwt_token");
-        setTokenState(null);
-        setUser(null);
-      } finally {
-        setIsLoading(false);
-      }
+    });
+
+    // Listen for 401 or 403 unauthorized events emitted by API client
+    const handleUnauthorized = () => {
+      logoutLocal();
     };
-    fetchUser();
-  }, [token]);
+
+    window.addEventListener("unauthorized", handleUnauthorized);
+
+    return () => {
+      unsubscribeRouter();
+      window.removeEventListener("unauthorized", handleUnauthorized);
+    };
+  }, []);
 
   const login = async (email: string, pass: string) => {
     const res = await authApi.login(email, pass);
-    const jwt =
-      res.data?.access_token ||
-      res.data?.token ||
-      res.access_token ||
-      res.token;
+    const jwt = res.data?.access_token || res.data?.token || res.access_token || res.token;
     if (jwt) {
       setToken(jwt);
       const rawUser = res.data?.user || res.user;
@@ -72,7 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(formatUser(rawUser));
       } else {
         try {
-          const profile = await authApi.getProfile();
+          const profile = await authApi.getMe();
           setUser(formatUser(profile));
         } catch (e) {
           console.error("Failed to load user profile after login:", e);
@@ -83,11 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (email: string, pass: string, name: string) => {
     const res = await authApi.register(email, pass, name);
-    const jwt =
-      res.data?.access_token ||
-      res.data?.token ||
-      res.access_token ||
-      res.token;
+    const jwt = res.data?.access_token || res.data?.token || res.access_token || res.token;
     if (jwt) {
       setToken(jwt);
       const rawUser = res.data?.user || res.user;
@@ -95,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(formatUser(rawUser));
       } else {
         try {
-          const profile = await authApi.getProfile();
+          const profile = await authApi.getMe();
           setUser(formatUser(profile));
         } catch (e) {
           console.error("Failed to load user profile after register:", e);
@@ -105,9 +128,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    await authApi.logout();
-    setTokenState(null);
-    setUser(null);
+    try {
+      await authApi.logout();
+    } catch (e) {
+      console.error("Logout error:", e);
+    } finally {
+      logoutLocal();
+    }
   };
 
   return (

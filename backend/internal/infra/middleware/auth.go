@@ -22,6 +22,7 @@ func AuthMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
 				"message": "Authorization header is required",
+				"data":    nil,
 			})
 			c.Abort()
 			return
@@ -32,6 +33,7 @@ func AuthMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
 				"message": "Authorization format must be Bearer <token>",
+				"data":    nil,
 			})
 			c.Abort()
 			return
@@ -43,6 +45,7 @@ func AuthMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
 				"message": err.Error(),
+				"data":    nil,
 			})
 			c.Abort()
 			return

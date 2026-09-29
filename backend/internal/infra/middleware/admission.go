@@ -67,11 +67,9 @@ func AdmissionMiddleware(admissionService *admission.AdmissionService) gin.Handl
 		if err != nil {
 			if errors.Is(err, admission.ErrMaxTokensExceeded) {
 				c.JSON(http.StatusBadRequest, gin.H{
-					"error": gin.H{
-						"message": fmt.Sprintf("Token estimation exceeds maximum allowed limit: %v", err),
-						"type":    "invalid_request_error",
-						"code":    "max_tokens_exceeded",
-					},
+					"success": false,
+					"message": fmt.Sprintf("Token estimation exceeds maximum allowed limit: %v", err),
+					"data":    nil,
 				})
 				c.Abort()
 				return
@@ -79,11 +77,9 @@ func AdmissionMiddleware(admissionService *admission.AdmissionService) gin.Handl
 
 			c.Header("Retry-After", "5")
 			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"error": gin.H{
-					"message": "System overloaded. Request rejected by admission control backpressure.",
-					"type":    "server_error",
-					"code":    "system_overloaded",
-				},
+				"success": false,
+				"message": "System overloaded. Request rejected by admission control backpressure.",
+				"data":    nil,
 			})
 			c.Abort()
 			return

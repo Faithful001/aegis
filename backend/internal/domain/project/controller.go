@@ -30,37 +30,37 @@ func getUserID(c *gin.Context) (uuid.UUID, bool) {
 func (h *ProjectController) Create(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized", "data": nil})
 		return
 	}
 
 	orgID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid organization id"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid organization id", "data": nil})
 		return
 	}
 
 	var req dto.CreateProjectRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
 	proj, err := h.projectService.CreateProject(c.Request.Context(), orgID, userID, req)
 	if err != nil {
 		if errors.Is(err, organization.ErrUnauthorizedTenant) {
-			c.JSON(http.StatusForbidden, gin.H{"success": false, "error": err.Error()})
+			c.JSON(http.StatusForbidden, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
 		if errors.Is(err, ErrProjectSlugExists) {
-			c.JSON(http.StatusConflict, gin.H{"success": false, "error": err.Error()})
+			c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
 		if errors.Is(err, ErrInvalidProjectData) {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
@@ -70,23 +70,23 @@ func (h *ProjectController) Create(c *gin.Context) {
 func (h *ProjectController) List(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized", "data": nil})
 		return
 	}
 
 	orgID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid organization id"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid organization id", "data": nil})
 		return
 	}
 
 	projects, err := h.projectService.ListOrganizationProjects(c.Request.Context(), orgID, userID)
 	if err != nil {
 		if errors.Is(err, organization.ErrUnauthorizedTenant) {
-			c.JSON(http.StatusForbidden, gin.H{"success": false, "error": err.Error()})
+			c.JSON(http.StatusForbidden, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 
@@ -96,27 +96,27 @@ func (h *ProjectController) List(c *gin.Context) {
 func (h *ProjectController) Get(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized", "data": nil})
 		return
 	}
 
 	projectID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid project id"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid project id", "data": nil})
 		return
 	}
 
 	proj, err := h.projectService.GetProject(c.Request.Context(), projectID, userID)
 	if err != nil {
 		if errors.Is(err, organization.ErrUnauthorizedTenant) {
-			c.JSON(http.StatusForbidden, gin.H{"success": false, "error": err.Error()})
+			c.JSON(http.StatusForbidden, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
 		if errors.Is(err, ErrProjectNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": err.Error()})
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 		return
 	}
 

@@ -26,10 +26,9 @@ func (ctrl *InferenceController) HandleChatCompletion(c *gin.Context) {
 	var req dto.ChatCompletionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": gin.H{
-				"message": fmt.Sprintf("invalid request body: %v", err),
-				"type":    "invalid_request_error",
-			},
+			"success": false,
+			"message": fmt.Sprintf("invalid request body: %v", err),
+			"data":    nil,
 		})
 		return
 	}
@@ -151,33 +150,27 @@ func (ctrl *InferenceController) handleInferenceError(c *gin.Context, err error)
 	switch {
 	case errors.Is(err, ErrModelNotSupported):
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": gin.H{
-				"message": err.Error(),
-				"type":    "invalid_request_error",
-				"code":    "model_not_found",
-			},
+			"success": false,
+			"message": err.Error(),
+			"data":    nil,
 		})
 	case errors.Is(err, ErrEmptyMessages), errors.Is(err, ErrInvalidTemperature), errors.Is(err, ErrInvalidMaxTokens):
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": gin.H{
-				"message": err.Error(),
-				"type":    "invalid_request_error",
-			},
+			"success": false,
+			"message": err.Error(),
+			"data":    nil,
 		})
 	case errors.Is(err, ErrWorkerUnavailable):
 		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"error": gin.H{
-				"message": "No inference worker available to process request",
-				"type":    "server_error",
-				"code":    "worker_unavailable",
-			},
+			"success": false,
+			"message": "No inference worker available to process request",
+			"data":    nil,
 		})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": gin.H{
-				"message": fmt.Sprintf("internal server error: %v", err),
-				"type":    "api_error",
-			},
+			"success": false,
+			"message": fmt.Sprintf("internal server error: %v", err),
+			"data":    nil,
 		})
 	}
 }
