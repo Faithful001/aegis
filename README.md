@@ -4,7 +4,7 @@
 
 Aegis is not a chatbot, a RAG application, or a simple LLM API wrapper.
 
-It is a backend infrastructure harness that simulates the engineering problems encountered when operating an AI inference platform at scale. Users supply their own API keys (BYOK — Bring Your Own Key) to interact with upstream LLM providers directly. There is no platform-level billing. Instead the platform focuses on **secure key management**, **admission control**, **distributed rate limiting**, **capacity-aware scheduling**, and **durable usage metering**.
+It is a distributed infrastructure harness that simulates the engineering problems encountered when operating an AI inference platform at scale. Users supply their own API keys (BYOK, Bring Your Own Key) to interact with upstream LLM providers directly. There is no platform-level billing. Instead the platform focuses on **secure key management**, **admission control**, **distributed rate limiting**, **capacity-aware scheduling**, and **durable usage metering**.
 
 ---
 
@@ -20,9 +20,9 @@ It is a backend infrastructure harness that simulates the engineering problems e
   - [Frontend Dashboard](#frontend-dashboard)
   - [Go Control Plane](#go-control-plane)
   - [Python Inference Workers](#python-inference-workers)
-  - [Kafka — Async Event Bus](#kafka--async-event-bus)
-  - [Redis — Distributed Ephemeral State](#redis--distributed-ephemeral-state)
-  - [PostgreSQL — Durable Source of Truth](#postgresql--durable-source-of-truth)
+  - [Kafka: Async Event Bus](#kafka--async-event-bus)
+  - [Redis: Distributed Ephemeral State](#redis--distributed-ephemeral-state)
+  - [PostgreSQL: Durable Source of Truth](#postgresql--durable-source-of-truth)
 - [Request Lifecycle](#request-lifecycle)
   - [Synchronous (Streaming) Path](#synchronous-streaming-path)
   - [Asynchronous (Metering) Path](#asynchronous-metering-path)
@@ -43,7 +43,7 @@ It is a backend infrastructure harness that simulates the engineering problems e
 
 ## Why Aegis?
 
-Running an LLM-powered service in production is not primarily an AI problem — it is a **distributed systems** problem. The interesting engineering challenges are:
+Running an LLM-powered service in production is not primarily an AI problem: it is a **distributed systems** problem. The interesting engineering challenges are:
 
 - How do you fairly limit and enforce quotas across multiple tenants without a centralised bottleneck?
 - How do you route requests to healthy workers that have spare capacity for the requested model?
@@ -51,7 +51,7 @@ Running an LLM-powered service in production is not primarily an AI problem — 
 - How do you record token usage reliably even if a worker crashes mid-stream?
 - How do you guarantee that usage events are processed exactly once even with Kafka redelivery?
 
-Aegis is designed to surface and solve those problems in a clean, well-structured codebase. The LLM itself (Mistral via LangChain) is the *payload* — the interesting engineering is everything around it.
+Aegis is designed to surface and solve those problems in a clean, well-structured codebase. The LLM itself (Mistral via LangChain) is the *payload*: the interesting engineering is everything around it.
 
 ---
 
@@ -180,7 +180,7 @@ Pages and features:
 | Page | Purpose |
 |---|---|
 | **Auth** | Login and registration |
-| **Chat** | Interactive inference interface — send requests and receive streamed responses |
+| **Chat** | Interactive inference interface: send requests and receive streamed responses |
 | **Projects** | Create and manage projects within an organisation |
 | **Organizations** | Tenant management |
 | **Analytics** | Usage charts and token consumption metrics per project and organisation |
@@ -195,16 +195,16 @@ The Go backend (`backend/cmd/aegis/main.go`) is the single process that runs as 
 
 Responsibilities:
 
-- **HTTP API** — OpenAI-compatible endpoint (`POST /v1/chat/completions`) plus management, health, and metrics endpoints
-- **Authentication** — API key resolution; keys are never stored in plaintext (hashed with a visible prefix only)
-- **Authorization** — tenant isolation; a key belonging to one organisation can never access another's resources
-- **Distributed rate limiting** — per API key, per project, and per organisation; enforced via Redis so it works across multiple backend replicas
-- **Admission control** — decides whether to ACCEPT, QUEUE, or REJECT based on rate limits, quotas, token estimates, and worker capacity
-- **Scheduler** — selects the best available worker using a capacity-aware strategy (not round-robin)
-- **Worker registry** — tracks active Python workers and their health via heartbeats stored in Redis
-- **gRPC client** — forwards admitted inference jobs to a selected Python worker
-- **SSE streaming** — bridges the gRPC token stream from the worker back to the client
-- **Kafka consumer** — consumes usage events published by workers and persists them durably to PostgreSQL
+- **HTTP API**: OpenAI-compatible endpoint (`POST /v1/chat/completions`) plus management, health, and metrics endpoints
+- **Authentication**: API key resolution; keys are never stored in plaintext (hashed with a visible prefix only)
+- **Authorization**: tenant isolation; a key belonging to one organisation can never access another's resources
+- **Distributed rate limiting**: per API key, per project, and per organisation; enforced via Redis so it works across multiple backend replicas
+- **Admission control**: decides whether to ACCEPT, QUEUE, or REJECT based on rate limits, quotas, token estimates, and worker capacity
+- **Scheduler**: selects the best available worker using a capacity-aware strategy (not round-robin)
+- **Worker registry**: tracks active Python workers and their health via heartbeats stored in Redis
+- **gRPC client**: forwards admitted inference jobs to a selected Python worker
+- **SSE streaming**: bridges the gRPC token stream from the worker back to the client
+- **Kafka consumer**: consumes usage events published by workers and persists them durably to PostgreSQL
 
 ### Python Inference Workers
 
@@ -222,7 +222,7 @@ Responsibilities:
 
 The Python worker has no knowledge of rate limiting, scheduling, quotas, or admission. Those are Go concerns.
 
-### Kafka — Async Event Bus
+### Kafka: Async Event Bus
 
 Kafka decouples inference completion from usage persistence. The Python worker does not wait for PostgreSQL before returning. This keeps the hot inference path free of database latency.
 
@@ -234,7 +234,7 @@ Kafka decouples inference completion from usage persistence. The Python worker d
 
 Token streaming does **not** go through Kafka. Tokens flow: `Mistral → LangChain → gRPC stream → Go → SSE → Client`.
 
-### Redis — Distributed Ephemeral State
+### Redis: Distributed Ephemeral State
 
 Redis stores state that is fast to read/write, acceptable to lose on restart, and shared across multiple Go backend replicas.
 
@@ -249,7 +249,7 @@ Redis stores state that is fast to read/write, acceptable to lose on restart, an
 
 Redis is **not** the source of truth for usage, pricing, or metering. PostgreSQL owns that.
 
-### PostgreSQL — Durable Source of Truth
+### PostgreSQL: Durable Source of Truth
 
 All durable state lives in PostgreSQL.
 
@@ -378,8 +378,8 @@ Aegis operates a **Bring Your Own Key** model. Users register their own Mistral 
 
 Implications:
 
-- Aegis has **no billing responsibility** — the user pays Mistral directly for tokens consumed
-- Aegis does **meter usage** — token counts are recorded per project and organisation for quota enforcement and analytics visible in the dashboard
+- Aegis has **no billing responsibility**: the user pays Mistral directly for tokens consumed
+- Aegis does **meter usage**: token counts are recorded per project and organisation for quota enforcement and analytics visible in the dashboard
 - Provider keys are **never logged** and never included in inference job records
 - Key rotation and revocation are supported at the project level via the dashboard
 
@@ -420,15 +420,15 @@ Queuing is bounded. The controller implements backpressure rather than allowing 
 
 Rate limits are enforced using **atomic Redis operations** (sliding window) at three levels:
 
-1. **API key** — per-key RPM and TPM limits
-2. **Project** — project-level aggregate limits
-3. **Organisation** — tenant-level cap across all projects
+1. **API key**: per-key RPM and TPM limits
+2. **Project**: project-level aggregate limits
+3. **Organisation**: tenant-level cap across all projects
 
 Because limits are stored in Redis, they work correctly when **multiple Go backend instances** run behind a load balancer. In-memory limiters are not used as the source of truth.
 
 On limit exceeded: `429 Too Many Requests` with `Retry-After` header.
 
-On Redis unavailability: the system fails **closed** — it rejects rather than bypasses to avoid accidentally disabling security controls.
+On Redis unavailability: the system fails **closed**: it rejects rather than bypasses to avoid accidentally disabling security controls.
 
 ---
 
@@ -494,7 +494,7 @@ Secrets (API keys, provider keys, passwords) are **never logged**.
 
 - API keys are generated with cryptographically secure random data; only the hash and a non-secret prefix are stored
 - BYOK provider keys are stored encrypted; the plaintext is only retrieved inside the Python worker at inference time
-- Strict tenant isolation — a key from Organisation A can never access Organisation B's resources
+- Strict tenant isolation: a key from Organisation A can never access Organisation B's resources
 - Parameterised SQL throughout; no string interpolation in queries
 - Request size limits enforced at the router level
 - Internal infrastructure (gRPC, Redis, Kafka) is not exposed publicly
@@ -533,7 +533,7 @@ npm run dev
 
 The dashboard is available at `http://localhost:5173`.
 
-### Or — start everything at once
+### Or: start everything at once
 
 ```bash
 # From the repo root
@@ -544,7 +544,7 @@ The dashboard is available at `http://localhost:5173`.
 
 ## Environment Variables
 
-### Backend — see [`backend/.env.example`](backend/.env.example)
+### Backend: see [`backend/.env.example`](backend/.env.example)
 
 | Variable | Description |
 |---|---|
@@ -555,7 +555,7 @@ The dashboard is available at `http://localhost:5173`.
 | `JWT_SECRET` | Secret for signing JWT tokens |
 | `ENCRYPTION_KEY` | Key used to encrypt stored BYOK provider keys |
 
-### Frontend — see [`frontend/.env.example`](frontend/.env.example)
+### Frontend: see [`frontend/.env.example`](frontend/.env.example)
 
 | Variable | Description |
 |---|---|
