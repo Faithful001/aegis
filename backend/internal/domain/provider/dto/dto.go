@@ -13,13 +13,13 @@ type SaveCredentialRequest struct {
 }
 
 type CredentialResponse struct {
-	ID             uuid.UUID `json:"id"`
-	OrganizationID uuid.UUID `json:"organization_id"`
-	Provider       string    `json:"provider"`
-	MaskedAPIKey   string    `json:"masked_api_key"`
-	BaseURL        string    `json:"base_url,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID           uuid.UUID `json:"id"`
+	UserID       uuid.UUID `json:"user_id"`
+	Provider     string    `json:"provider"`
+	MaskedAPIKey string    `json:"masked_api_key"`
+	BaseURL      string    `json:"base_url,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type CredentialListResponse struct {

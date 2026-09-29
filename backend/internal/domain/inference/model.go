@@ -38,8 +38,9 @@ type Message struct {
 type InferenceJob struct {
 	JobID          string     `json:"job_id"`
 	RequestID      string     `json:"request_id"`
-	OrganizationID uuid.UUID  `json:"organization_id"`
-	ProjectID      uuid.UUID  `json:"project_id"`
+	UserID         uuid.UUID  `json:"user_id"`
+	OrganizationID uuid.UUID  `json:"organization_id,omitempty"`
+	ProjectID      uuid.UUID  `json:"project_id,omitempty"`
 	Model          string     `json:"model"`
 	Messages       []Message  `json:"messages"`
 	MaxTokens      int        `json:"max_tokens"`
@@ -72,7 +73,7 @@ type StreamChunk struct {
 
 func NewInferenceJob(
 	reqID string,
-	orgID, projectID uuid.UUID,
+	userID uuid.UUID,
 	model string,
 	messages []Message,
 	maxTokens int,
@@ -104,8 +105,9 @@ func NewInferenceJob(
 	return &InferenceJob{
 		JobID:          jobID,
 		RequestID:      reqID,
-		OrganizationID: orgID,
-		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: userID,
+		ProjectID:      userID,
 		Model:          model,
 		Messages:       messages,
 		MaxTokens:      maxTokens,

@@ -18,6 +18,7 @@ var (
 type RateLimitTier string
 
 const (
+	TierUser         RateLimitTier = "user"
 	TierAPIKey       RateLimitTier = "api_key"
 	TierProject      RateLimitTier = "project"
 	TierOrganization RateLimitTier = "organization"

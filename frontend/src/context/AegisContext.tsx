@@ -1,19 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { Organization, Project, APIKey, ChatThread, ChatMessage } from "../types/api";
-import { orgsApi } from "../api/orgs";
-import { projectsApi } from "../api/projects";
+import { ProviderCredential, ChatThread, ChatMessage } from "../types/api";
+import { credentialsApi } from "../api/credentials";
 import { useAuth } from "./AuthContext";
 
 interface AegisContextType {
-  organizations: Organization[];
-  activeOrg: Organization | null;
-  setActiveOrg: (org: Organization | null) => void;
-  projects: Project[];
-  activeProject: Project | null;
-  setActiveProject: (proj: Project | null) => void;
-  apiKeys: APIKey[];
-  activeApiKey: string;
-  setActiveApiKey: (key: string) => void;
+  credentials: ProviderCredential[];
+  refreshCredentials: () => Promise<void>;
+  hasCredential: (provider: string) => boolean;
   selectedModel: string;
   setSelectedModel: (model: string) => void;
   chatThreads: ChatThread[];
@@ -22,102 +15,80 @@ interface AegisContextType {
   createNewThread: () => string;
   addMessageToThread: (threadId: string, msg: ChatMessage) => void;
   updateLastMessageInThread: (threadId: string, content: string) => void;
-  refreshOrgs: () => Promise<void>;
-  refreshProjects: () => Promise<void>;
-  refreshKeys: () => Promise<void>;
 }
 
 const AegisContext = createContext<AegisContextType | undefined>(undefined);
 
 export const AVAILABLE_MODELS = [
   {
-    id: "aegis-mistral-7b",
-    name: "Aegis Mistral 7B",
-    description: "Distributed self-hosted AI worker",
+    id: "mistral-small-latest",
+    name: "Mistral Small",
+    provider: "mistral",
+    description: "Fast, balanced general reasoning model",
     fast: true,
   },
   {
-    id: "openrouter/auto",
-    name: "OpenRouter Auto",
-    description: "BYOK high performance router",
-    fast: true,
+    id: "mistral-large-latest",
+    name: "Mistral Large",
+    provider: "mistral",
+    description: "Top-tier flagship reasoning & coding model",
+    fast: false,
   },
   {
     id: "gpt-4o-mini",
     name: "OpenAI GPT-4o Mini",
-    description: "Direct BYOK provider route",
+    provider: "openai",
+    description: "High speed direct OpenAI BYOK route",
     fast: true,
   },
   {
     id: "claude-3-5-sonnet",
     name: "Claude 3.5 Sonnet",
-    description: "Reasoning and code generation",
+    provider: "anthropic",
+    description: "Frontier coding & multi-turn reasoning",
     fast: false,
+  },
+  {
+    id: "openrouter/auto",
+    name: "OpenRouter Auto",
+    provider: "openrouter",
+    description: "Universal BYOK router with fallback routing",
+    fast: true,
   },
 ];
 
 export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [activeProject, setActiveProject] = useState<Project | null>(null);
-  const [apiKeys, setApiKeys] = useState<APIKey[]>([]);
-  const [activeApiKey, setActiveApiKey] = useState<string>(
-    sessionStorage.getItem("aegis_user_api_key") || ""
-  );
-  const [selectedModel, setSelectedModel] = useState<string>("aegis-mistral-7b");
+  const [credentials, setCredentials] = useState<ProviderCredential[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>("mistral-small-latest");
 
   const [chatThreads, setChatThreads] = useState<ChatThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>("default-thread-1");
 
-  const refreshOrgs = async () => {
-    if (!isAuthenticated) return;
+  const refreshCredentials = async () => {
+    if (!isAuthenticated) {
+      setCredentials([]);
+      return;
+    }
     try {
-      const list = await orgsApi.list();
-      setOrganizations(list);
-      if (list.length > 0 && !activeOrg) {
-        setActiveOrg(list[0]);
-      }
+      const list = await credentialsApi.list();
+      setCredentials(list);
     } catch (e) {
-      console.error("Error fetching orgs:", e);
+      console.error("Error fetching user credentials:", e);
     }
   };
 
-  const refreshProjects = async () => {
-    if (!activeOrg) return;
-    try {
-      const list = await projectsApi.listByOrg(activeOrg.id);
-      setProjects(list);
-      if (list.length > 0 && (!activeProject || activeProject.organization_id !== activeOrg.id)) {
-        setActiveProject(list[0]);
-      }
-    } catch (e) {
-      console.error("Error fetching projects:", e);
-    }
-  };
-
-  const refreshKeys = async () => {
-    if (!activeProject) return;
-    try {
-      const keys = await projectsApi.listApiKeys(activeProject.id);
-      setApiKeys(keys);
-    } catch (e) {
-      console.error("Error fetching API keys:", e);
-    }
+  const hasCredential = (provider: string): boolean => {
+    return credentials.some((c) => c.provider.toLowerCase() === provider.toLowerCase());
   };
 
   useEffect(() => {
-    if (isAuthenticated) refreshOrgs();
+    if (isAuthenticated) {
+      refreshCredentials();
+    } else {
+      setCredentials([]);
+    }
   }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (activeOrg) refreshProjects();
-  }, [activeOrg]);
-
-  useEffect(() => {
-    if (activeProject) refreshKeys();
-  }, [activeProject]);
 
   const createNewThread = (): string => {
     const newId = "thread-" + Date.now();
@@ -178,18 +149,9 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <AegisContext.Provider
       value={{
-        organizations,
-        activeOrg,
-        setActiveOrg,
-        projects,
-        activeProject,
-        setActiveProject,
-        apiKeys,
-        activeApiKey,
-        setActiveApiKey: (k) => {
-          sessionStorage.setItem("aegis_user_api_key", k);
-          setActiveApiKey(k);
-        },
+        credentials,
+        refreshCredentials,
+        hasCredential,
         selectedModel,
         setSelectedModel,
         chatThreads,
@@ -198,9 +160,6 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         createNewThread,
         addMessageToThread,
         updateLastMessageInThread,
-        refreshOrgs,
-        refreshProjects,
-        refreshKeys,
       }}
     >
       {children}

@@ -47,24 +47,18 @@ func (ctrl *InferenceController) HandleChatCompletion(c *gin.Context) {
 		c.Set("requestID", reqID)
 	}
 
-	orgID, _ := c.Get("orgID")
-	
-	projectID, _ := c.Get("projectID")
-
-	var orgUUID, projectUUID uuid.UUID
-	if val, ok := orgID.(uuid.UUID); ok {
-		orgUUID = val
-	}
-	if val, ok := projectID.(uuid.UUID); ok {
-		projectUUID = val
+	userIDVal, _ := c.Get("userID")
+	var userUUID uuid.UUID
+	if val, ok := userIDVal.(uuid.UUID); ok {
+		userUUID = val
 	}
 
 	if req.Stream {
-		ctrl.handleStreamChatCompletion(c, reqID, orgUUID, projectUUID, req)
+		ctrl.handleStreamChatCompletion(c, reqID, userUUID, req)
 		return
 	}
 
-	resp, err := ctrl.service.ExecuteChatCompletion(c.Request.Context(), reqID, orgUUID, projectUUID, req)
+	resp, err := ctrl.service.ExecuteChatCompletion(c.Request.Context(), reqID, userUUID, req)
 	if err != nil {
 		ctrl.handleInferenceError(c, err)
 		return
@@ -76,10 +70,10 @@ func (ctrl *InferenceController) HandleChatCompletion(c *gin.Context) {
 func (ctrl *InferenceController) handleStreamChatCompletion(
 	c *gin.Context,
 	reqID string,
-	orgUUID, projectUUID uuid.UUID,
+	userUUID uuid.UUID,
 	req dto.ChatCompletionRequest,
 ) {
-	chunkChan, job, err := ctrl.service.ExecuteStreamChatCompletion(c.Request.Context(), reqID, orgUUID, projectUUID, req)
+	chunkChan, job, err := ctrl.service.ExecuteStreamChatCompletion(c.Request.Context(), reqID, userUUID, req)
 	if err != nil {
 		ctrl.handleInferenceError(c, err)
 		return

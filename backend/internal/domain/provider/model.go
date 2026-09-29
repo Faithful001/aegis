@@ -34,8 +34,8 @@ func IsSupportedProvider(p string) bool {
 
 type ProviderCredential struct {
 	ID              uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	OrganizationID  uuid.UUID `gorm:"type:uuid;not null;index:idx_org_provider,unique" json:"organization_id"`
-	Provider        string    `gorm:"type:varchar(50);not null;index:idx_org_provider,unique" json:"provider"`
+	UserID          uuid.UUID `gorm:"type:uuid;not null;index:idx_user_provider,unique" json:"user_id"`
+	Provider        string    `gorm:"type:varchar(50);not null;index:idx_user_provider,unique" json:"provider"`
 	EncryptedAPIKey string    `gorm:"type:text;not null" json:"-"`
 	BaseURL         string    `gorm:"type:varchar(255)" json:"base_url,omitempty"`
 	CreatedAt       time.Time `gorm:"autoCreateTime" json:"created_at"`

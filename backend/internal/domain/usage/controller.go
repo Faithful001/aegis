@@ -18,6 +18,76 @@ func NewUsageController(service *UsageService) *UsageController {
 	return &UsageController{service: service}
 }
 
+func (h *UsageController) GetUserUsage(c *gin.Context) {
+	val, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized"})
+		return
+	}
+	userID := val.(uuid.UUID)
+
+	summaryMode := c.Query("summary") == "true"
+
+	var startTime, endTime time.Time
+	if stStr := c.Query("start_time"); stStr != "" {
+		if t, err := time.Parse(time.RFC3339, stStr); err == nil {
+			startTime = t
+		}
+	}
+	if etStr := c.Query("end_time"); etStr != "" {
+		if t, err := time.Parse(time.RFC3339, etStr); err == nil {
+			endTime = t
+		}
+	}
+
+	if summaryMode {
+		inTokens, outTokens, totTokens, err := h.service.GetTotalUsage(c.Request.Context(), userID, startTime, endTime)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+			return
+		}
+
+		res := dto.UsageSummaryResponse{
+			OrganizationID: userID,
+			InputTokens:    inTokens,
+			OutputTokens:   outTokens,
+			TotalTokens:    totTokens,
+		}
+		if !startTime.IsZero() {
+			res.StartTime = &startTime
+		}
+		if !endTime.IsZero() {
+			res.EndTime = &endTime
+		}
+
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": res})
+		return
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	records, err := h.service.ListByOrganization(c.Request.Context(), userID, limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	items := make([]dto.UsageRecordResponse, len(records))
+	for i, r := range records {
+		items[i] = mapRecordToResponse(r)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": dto.UsageListResponse{
+			Items:  items,
+			Limit:  limit,
+			Offset: offset,
+		},
+	})
+}
+
 func (h *UsageController) GetOrganizationUsage(c *gin.Context) {
 	orgID, err := uuid.Parse(c.Param("id"))
 	if err != nil {

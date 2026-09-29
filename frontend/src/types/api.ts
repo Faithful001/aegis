@@ -1,6 +1,8 @@
 export interface User {
   id: string;
   email: string;
+  first_name?: string;
+  last_name?: string;
   name?: string;
   created_at?: string;
 }
@@ -8,62 +10,32 @@ export interface User {
 export interface AuthResponse {
   success: boolean;
   token?: string;
+  access_token?: string;
   refresh_token?: string;
   user?: User;
   data?: {
     user_id?: string;
     email?: string;
     token?: string;
+    access_token?: string;
+    refresh_token?: string;
     user?: User;
   };
   message?: string;
 }
 
-export interface Organization {
-  id: string;
-  name: string;
-  slug: string;
-  owner_id: string;
-  created_at: string;
-  updated_at?: string;
-}
-
-export interface OrgMember {
-  id: string;
-  organization_id: string;
-  user_id: string;
-  role: string;
-  email?: string;
-  created_at: string;
-}
 
 export interface ProviderCredential {
   id?: string;
-  organization_id: string;
-  provider: 'openai' | 'openrouter' | 'anthropic' | string;
+  user_id?: string;
+  provider: 'openai' | 'openrouter' | 'anthropic' | 'gemini' | 'mistral' | string;
+  masked_api_key?: string;
   api_key_masked?: string;
+  base_url?: string;
   created_at?: string;
+  updated_at?: string;
 }
 
-export interface Project {
-  id: string;
-  organization_id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  created_at: string;
-}
-
-export interface APIKey {
-  id: string;
-  project_id: string;
-  name: string;
-  key_prefix: string;
-  secret?: string; // Only returned upon creation
-  created_at: string;
-  expires_at?: string;
-  revoked?: boolean;
-}
 
 export interface UsageMetric {
   total_requests: number;

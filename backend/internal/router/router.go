@@ -8,10 +8,9 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/admission"
 	"github.com/Faithful001/aegis/internal/domain/auth"
 	"github.com/Faithful001/aegis/internal/domain/inference"
-	"github.com/Faithful001/aegis/internal/domain/organization"
-	"github.com/Faithful001/aegis/internal/domain/project"
 	"github.com/Faithful001/aegis/internal/domain/provider"
 	"github.com/Faithful001/aegis/internal/domain/usage"
+	"github.com/Faithful001/aegis/internal/domain/user"
 	"github.com/Faithful001/aegis/internal/infra/db"
 	"github.com/Faithful001/aegis/internal/infra/middleware"
 	"github.com/Faithful001/aegis/internal/infra/ratelimiter"
@@ -22,11 +21,8 @@ import (
 
 type RouterConfig struct {
 	AuthService         *auth.AuthService
-	APIKeyService       *auth.APIKeyService
 	AuthController      *auth.AuthController
-	APIKeyController    *auth.APIKeyController
-	OrgController       *organization.Controller
-	ProjectController   *project.ProjectController
+	UserController      *user.UserController
 	InferenceController *inference.InferenceController
 	UsageController     *usage.UsageController
 	ProviderController  *provider.ProviderController
@@ -108,73 +104,47 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			authRoutes.POST("/logout", cfg.AuthController.Logout)
 		}
 
-		// Protected Management Routes
+		// Protected Management & Inference Routes
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware(cfg.AuthService))
 		{
 			// User Profile
-			protected.GET("/user/profile", func(c *gin.Context) {
-				userID, _ := middleware.GetUserID(c)
-				userEmail, _ := middleware.GetUserEmail(c)
-				c.JSON(http.StatusOK, gin.H{
-					"success": true,
-					"data": gin.H{
-						"user_id": userID,
-						"email":   userEmail,
-					},
-					"message": "User profile fetched successfully",
-				})
-			})
+			protected.GET("/user/me", cfg.UserController.GetMe)
 
-			// Organizations
-			orgs := protected.Group("/organizations")
-			{
-				orgs.POST("", cfg.OrgController.Create)
-				orgs.GET("", cfg.OrgController.List)
-				orgs.GET("/:id", cfg.OrgController.Get)
-				orgs.POST("/:id/members", cfg.OrgController.AddMember)
-				orgs.GET("/:id/members", cfg.OrgController.ListMembers)
-
-				// BYOK Provider Credentials Management
-				if cfg.ProviderController != nil {
-					orgs.POST("/:id/credentials", cfg.ProviderController.SaveCredential)
-					orgs.GET("/:id/credentials", cfg.ProviderController.ListCredentials)
-					orgs.DELETE("/:id/credentials/:provider", cfg.ProviderController.DeleteCredential)
-				}
-
-				// Organization Projects
-				orgs.POST("/:id/projects", cfg.ProjectController.Create)
-				orgs.GET("/:id/projects", cfg.ProjectController.List)
-
-				// Organization Usage Metering
-				if cfg.UsageController != nil {
-					orgs.GET("/:id/usage", cfg.UsageController.GetOrganizationUsage)
-				}
+			// User BYOK Provider Credentials Management
+			if cfg.ProviderController != nil {
+				protected.POST("/credentials", cfg.ProviderController.SaveCredential)
+				protected.GET("/credentials", cfg.ProviderController.ListCredentials)
+				protected.DELETE("/credentials/:provider", cfg.ProviderController.DeleteCredential)
 			}
 
-			// Projects & API Keys
-			projects := protected.Group("/projects")
-			{
-				projects.GET("/:id", cfg.ProjectController.Get)
-				projects.POST("/:id/api-keys", cfg.APIKeyController.Create)
-				projects.GET("/:id/api-keys", cfg.APIKeyController.List)
-
-				// Project Usage Metering
-				if cfg.UsageController != nil {
-					projects.GET("/:id/usage", cfg.UsageController.GetProjectUsage)
-				}
+			// User Token Usage Metering
+			if cfg.UsageController != nil {
+				protected.GET("/usage", cfg.UsageController.GetUserUsage)
+				protected.GET("/user/usage", cfg.UsageController.GetUserUsage)
 			}
 
-			// Direct API Key Management
-			protected.DELETE("/api-keys/:id", cfg.APIKeyController.Revoke)
+			// Chat Completions API (JWT Authenticated)
+			if cfg.InferenceController != nil {
+				chatGroup := protected.Group("")
+				if cfg.RateLimiter != nil {
+					chatGroup.Use(middleware.RateLimitMiddleware(cfg.RateLimiter))
+				} else if redisClient := redis.GetClient(); redisClient != nil {
+					chatGroup.Use(middleware.RateLimitMiddleware(ratelimiter.NewRedisRateLimiter(redisClient)))
+				}
+				if cfg.AdmissionService != nil {
+					chatGroup.Use(middleware.AdmissionMiddleware(cfg.AdmissionService))
+				}
+				chatGroup.POST("/chat/completions", cfg.InferenceController.HandleChatCompletion)
+			}
 		}
 	}
 
 	// ==================================================
-	// 2. INFERENCE / DATA PLANE API (/v1) - API Key Auth
+	// 2. INFERENCE / DATA PLANE API (/v1) - JWT Auth
 	// ==================================================
 	inferenceV1 := r.Group("/v1")
-	inferenceV1.Use(middleware.APIKeyAuthMiddleware(cfg.APIKeyService))
+	inferenceV1.Use(middleware.AuthMiddleware(cfg.AuthService))
 
 	if cfg.RateLimiter != nil {
 		inferenceV1.Use(middleware.RateLimitMiddleware(cfg.RateLimiter))
@@ -186,16 +156,15 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		inferenceV1.Use(middleware.AdmissionMiddleware(cfg.AdmissionService))
 	}
 	{
-		// Verification / ping endpoint for API Key Principal
+		// Verification / ping endpoint for User Principal
 		inferenceV1.GET("/auth/verify", func(c *gin.Context) {
-			principal, _ := middleware.GetPrincipal(c)
+			userID, _ := middleware.GetUserID(c)
+			email, _ := middleware.GetUserEmail(c)
 			c.JSON(http.StatusOK, gin.H{
 				"authenticated": true,
 				"principal": gin.H{
-					"organization_id": principal.OrganizationID,
-					"project_id":      principal.ProjectID,
-					"api_key_id":      principal.APIKeyID,
-					"key_prefix":      principal.KeyPrefix,
+					"user_id": userID,
+					"email":   email,
 				},
 			})
 		})

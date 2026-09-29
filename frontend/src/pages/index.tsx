@@ -2,22 +2,21 @@ import React, { useState } from "react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ChatPromptInput } from "../components/chat/ChatPromptInput";
 import { ChatMessages } from "../components/chat/ChatMessages";
-import { AppExploreCards } from "../components/chat/AppExploreCards";
-import { useAegis } from "../context/AegisContext";
+import { useAegis, AVAILABLE_MODELS } from "../context/AegisContext";
 import { useAuth } from "../context/AuthContext";
 import { streamChatCompletion } from "../api/chat";
 import { AddCredentialModal } from "../components/modals/AddCredentialModal";
-import { CreateKeyModal } from "../components/modals/CreateKeyModal";
 import { AuthModal } from "../components/modals/AuthModal";
 import { toast } from "sonner";
+import { Key } from "lucide-react";
 
 export const HomePage: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const {
     chatThreads,
     activeThreadId,
-    activeApiKey,
     selectedModel,
+    hasCredential,
     addMessageToThread,
     updateLastMessageInThread,
     createNewThread,
@@ -25,11 +24,13 @@ export const HomePage: React.FC = () => {
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [credModalOpen, setCredModalOpen] = useState(false);
-  const [keyModalOpen, setKeyModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
   const activeThread = chatThreads.find((t) => t.id === activeThreadId);
   const messages = activeThread?.messages || [];
+
+  const selectedModelMeta =
+    AVAILABLE_MODELS.find((m) => m.id === selectedModel) || AVAILABLE_MODELS[0];
 
   const handleSendMessage = async (promptText: string) => {
     if (!isAuthenticated) {
@@ -64,10 +65,7 @@ export const HomePage: React.FC = () => {
     addMessageToThread(currentThreadId, initialAssistantMsg);
     setIsStreaming(true);
 
-    const apiKeyToUse = activeApiKey || "aegis_default_demo_key";
-
     await streamChatCompletion(
-      apiKeyToUse,
       {
         model: selectedModel,
         messages: [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })),
@@ -80,10 +78,11 @@ export const HomePage: React.FC = () => {
       },
       (err) => {
         setIsStreaming(false);
-        toast.error(`Inference Error: ${err.message}`);
+        const errMsg = err.message || "Inference failed";
+        toast.error(`Inference Error: ${errMsg}`);
         updateLastMessageInThread(
           currentThreadId!,
-          `\n\n*[Aegis Inference Error: ${err.message}. Ensure backend is running and valid API Key / BYOK is set.]*`
+          `\n\n*[Aegis Error: ${errMsg}. If you are using a BYOK model, ensure your provider key is saved in your Vault.]*`
         );
       }
     );
@@ -114,12 +113,14 @@ export const HomePage: React.FC = () => {
         )}
       </div>
 
-      <AddCredentialModal open={credModalOpen} onOpenChange={setCredModalOpen} />
-      <CreateKeyModal open={keyModalOpen} onOpenChange={setKeyModalOpen} />
+      <AddCredentialModal
+        open={credModalOpen}
+        onOpenChange={setCredModalOpen}
+        defaultProvider={selectedModelMeta.provider}
+      />
       <AuthModal open={authModalOpen} onOpenChange={setAuthModalOpen} initialMode="login" />
     </MainLayout>
   );
 };
 
 export default HomePage;
-

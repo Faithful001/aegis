@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { Input } from "../../../components/ui/Input";
@@ -12,6 +12,7 @@ export const LoginPage: React.FC = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,7 +20,7 @@ export const LoginPage: React.FC = () => {
     try {
       await login(email, password);
       toast.success("Logged in successfully!");
-      window.location.href = "/";
+      navigate({ to: "/" });
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Login failed");
     } finally {

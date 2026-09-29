@@ -10,7 +10,7 @@ type Service struct {
 	repo IUserRepository
 }
 
-func NewService(repo IUserRepository) *Service {
+func NewUserService(repo IUserRepository) *Service {
 	return &Service{repo: repo}
 }
 

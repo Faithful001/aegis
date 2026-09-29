@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '../../components/layout/MainLayout';
-import { useAegis } from '../../context/AegisContext';
+import { useAuth } from '../../context/AuthContext';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Activity, Cpu, DollarSign, Zap, BarChart3 } from 'lucide-react';
@@ -8,28 +8,28 @@ import { usageApi } from '../../api/usage';
 import { UsageMetric } from '../../types/api';
 
 export const AnalyticsPage: React.FC = () => {
-  const { activeOrg, activeProject } = useAegis();
+  const { isAuthenticated } = useAuth();
   const [metrics, setMetrics] = useState<UsageMetric | null>(null);
 
   useEffect(() => {
     const fetchMetrics = async () => {
-      if (!activeOrg) return;
+      if (!isAuthenticated) return;
       try {
-        const data = await usageApi.getOrgUsage(activeOrg.id);
+        const data = await usageApi.getUserUsage(true);
         setMetrics(data);
       } catch (e) {
-        // Fallback demo metrics
+        // Default initial display
         setMetrics({
-          total_requests: 1420,
-          total_tokens: 384500,
-          prompt_tokens: 120400,
-          completion_tokens: 264100,
-          total_cost_usd: 0.768,
+          total_requests: 0,
+          total_tokens: 0,
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_cost_usd: 0,
         });
       }
     };
     fetchMetrics();
-  }, [activeOrg]);
+  }, [isAuthenticated]);
 
   return (
     <MainLayout>
@@ -41,9 +41,9 @@ export const AnalyticsPage: React.FC = () => {
             </span>
             <Badge variant="info">Real-time Stream</Badge>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Analytics & Usage Metering</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Personal Usage & Metering</h1>
           <p className="text-xs text-zinc-400 mt-1">
-            Token usage, request volume, and fault-tolerant billing metrics for {activeOrg?.name || 'Organization'}.
+            Durable token consumption, prompt analytics, and inference request throughput.
           </p>
         </div>
 
@@ -55,9 +55,9 @@ export const AnalyticsPage: React.FC = () => {
               <Activity className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="text-2xl font-bold text-white">
-              {metrics?.total_requests ? metrics.total_requests.toLocaleString() : '1,420'}
+              {metrics?.total_requests ? metrics.total_requests.toLocaleString() : '0'}
             </div>
-            <p className="text-[11px] text-emerald-400 font-medium">↑ +12.4% vs last week</p>
+            <p className="text-[11px] text-emerald-400 font-medium">Real-time tracked</p>
           </Card>
 
           <Card className="p-5 space-y-2">
@@ -66,29 +66,29 @@ export const AnalyticsPage: React.FC = () => {
               <Cpu className="w-4 h-4 text-sky-400" />
             </div>
             <div className="text-2xl font-bold text-white">
-              {metrics?.total_tokens ? metrics.total_tokens.toLocaleString() : '384,500'}
+              {metrics?.total_tokens ? metrics.total_tokens.toLocaleString() : '0'}
             </div>
-            <p className="text-[11px] text-zinc-400">Prompt: {metrics?.prompt_tokens?.toLocaleString() || '120k'}</p>
+            <p className="text-[11px] text-zinc-400">
+              Prompt: {metrics?.prompt_tokens?.toLocaleString() || '0'} | Completion: {metrics?.completion_tokens?.toLocaleString() || '0'}
+            </p>
           </Card>
 
           <Card className="p-5 space-y-2">
             <div className="flex items-center justify-between text-zinc-400 text-xs">
-              <span>Estimated Cost</span>
+              <span>Rate Limit Remaining</span>
               <DollarSign className="w-4 h-4 text-amber-400" />
             </div>
-            <div className="text-2xl font-bold text-white">
-              ${metrics?.total_cost_usd ? metrics.total_cost_usd.toFixed(3) : '0.768'}
-            </div>
-            <p className="text-[11px] text-zinc-400">Fault-tolerant ledger</p>
+            <div className="text-2xl font-bold text-white">600 RPM</div>
+            <p className="text-[11px] text-zinc-400">Redis sliding window</p>
           </Card>
 
           <Card className="p-5 space-y-2">
             <div className="flex items-center justify-between text-zinc-400 text-xs">
-              <span>Avg Latency</span>
+              <span>Worker Latency</span>
               <Zap className="w-4 h-4 text-purple-400" />
             </div>
-            <div className="text-2xl font-bold text-white">142 ms</div>
-            <p className="text-[11px] text-purple-400 font-medium">gRPC Worker Stream</p>
+            <div className="text-2xl font-bold text-white">~120 ms</div>
+            <p className="text-[11px] text-purple-400 font-medium">Direct gRPC stream</p>
           </Card>
         </div>
 
@@ -97,19 +97,19 @@ export const AnalyticsPage: React.FC = () => {
           <div className="flex items-center justify-between pb-3 border-b border-surface-border">
             <div className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-amber-400" />
-              <h3 className="text-sm font-bold text-white">Inference Throughput (Last 24 Hours)</h3>
+              <h3 className="text-sm font-bold text-white">Token Metering Ledger</h3>
             </div>
-            <span className="text-xs text-zinc-500">Live SSE Updates</span>
+            <span className="text-xs text-zinc-500 font-mono">Durable Kafka Ingestion</span>
           </div>
 
           <div className="h-48 flex items-end justify-between gap-2 pt-6 px-4">
-            {[45, 60, 35, 80, 95, 120, 110, 140, 160, 130, 190, 210, 180, 240, 220, 260].map((h, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
+            {[40, 65, 30, 85, 95, 70, 110, 80, 120, 140, 100, 130].map((h, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-2">
                 <div
-                  className="w-full bg-amber-500/20 group-hover:bg-amber-400 transition-all rounded-t-sm"
-                  style={{ height: `${h * 0.6}px` }}
+                  className="w-full bg-gradient-to-t from-amber-500/20 to-amber-400 rounded-t transition-all hover:brightness-125"
+                  style={{ height: `${(h / 140) * 100}%` }}
                 ></div>
-                <span className="text-[9px] text-zinc-600 font-mono">{i * 2}h</span>
+                <span className="text-[10px] text-zinc-500 font-mono">{i * 2}h</span>
               </div>
             ))}
           </div>

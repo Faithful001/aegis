@@ -82,7 +82,7 @@ func (s *InferenceService) selectWorker(ctx context.Context, req dto.ChatComplet
 func (s *InferenceService) ExecuteChatCompletion(
 	ctx context.Context,
 	reqID string,
-	orgID, projectID uuid.UUID,
+	userID uuid.UUID,
 	req dto.ChatCompletionRequest,
 ) (*dto.ChatCompletionResponse, error) {
 	startTime := time.Now()
@@ -93,9 +93,9 @@ func (s *InferenceService) ExecuteChatCompletion(
 	if s.providerGateway != nil && s.providerSvc != nil {
 		if providerName := s.providerGateway.GetProviderForModel(req.Model); providerName != "" {
 			log.Printf("Provider name: %s", providerName)
-			apiKey, baseURL, err := s.providerSvc.GetDecryptedKey(ctx, orgID, providerName)
+			apiKey, baseURL, err := s.providerSvc.GetDecryptedKey(ctx, userID, providerName)
 			if err != nil {
-				return nil, fmt.Errorf("BYOK key for provider '%s' not configured for organization: %w", providerName, err)
+				return nil, fmt.Errorf("BYOK key for provider '%s' not configured: %w", providerName, err)
 			}
 
 			log.Printf("Base URL reached: %s", baseURL)
@@ -103,7 +103,7 @@ func (s *InferenceService) ExecuteChatCompletion(
 
 			resp, err := s.providerGateway.Generate(ctx, providerName, apiKey, baseURL, req)
 			if err != nil {
-				log.Printf("[OpenRouter Error]: Error generating chat completion: %v", err)
+				log.Printf("[Provider Error]: Error generating chat completion: %v", err)
 				return nil, err
 			}
 
@@ -111,8 +111,8 @@ func (s *InferenceService) ExecuteChatCompletion(
 				evt := kafka.NewUsageEvent(
 					"",
 					reqID,
-					orgID,
-					projectID,
+					userID,
+					userID,
 					req.Model,
 					resp.Usage.PromptTokens,
 					resp.Usage.CompletionTokens,
@@ -136,8 +136,7 @@ func (s *InferenceService) ExecuteChatCompletion(
 
 	job, err := NewInferenceJob(
 		reqID,
-		orgID,
-		projectID,
+		userID,
 		req.Model,
 		domainMessages,
 		req.MaxTokens,
@@ -161,8 +160,8 @@ func (s *InferenceService) ExecuteChatCompletion(
 		evt := kafka.NewUsageEvent(
 			"",
 			reqID,
-			orgID,
-			projectID,
+			userID,
+			userID,
 			job.Model,
 			result.PromptTokens,
 			result.CompletionTokens,
@@ -198,7 +197,7 @@ func (s *InferenceService) ExecuteChatCompletion(
 func (s *InferenceService) ExecuteStreamChatCompletion(
 	ctx context.Context,
 	reqID string,
-	orgID, projectID uuid.UUID,
+	userID uuid.UUID,
 	req dto.ChatCompletionRequest,
 ) (<-chan StreamChunk, *InferenceJob, error) {
 	startTime := time.Now()
@@ -209,9 +208,9 @@ func (s *InferenceService) ExecuteStreamChatCompletion(
 	// 1. Check if model routes to a BYOK frontier provider
 	if s.providerGateway != nil && s.providerSvc != nil {
 		if providerName := s.providerGateway.GetProviderForModel(req.Model); providerName != "" {
-			apiKey, baseURL, err := s.providerSvc.GetDecryptedKey(ctx, orgID, providerName)
+			apiKey, baseURL, err := s.providerSvc.GetDecryptedKey(ctx, userID, providerName)
 			if err != nil {
-				return nil, nil, fmt.Errorf("BYOK key for provider '%s' not configured for organization: %w", providerName, err)
+				return nil, nil, fmt.Errorf("BYOK key for provider '%s' not configured: %w", providerName, err)
 			}
 
 			chunkChan, err := s.providerGateway.StreamGenerate(ctx, providerName, apiKey, baseURL, req)
@@ -219,7 +218,7 @@ func (s *InferenceService) ExecuteStreamChatCompletion(
 				return nil, nil, err
 			}
 
-			job, _ := NewInferenceJob(reqID, orgID, projectID, req.Model, nil, req.MaxTokens, req.Temperature, true)
+			job, _ := NewInferenceJob(reqID, userID, req.Model, nil, req.MaxTokens, req.Temperature, true)
 
 			outChan := make(chan StreamChunk)
 			go func() {
@@ -229,8 +228,8 @@ func (s *InferenceService) ExecuteStreamChatCompletion(
 						evt := kafka.NewUsageEvent(
 							"",
 							reqID,
-							orgID,
-							projectID,
+							userID,
+							userID,
 							req.Model,
 							chunk.PromptTokens,
 							chunk.OutputTokens,
@@ -257,8 +256,7 @@ func (s *InferenceService) ExecuteStreamChatCompletion(
 
 	job, err := NewInferenceJob(
 		reqID,
-		orgID,
-		projectID,
+		userID,
 		req.Model,
 		domainMessages,
 		req.MaxTokens,
@@ -290,8 +288,8 @@ func (s *InferenceService) ExecuteStreamChatCompletion(
 				evt := kafka.NewUsageEvent(
 					"",
 					reqID,
-					orgID,
-					projectID,
+					userID,
+					userID,
 					job.Model,
 					chunk.PromptTokens,
 					chunk.OutputTokens,

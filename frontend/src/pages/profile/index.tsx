@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { MainLayout } from '../../components/layout/MainLayout';
 import { useAuth } from '../../context/AuthContext';
 import { Card } from '../../components/ui/Card';
@@ -8,11 +9,12 @@ import { toast } from 'sonner';
 
 export const ProfilePage: React.FC = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     await logout();
     toast.success('Logged out successfully');
-    window.location.href = '/auth/login';
+    navigate({ to: '/auth/login' });
   };
 
   return (

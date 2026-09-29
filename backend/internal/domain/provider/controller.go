@@ -17,12 +17,20 @@ func NewProviderController(service *ProviderCredentialService) *ProviderControll
 	return &ProviderController{service: service}
 }
 
-// SaveCredential handles POST /api/v1/organizations/:id/credentials
+func getUserIDFromContext(c *gin.Context) (uuid.UUID, bool) {
+	if val, exists := c.Get("userID"); exists {
+		if id, ok := val.(uuid.UUID); ok {
+			return id, true
+		}
+	}
+	return uuid.Nil, false
+}
+
+// SaveCredential handles POST /api/v1/credentials
 func (ctl *ProviderController) SaveCredential(c *gin.Context) {
-	orgIDParam := c.Param("id")
-	orgID, err := uuid.Parse(orgIDParam)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization ID"})
+	userID, ok := getUserIDFromContext(c)
+	if !ok || userID == uuid.Nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
@@ -32,7 +40,7 @@ func (ctl *ProviderController) SaveCredential(c *gin.Context) {
 		return
 	}
 
-	resp, err := ctl.service.SaveCredential(c.Request.Context(), orgID, req)
+	resp, err := ctl.service.SaveCredential(c.Request.Context(), userID, req)
 	if err != nil {
 		if errors.Is(err, ErrInvalidProvider) || errors.Is(err, ErrInvalidCredentialData) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -48,16 +56,15 @@ func (ctl *ProviderController) SaveCredential(c *gin.Context) {
 	})
 }
 
-// ListCredentials handles GET /api/v1/organizations/:id/credentials
+// ListCredentials handles GET /api/v1/credentials
 func (ctl *ProviderController) ListCredentials(c *gin.Context) {
-	orgIDParam := c.Param("id")
-	orgID, err := uuid.Parse(orgIDParam)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization ID"})
+	userID, ok := getUserIDFromContext(c)
+	if !ok || userID == uuid.Nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
-	resp, err := ctl.service.ListCredentials(c.Request.Context(), orgID)
+	resp, err := ctl.service.ListCredentials(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -69,17 +76,16 @@ func (ctl *ProviderController) ListCredentials(c *gin.Context) {
 	})
 }
 
-// DeleteCredential handles DELETE /api/v1/organizations/:id/credentials/:provider
+// DeleteCredential handles DELETE /api/v1/credentials/:provider
 func (ctl *ProviderController) DeleteCredential(c *gin.Context) {
-	orgIDParam := c.Param("id")
-	orgID, err := uuid.Parse(orgIDParam)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization ID"})
+	userID, ok := getUserIDFromContext(c)
+	if !ok || userID == uuid.Nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
 	provider := c.Param("provider")
-	if err := ctl.service.DeleteCredential(c.Request.Context(), orgID, provider); err != nil {
+	if err := ctl.service.DeleteCredential(c.Request.Context(), userID, provider); err != nil {
 		if errors.Is(err, ErrCredentialNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return

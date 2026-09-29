@@ -29,7 +29,7 @@ func NewProviderCredentialService(repo IProviderCredentialRepository, encryption
 
 func (s *ProviderCredentialService) SaveCredential(
 	ctx context.Context,
-	orgID uuid.UUID,
+	userID uuid.UUID,
 	req dto.SaveCredentialRequest,
 ) (*dto.CredentialResponse, error) {
 	provider := strings.ToLower(strings.TrimSpace(req.Provider))
@@ -49,7 +49,7 @@ func (s *ProviderCredentialService) SaveCredential(
 
 	cred := &ProviderCredential{
 		ID:              uuid.New(),
-		OrganizationID:  orgID,
+		UserID:          userID,
 		Provider:        provider,
 		EncryptedAPIKey: encryptedKey,
 		BaseURL:         strings.TrimSpace(req.BaseURL),
@@ -60,32 +60,30 @@ func (s *ProviderCredentialService) SaveCredential(
 	}
 
 	return &dto.CredentialResponse{
-		ID:             cred.ID,
-		OrganizationID: cred.OrganizationID,
-		Provider:       cred.Provider,
-		MaskedAPIKey:   crypto.MaskAPIKey(apiKey),
-		BaseURL:        cred.BaseURL,
-		CreatedAt:      cred.CreatedAt,
-		UpdatedAt:      cred.UpdatedAt,
+		ID:           cred.ID,
+		UserID:       cred.UserID,
+		Provider:     cred.Provider,
+		MaskedAPIKey: crypto.MaskAPIKey(apiKey),
+		BaseURL:      cred.BaseURL,
+		CreatedAt:    cred.CreatedAt,
+		UpdatedAt:    cred.UpdatedAt,
 	}, nil
 }
 
 func (s *ProviderCredentialService) GetDecryptedKey(
 	ctx context.Context,
-	orgID uuid.UUID,
+	userID uuid.UUID,
 	provider string,
 ) (apiKey string, baseURL string, err error) {
-	cred, err := s.repo.GetByOrgAndProvider(ctx, orgID, provider)
+	cred, err := s.repo.GetByUserAndProvider(ctx, userID, provider)
 	if err != nil {
 		return "", "", err
 	}
 
-	log.Printf("Organization ID: %v", orgID)
+	log.Printf("User ID: %v", userID)
 	log.Printf("Provider: %v", provider)
-	log.Printf("Credential: %v", cred)
 
 	decryptedKey, err := crypto.AESDecrypt(cred.EncryptedAPIKey, s.encryptionKey)
-	log.Printf("Decrypted API Key: %v", decryptedKey)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to decrypt API key: %w", err)
 	}
@@ -95,9 +93,9 @@ func (s *ProviderCredentialService) GetDecryptedKey(
 
 func (s *ProviderCredentialService) ListCredentials(
 	ctx context.Context,
-	orgID uuid.UUID,
+	userID uuid.UUID,
 ) (*dto.CredentialListResponse, error) {
-	creds, err := s.repo.ListByOrg(ctx, orgID)
+	creds, err := s.repo.ListByUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -110,13 +108,13 @@ func (s *ProviderCredentialService) ListCredentials(
 		}
 
 		resp[i] = dto.CredentialResponse{
-			ID:             c.ID,
-			OrganizationID: c.OrganizationID,
-			Provider:       c.Provider,
-			MaskedAPIKey:   maskedKey,
-			BaseURL:        c.BaseURL,
-			CreatedAt:      c.CreatedAt,
-			UpdatedAt:      c.UpdatedAt,
+			ID:           c.ID,
+			UserID:       c.UserID,
+			Provider:     c.Provider,
+			MaskedAPIKey: maskedKey,
+			BaseURL:      c.BaseURL,
+			CreatedAt:    c.CreatedAt,
+			UpdatedAt:    c.UpdatedAt,
 		}
 	}
 
@@ -125,11 +123,11 @@ func (s *ProviderCredentialService) ListCredentials(
 
 func (s *ProviderCredentialService) DeleteCredential(
 	ctx context.Context,
-	orgID uuid.UUID,
+	userID uuid.UUID,
 	provider string,
 ) error {
 	if !IsSupportedProvider(provider) {
 		return ErrInvalidProvider
 	}
-	return s.repo.Delete(ctx, orgID, provider)
+	return s.repo.Delete(ctx, userID, provider)
 }

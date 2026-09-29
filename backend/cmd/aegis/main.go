@@ -12,8 +12,6 @@ import (
 
 	"github.com/Faithful001/aegis/internal/domain/auth"
 	"github.com/Faithful001/aegis/internal/domain/inference"
-	"github.com/Faithful001/aegis/internal/domain/organization"
-	"github.com/Faithful001/aegis/internal/domain/project"
 	"github.com/Faithful001/aegis/internal/domain/provider"
 	"github.com/Faithful001/aegis/internal/domain/scheduler"
 	"github.com/Faithful001/aegis/internal/domain/usage"
@@ -51,10 +49,6 @@ func main() {
 		migrationModels := []interface{}{
 			&user.User{},
 			&auth.BlacklistedToken{},
-			&organization.Organization{},
-			&organization.OrganizationMember{},
-			&project.Project{},
-			&auth.APIKey{},
 			&usage.UsageRecord{},
 			&provider.ProviderCredential{},
 		}
@@ -98,15 +92,11 @@ func main() {
 	// 5. Initialize Domain Repositories
 	userRepo := user.NewUserRepository(database)
 	blacklistRepo := auth.NewTokenBlacklistRepository(redisClient, database)
-	orgRepo := organization.NewOrganizationRepository(database)
-	projectRepo := project.NewProjectRepository(database)
-	apiKeyRepo := auth.NewAPIKeyRepository(database)
 	usageRepo := usage.NewUsageRepository(database)
 	providerRepo := provider.NewProviderCredentialRepository(database)
 
 	// 6. Initialize Domain Hasher, Generators & Services
 	hasher := infraAuth.NewBcryptHasher(0)
-	apiKeyGenerator := auth.NewAPIKeyGenerator()
 	tokenService := infraAuth.NewJWTService(
 		cfg.JWT.Secret,
 		cfg.JWT.Issuer,
@@ -114,10 +104,8 @@ func main() {
 		cfg.JWT.RefreshTokenExpiry,
 	)
 
-	orgService := organization.NewOrganizationService(orgRepo, userRepo)
-	projectService := project.NewProjectService(projectRepo, orgRepo)
 	authService := auth.NewAuthService(userRepo, blacklistRepo, tokenService, hasher)
-	apiKeyService := auth.NewAPIKeyService(apiKeyRepo, apiKeyGenerator, projectService)
+	userService := user.NewUserService(userRepo)
 	usageService := usage.NewUsageService(usageRepo, logger)
 	providerService := provider.NewProviderCredentialService(providerRepo, cfg.JWT.Secret)
 
@@ -152,24 +140,19 @@ func main() {
 
 	// 8. Initialize Domain Controllers
 	authController := auth.NewAuthController(authService)
-	apiKeyController := auth.NewAPIKeyController(apiKeyService)
-	orgController := organization.NewController(orgService)
-	projectController := project.NewProjectController(projectService)
 	inferenceController := inference.NewInferenceController(inferenceService)
 	usageController := usage.NewUsageController(usageService)
 	providerController := provider.NewProviderController(providerService)
+	userController := user.NewUserController(userService)
 
 	// 9. Setup HTTP Engine
 	engine := router.SetupRouter(router.RouterConfig{
 		AuthService:         authService,
-		APIKeyService:       apiKeyService,
 		AuthController:      authController,
-		APIKeyController:    apiKeyController,
-		OrgController:       orgController,
-		ProjectController:   projectController,
 		InferenceController: inferenceController,
 		UsageController:     usageController,
 		ProviderController:  providerController,
+		UserController:      userController,
 	})
 
 	srv := &http.Server{
