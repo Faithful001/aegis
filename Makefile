@@ -1,10 +1,10 @@
 .PHONY: dev dev-backend dev-frontend
 
 dev:
-	npx concurrently -n "backend,frontend" -c "cyan,magenta" "make dev-backend" "make dev-frontend"
+	npx concurrently -k -n "backend,frontend" -c "cyan,magenta" "cd backend && air" "cd frontend && npm run dev"
 
 dev-backend:
 	cd backend && air
 
 dev-frontend:
-	cd frontend && npm run dev
+	cd frontend && npm run dev

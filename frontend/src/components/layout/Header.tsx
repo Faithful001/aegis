@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { Settings, Sparkles } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { AuthModal } from "../modals/AuthModal";
@@ -25,22 +26,20 @@ export const Header: React.FC = () => {
       <div className="flex items-center gap-3">
         <>
           {/* Sign in Button */}
-          <button
-            type="button"
-            onClick={() => openAuth("login")}
+          <Link
+            to="/auth/login"
             className="px-4 py-1.5 rounded-full bg-surface-card border border-surface-border text-xs font-semibold text-zinc-200 hover:bg-zinc-800 transition-all"
           >
             Sign in
-          </button>
+          </Link>
 
           {/* Sign up Button */}
-          <button
-            type="button"
-            onClick={() => openAuth("register")}
+          <Link
+            to="/auth/register"
             className="px-4 py-1.5 rounded-full bg-white text-zinc-950 text-xs font-semibold hover:bg-zinc-200 transition-all shadow-sm"
           >
             Sign up
-          </button>
+          </Link>
         </>
       </div>
 

@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
@@ -26,7 +28,14 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-screen bg-background flex flex-col items-center justify-center max-w-md mx-auto">
+    <div className="w-full h-screen bg-background flex flex-col items-center justify-center max-w-md mx-auto relative">
+      <Link
+        to="/"
+        className="fixed top-4 left-6 flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors group"
+      >
+        <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
+        Back to Home
+      </Link>
       <div className="text-center mb-6">
         <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white text-xl font-bold mx-auto mb-3">
           Ø
@@ -38,7 +47,7 @@ export const LoginPage: React.FC = () => {
         <Input
           label="Email Address"
           type="email"
-          placeholder="developer@aegis.ai"
+          placeholder=""
           className="rounded-full"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -49,6 +58,7 @@ export const LoginPage: React.FC = () => {
           type="password"
           placeholder="••••••••"
           className="rounded-full"
+          showToggle
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -65,9 +75,9 @@ export const LoginPage: React.FC = () => {
 
       <p className="text-xs text-center text-zinc-400 mt-6">
         Don't have an account?{" "}
-        <a href="/auth/register" className="text-white hover:underline font-medium">
+        <Link to="/auth/register" className="text-white hover:underline font-medium">
           Create account
-        </a>
+        </Link>
       </p>
     </div>
   );
