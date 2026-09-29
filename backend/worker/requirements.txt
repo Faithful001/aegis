@@ -1,0 +1,7 @@
+grpcio>=1.83.1
+grpcio-tools>=1.83.1
+langchain>=1.2.10
+langchain-core>=1.6.3
+langchain-mistralai>=1.1.6
+mistralai>=2.10.0
+python-dotenv>=1.2.2

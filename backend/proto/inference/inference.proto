@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package inference;
+
+option go_package = "github.com/Faithful001/aegis/proto/inference;inferencepb";
+
+service InferenceService {
+  rpc Generate(GenerateRequest) returns (stream GenerateResponse);
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+message ChatMessage {
+  string role = 1;
+  string content = 2;
+}
+
+message GenerateRequest {
+  string request_id = 1;
+  string job_id = 2;
+  string model = 3;
+  repeated ChatMessage messages = 4;
+  int32 max_tokens = 5;
+  float temperature = 6;
+  bool stream = 7;
+  string organization_id = 8;
+  string project_id = 9;
+}
+
+message TokenUsage {
+  int32 prompt_tokens = 1;
+  int32 completion_tokens = 2;
+  int32 total_tokens = 3;
+}
+
+message GenerateResponse {
+  string request_id = 1;
+  string job_id = 2;
+  string content = 3;
+  bool done = 4;
+  string finish_reason = 5;
+  TokenUsage usage = 6;
+  string error = 7;
+}
+
+message HealthCheckRequest {
+  string worker_id = 1;
+}
+
+message HealthCheckResponse {
+  string status = 1; // "SERVING", "NOT_SERVING"
+  repeated string supported_models = 2;
+}
