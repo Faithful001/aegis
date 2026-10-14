@@ -8,31 +8,50 @@ import (
 	"time"
 
 	"github.com/Faithful001/aegis/internal/domain/auth/dto"
+	"github.com/Faithful001/aegis/internal/domain/otp"
 	"github.com/Faithful001/aegis/internal/domain/project"
 	"github.com/Faithful001/aegis/internal/domain/user"
+	"github.com/Faithful001/aegis/internal/infra/email"
 	"github.com/google/uuid"
 )
 
 type AuthService struct {
 	userRepo      user.IUserRepository
-	blacklistRepo TokenBlacklistRepository
-	tokenService  TokenService
-	hasher        PasswordHasher
+	otpRepo       otp.IOTPRepository
+	otpService    otp.IOTPService
+	emailService  email.IEmailService
+	tokenService  IJWTService
+	hasher        IBcryptPasswordHasher
+	blacklistRepo ITokenBlacklistRepository
 }
 
 func NewAuthService(
-	userRepo user.IUserRepository,
-	blacklistRepo TokenBlacklistRepository,
-	tokenService TokenService,
-	hasher PasswordHasher,
+	userRepo 		user.IUserRepository,
+	otpRepo       	otp.IOTPRepository,
+	otpService    	otp.IOTPService,
+	emailService  	email.IEmailService,
+	tokenService  	IJWTService,
+	hasher        	IBcryptPasswordHasher,
+	blacklistRepo 	ITokenBlacklistRepository,
 ) *AuthService {
 	return &AuthService{
 		userRepo:      userRepo,
-		blacklistRepo: blacklistRepo,
+		otpRepo:       otpRepo,
+		otpService:    otpService,
+		emailService:  emailService,
 		tokenService:  tokenService,
 		hasher:        hasher,
 	}
 }
+
+// func (s *AuthService) SetEmailService(emailService *email.EmailService) {
+// 	s.emailService = emailService
+// }
+
+// func (s *AuthService) SetOTP(otpRepo otp.OTPRepository, otpService *otp.OTPService) {
+// 	s.otpRepo = otpRepo
+// 	s.otpService = otpService
+// }
 
 func (s *AuthService) Register(ctx context.Context, req dto.RegisterRequest) (*dto.AuthResponse, error) {
 	email := strings.TrimSpace(strings.ToLower(req.Email))
@@ -98,6 +117,189 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*dto.Aut
 		ExpiresIn:    tokenPair.ExpiresIn,
 		User:         userEntity,
 	}, nil
+}
+
+
+// SendVerificationEmail sends an OTP to the authenticated user's email for verification.
+func (s *AuthService) SendVerificationEmail(ctx context.Context, userID uuid.UUID) error {
+	if s.emailService == nil {
+		return fmt.Errorf("email service is not configured")
+	}
+	u, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return user.ErrUserNotFound
+	}
+
+	if u.IsVerified {
+		return ErrEmailAlreadyVerified
+	}
+
+	// Invalidate old OTPs for this user+purpose
+	_ = s.otpRepo.DeleteExpiredForUser(ctx, userID, otp.OTPPurposeEmailVerification)
+
+	code, err := s.otpService.GenerateOTPCode()
+	if err != nil {
+		return fmt.Errorf("failed to generate OTP: %w", err)
+	}
+
+	record := &otp.OTPRecord{
+		UserID:    userID,
+		Email:     u.Email,
+		Code:      code,
+		Purpose:   otp.OTPPurposeEmailVerification,
+		ExpiresAt: time.Now().UTC().Add(otp.OTPExpiry),
+	}
+	if err := s.otpRepo.Create(ctx, record); err != nil {
+		return fmt.Errorf("failed to store OTP: %w", err)
+	}
+
+	name := strings.TrimSpace(u.FirstName + " " + u.LastName)
+	return s.emailService.SendOTPEmail(ctx, u.Email, name, code, otp.OTPPurposeEmailVerification)
+}
+
+
+// VerifyEmail validates the OTP and marks the user as verified.
+func (s *AuthService) VerifyEmail(ctx context.Context, userID uuid.UUID, req dto.VerifyEmailRequest) error {
+	u, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return user.ErrUserNotFound
+	}
+
+	if u.IsVerified {
+		return ErrEmailAlreadyVerified
+	}
+
+	record, err := s.otpRepo.FindValid(ctx, u.Email, req.Code, otp.OTPPurposeEmailVerification)
+	if err != nil {
+		return ErrInvalidOTP
+	}
+
+	if err := s.otpRepo.MarkUsed(ctx, record.ID); err != nil {
+		return fmt.Errorf("failed to consume OTP: %w", err)
+	}
+
+	return s.userRepo.MarkVerified(ctx, userID)
+}
+
+func (s *AuthService) ForgotPassword(ctx context.Context, req dto.ForgotPasswordRequest) error {
+	if s.emailService == nil {
+		return fmt.Errorf("email service is not configured")
+	}
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	u, err := s.userRepo.GetByEmail(ctx, email)
+	if err != nil {
+		// silently succeed. don't reveal whether the email exists
+		return nil
+	}
+
+	_ = s.otpRepo.DeleteExpiredForUser(ctx, u.ID, otp.OTPPurposePasswordReset)
+
+	code, err := s.otpService.GenerateOTPCode()
+	if err != nil {
+		return fmt.Errorf("failed to generate OTP: %w", err)
+	}
+
+	record := &otp.OTPRecord{
+		UserID:    u.ID,
+		Email:     u.Email,
+		Code:      code,
+		Purpose:   otp.OTPPurposePasswordReset,
+		ExpiresAt: time.Now().UTC().Add(otp.OTPExpiry),
+	}
+	if err := s.otpRepo.Create(ctx, record); err != nil {
+		return fmt.Errorf("failed to store OTP: %w", err)
+	}
+
+	name := strings.TrimSpace(u.FirstName + " " + u.LastName)
+	return s.emailService.SendOTPEmail(ctx, u.Email, name, code, otp.OTPPurposePasswordReset)
+}
+
+func (s *AuthService) VerifyResetOTP(ctx context.Context, req dto.VerifyResetOTPRequest) (*dto.VerifyResetOTPResponse, error) {
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+
+	record, err := s.otpRepo.FindValid(ctx, email, req.Code, otp.OTPPurposePasswordReset)
+	if err != nil {
+		return nil, ErrInvalidOTP
+	}
+
+	if err := s.otpRepo.MarkUsed(ctx, record.ID); err != nil {
+		return nil, fmt.Errorf("failed to consume OTP: %w", err)
+	}
+
+	if s.tokenService == nil {
+		return nil, fmt.Errorf("token service is not configured")
+	}
+
+	resetToken, err := s.tokenService.GenerateResetPasswordToken(record.UserID, record.Email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate reset token: %w", err)
+	}
+
+	return &dto.VerifyResetOTPResponse{
+		Success:    true,
+		ResetToken: resetToken,
+		TokenType:  string(TokenTypeResetPassword),
+		Message:    "OTP verified successfully",
+	}, nil
+}
+
+func (s *AuthService) ResetPassword(ctx context.Context, token string, req dto.ResetPasswordRequest) error {
+	tokenStr := strings.TrimSpace(token)
+	if tokenStr == "" {
+		tokenStr = strings.TrimSpace(req.Token)
+	}
+
+	var targetUserID uuid.UUID
+
+	if tokenStr != "" {
+		if s.tokenService == nil {
+			return fmt.Errorf("token service is not configured")
+		}
+		claims, err := s.tokenService.ValidateToken(tokenStr, TokenTypeResetPassword)
+		if err != nil {
+			return err
+		}
+		targetUserID = claims.UserID
+	} else if req.Email != "" && req.Code != "" {
+		email := strings.ToLower(strings.TrimSpace(req.Email))
+		record, err := s.otpRepo.FindValid(ctx, email, req.Code, otp.OTPPurposePasswordReset)
+		if err != nil {
+			return ErrInvalidOTP
+		}
+		targetUserID = record.UserID
+		_ = s.otpRepo.MarkUsed(ctx, record.ID)
+	} else {
+		return fmt.Errorf("reset token is required")
+	}
+
+	hashedPassword, err := s.hasher.Hash(req.Password)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	if err := s.userRepo.UpdatePassword(ctx, targetUserID, hashedPassword); err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	return nil
+}
+
+func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, req dto.ChangePasswordRequest) error {
+	u, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return user.ErrUserNotFound
+	}
+
+	if err := s.hasher.Compare(u.Password, req.CurrentPassword); err != nil {
+		return ErrCurrentPasswordWrong
+	}
+
+	hashedPassword, err := s.hasher.Hash(req.NewPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash new password: %w", err)
+	}
+
+	return s.userRepo.UpdatePassword(ctx, userID, hashedPassword)
 }
 
 func (s *AuthService) RefreshToken(ctx context.Context, req dto.RefreshRequest) (*dto.AuthResponse, error) {

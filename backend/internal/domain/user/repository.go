@@ -13,6 +13,8 @@ type IUserRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	Update(ctx context.Context, u *User) error
+	UpdatePassword(ctx context.Context, id uuid.UUID, hashedPassword string) error
+	MarkVerified(ctx context.Context, id uuid.UUID) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
@@ -71,4 +73,18 @@ func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
 		return errors.New("database connection is nil")
 	}
 	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&User{}).Error
+}
+
+func (r *UserRepository) UpdatePassword(ctx context.Context, id uuid.UUID, hashedPassword string) error {
+	if r.db == nil {
+		return errors.New("database connection is nil")
+	}
+	return r.db.WithContext(ctx).Model(&User{}).Where("id = ?", id).Update("password", hashedPassword).Error
+}
+
+func (r *UserRepository) MarkVerified(ctx context.Context, id uuid.UUID) error {
+	if r.db == nil {
+		return errors.New("database connection is nil")
+	}
+	return r.db.WithContext(ctx).Model(&User{}).Where("id = ?", id).Update("is_verified", true).Error
 }

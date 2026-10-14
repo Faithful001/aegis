@@ -33,4 +33,46 @@ export const authApi = {
     const res = await apiClient.get("/user/me");
     return res.data.data;
   },
+
+  sendVerificationEmail: async (): Promise<{ success: boolean; message: string }> => {
+    const res = await apiClient.post("/auth/send-verification-email");
+    return res.data;
+  },
+
+  verifyEmail: async (code: string): Promise<{ success: boolean; message: string }> => {
+    const res = await apiClient.post("/auth/verify-email", { code });
+    return res.data;
+  },
+
+  forgotPassword: async (email: string): Promise<{ success: boolean; message: string }> => {
+    const res = await apiClient.post("/auth/forgot-password", { email });
+    return res.data;
+  },
+
+  verifyResetOTP: async (
+    email: string,
+    code: string
+  ): Promise<{ success: boolean; reset_token: string; token_type: string; message: string }> => {
+    const res = await apiClient.post("/auth/verify-reset-otp", { email, code });
+    return res.data;
+  },
+
+  resetPassword: async (
+    token: string,
+    password: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const res = await apiClient.post("/auth/reset-password", { token, password });
+    return res.data;
+  },
+
+  changePassword: async (
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const res = await apiClient.post("/auth/change-password", {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+    return res.data;
+  },
 };

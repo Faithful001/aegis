@@ -102,6 +102,13 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			authRoutes.POST("/login", cfg.AuthController.Login)
 			authRoutes.POST("/refresh", cfg.AuthController.RefreshToken)
 			authRoutes.POST("/logout", cfg.AuthController.Logout)
+			// Public OTP routes (no JWT required)
+			if cfg.AuthController != nil {
+				authRoutes.POST("/forgot-password", cfg.AuthController.ForgotPassword)
+				authRoutes.POST("/verify-reset-otp", cfg.AuthController.VerifyResetOTP)
+				authRoutes.POST("/verify-otp", cfg.AuthController.VerifyResetOTP)
+				authRoutes.POST("/reset-password", cfg.AuthController.ResetPassword)
+			}
 		}
 
 		// Protected Management & Inference Routes
@@ -110,6 +117,13 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		{
 			// User Profile
 			protected.GET("/user/me", cfg.UserController.GetMe)
+
+			// Protected OTP routes (JWT required)
+			if cfg.AuthController != nil {
+				protected.POST("/auth/send-verification-email", cfg.AuthController.SendVerificationEmail)
+				protected.POST("/auth/verify-email", cfg.AuthController.VerifyEmail)
+				protected.POST("/auth/change-password", cfg.AuthController.ChangePassword)
+			}
 
 			// User BYOK Provider Credentials Management & Dynamic Models Discovery
 			if cfg.ProviderController != nil {

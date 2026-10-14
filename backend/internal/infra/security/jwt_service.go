@@ -1,14 +1,27 @@
-package auth
+package security
 
 import (
 	"errors"
 	"fmt"
 	"time"
 
-	domainAuth "github.com/Faithful001/aegis/internal/domain/auth"
+	"github.com/Faithful001/aegis/internal/domain/token"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
+
+var (
+	ErrTokenExpired     = errors.New("token has expired")
+	ErrInvalidToken     = errors.New("invalid token")
+	ErrInvalidTokenType = errors.New("invalid token type")
+)
+
+type IJWTService interface {
+	GenerateTokenPair(userID uuid.UUID, email string) (*token.Pair, *token.Claims, *token.Claims, error)
+	GenerateResetPasswordToken(userID uuid.UUID, email string) (string, error)
+	ValidateToken(tokenStr string, expectedType token.Type) (*token.Claims, error)
+}
+
 
 type JWTClaims struct {
 	UserID    uuid.UUID `json:"user_id"`
@@ -33,7 +46,7 @@ func NewJWTService(secret string, issuer string, accessExpiry, refreshExpiry tim
 	}
 }
 
-func (s *JWTService) GenerateTokenPair(userID uuid.UUID, email string) (*domainAuth.TokenPair, *domainAuth.TokenClaims, *domainAuth.TokenClaims, error) {
+func (s *JWTService) GenerateTokenPair(userID uuid.UUID, email string) (*token.Pair, *token.Claims, *token.Claims, error) {
 	now := time.Now().UTC()
 
 	// 1. Access Token
@@ -42,7 +55,7 @@ func (s *JWTService) GenerateTokenPair(userID uuid.UUID, email string) (*domainA
 	accessClaims := JWTClaims{
 		UserID:    userID,
 		Email:     email,
-		TokenType: string(domainAuth.TokenTypeAccess),
+		TokenType: string(token.TypeAccess),
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        accessJTI,
 			Subject:   userID.String(),
@@ -64,7 +77,7 @@ func (s *JWTService) GenerateTokenPair(userID uuid.UUID, email string) (*domainA
 	refreshClaims := JWTClaims{
 		UserID:    userID,
 		Email:     email,
-		TokenType: string(domainAuth.TokenTypeRefresh),
+		TokenType: string(token.TypeRefresh),
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        refreshJTI,
 			Subject:   userID.String(),
@@ -80,25 +93,25 @@ func (s *JWTService) GenerateTokenPair(userID uuid.UUID, email string) (*domainA
 		return nil, nil, nil, fmt.Errorf("failed to sign refresh token: %w", err)
 	}
 
-	domainAccessClaims := &domainAuth.TokenClaims{
+	domainAccessClaims := &token.Claims{
 		JTI:       accessJTI,
 		UserID:    userID,
 		Email:     email,
-		TokenType: domainAuth.TokenTypeAccess,
+		TokenType: token.TypeAccess,
 		ExpiresAt: accessExpiresAt,
 		IssuedAt:  now,
 	}
 
-	domainRefreshClaims := &domainAuth.TokenClaims{
+	domainRefreshClaims := &token.Claims{
 		JTI:       refreshJTI,
 		UserID:    userID,
 		Email:     email,
-		TokenType: domainAuth.TokenTypeRefresh,
+		TokenType: token.TypeRefresh,
 		ExpiresAt: refreshExpiresAt,
 		IssuedAt:  now,
 	}
 
-	pair := &domainAuth.TokenPair{
+	pair := &token.Pair{
 		AccessToken:  accessTokenString,
 		RefreshToken: refreshTokenString,
 		TokenType:    "Bearer",
@@ -109,8 +122,30 @@ func (s *JWTService) GenerateTokenPair(userID uuid.UUID, email string) (*domainA
 	return pair, domainAccessClaims, domainRefreshClaims, nil
 }
 
-func (s *JWTService) ValidateToken(tokenStr string, expectedType domainAuth.TokenType) (*domainAuth.TokenClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenStr, &JWTClaims{}, func(t *jwt.Token) (interface{}, error) {
+func (s *JWTService) GenerateResetPasswordToken(userID uuid.UUID, email string) (string, error) {
+	now := time.Now().UTC()
+	expiresAt := now.Add(15 * time.Minute) // 15 minutes validity for password reset
+	jti := uuid.New().String()
+
+	claims := JWTClaims{
+		UserID:    userID,
+		Email:     email,
+		TokenType: string(token.TypeResetPassword),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        jti,
+			Subject:   userID.String(),
+			Issuer:    s.issuer,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+		},
+	}
+
+	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return t.SignedString(s.secret)
+}
+
+func (s *JWTService) ValidateToken(tokenStr string, expectedType token.Type) (*token.Claims, error) {
+	t, err := jwt.ParseWithClaims(tokenStr, &JWTClaims{}, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
@@ -119,18 +154,18 @@ func (s *JWTService) ValidateToken(tokenStr string, expectedType domainAuth.Toke
 
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
-			return nil, domainAuth.ErrTokenExpired
+			return nil, ErrTokenExpired
 		}
-		return nil, fmt.Errorf("%w: %v", domainAuth.ErrInvalidToken, err)
+		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
 	}
 
-	claims, ok := token.Claims.(*JWTClaims)
-	if !ok || !token.Valid {
-		return nil, domainAuth.ErrInvalidToken
+	claims, ok := t.Claims.(*JWTClaims)
+	if !ok || !t.Valid {
+		return nil, ErrInvalidToken
 	}
 
 	if expectedType != "" && claims.TokenType != string(expectedType) {
-		return nil, domainAuth.ErrInvalidTokenType
+		return nil, ErrInvalidTokenType
 	}
 
 	var exp time.Time
@@ -142,11 +177,11 @@ func (s *JWTService) ValidateToken(tokenStr string, expectedType domainAuth.Toke
 		iat = claims.IssuedAt.Time
 	}
 
-	return &domainAuth.TokenClaims{
+	return &token.Claims{
 		JTI:       claims.ID,
 		UserID:    claims.UserID,
 		Email:     claims.Email,
-		TokenType: domainAuth.TokenType(claims.TokenType),
+		TokenType: token.Type(claims.TokenType),
 		ExpiresAt: exp,
 		IssuedAt:  iat,
 	}, nil

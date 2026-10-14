@@ -32,9 +32,23 @@ export const ProfilePage: React.FC = () => {
             </div>
             <div>
               <h3 className="text-lg font-bold text-white">{user?.name || 'Faithful Eromosele'}</h3>
-              <p className="text-xs text-zinc-400 flex items-center gap-1.5 mt-0.5">
-                <Mail className="w-3.5 h-3.5 text-zinc-500" /> {user?.email || 'developer@aegis.ai'}
-              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-xs text-zinc-400 flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-zinc-500" /> {user?.email || 'developer@aegis.ai'}
+                </p>
+                {user?.is_verified ? (
+                  <span className="inline-flex items-center text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    Verified
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => navigate({ to: '/settings' })}
+                    className="inline-flex items-center text-[10px] font-medium text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 hover:bg-amber-500/20 transition-colors"
+                  >
+                    Unverified &bull; Verify
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 

@@ -4,6 +4,7 @@ export interface User {
   first_name?: string;
   last_name?: string;
   name?: string;
+  is_verified?: boolean;
   created_at?: string;
 }
 

@@ -18,11 +18,17 @@ type Config struct {
 	Log         LogConfig
 	Worker      WorkerConfig
 	Kafka       KafkaConfig
+	Resend      ResendConfig
 }
 
 type KafkaConfig struct {
 	Brokers []string
 	GroupID string
+}
+
+type ResendConfig struct {
+	APIKey   string
+	FromAddr string
 }
 
 type WorkerConfig struct {
@@ -90,6 +96,10 @@ func Load() (*Config, error) {
 		Kafka: KafkaConfig{
 			Brokers: []string{getEnv("KAFKA_BROKERS", "localhost:9092")},
 			GroupID: getEnv("KAFKA_GROUP_ID", "aegis-consumer-group"),
+		},
+		Resend: ResendConfig{
+			APIKey:   getEnv("RESEND_API_KEY", ""),
+			FromAddr: getEnv("RESEND_FROM_ADDR", "Aegis <noreply@yourdomain.com>"),
 		},
 	}
 

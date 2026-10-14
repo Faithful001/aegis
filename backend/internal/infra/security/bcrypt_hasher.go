@@ -1,4 +1,4 @@
-package auth
+package security
 
 import (
 	"golang.org/x/crypto/bcrypt"
@@ -6,6 +6,11 @@ import (
 
 type BcryptHasher struct {
 	cost int
+}
+
+type IBcryptPasswordHasher interface {
+	Hash(password string) (string, error)
+	Compare(hashedPassword, plainPassword string) error
 }
 
 func NewBcryptHasher(cost int) *BcryptHasher {

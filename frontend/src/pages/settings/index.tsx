@@ -20,10 +20,15 @@ import {
   X,
   Check,
   RefreshCw,
+  ShieldCheck,
+  AlertCircle,
+  Lock,
+  CheckCircle2,
 } from "lucide-react";
 import { useAegis } from "../../context/AegisContext";
 import { useAuth } from "../../context/AuthContext";
 import { credentialsApi } from "../../api/credentials";
+import { authApi } from "../../api/auth";
 import { toast } from "sonner";
 
 /* ------------------------------------------------------------------ */
@@ -137,13 +142,92 @@ export const SettingsPage: React.FC = () => {
 /*  Profile Tab                                                         */
 /* ================================================================== */
 const ProfileTab: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
+
+  // Email verification state
+  const [showVerifyInput, setShowVerifyInput] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [sendingVerification, setSendingVerification] = useState(false);
+  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [verifyCooldown, setVerifyCooldown] = useState(0);
+
+  // Change password state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  useEffect(() => {
+    if (verifyCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setVerifyCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [verifyCooldown]);
 
   const handleLogout = async () => {
     await logout();
     toast.success("Logged out successfully");
     navigate({ to: "/auth/login" });
+  };
+
+  const handleSendVerificationEmail = async () => {
+    setSendingVerification(true);
+    try {
+      await authApi.sendVerificationEmail();
+      toast.success("6-digit verification code sent to your email!");
+      setShowVerifyInput(true);
+      setVerifyCooldown(60);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to send verification email");
+    } finally {
+      setSendingVerification(false);
+    }
+  };
+
+  const handleConfirmVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (verificationCode.length !== 6) {
+      toast.error("Please enter a valid 6-digit code");
+      return;
+    }
+    setVerifyingEmail(true);
+    try {
+      await authApi.verifyEmail(verificationCode.trim());
+      toast.success("Email verified successfully!");
+      setShowVerifyInput(false);
+      setVerificationCode("");
+      await refreshUser();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Invalid or expired code");
+    } finally {
+      setVerifyingEmail(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await authApi.changePassword(currentPassword, newPassword);
+      toast.success("Password changed successfully!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to change password. Please check your current password.");
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
   const initials = user?.name
@@ -166,6 +250,148 @@ const ProfileTab: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Email Verification Status Card */}
+      <Card hover={false} className="p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-white">Email Verification</h3>
+              {user?.is_verified ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  <CheckCircle2 className="w-3 h-3" /> Verified
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                  <AlertCircle className="w-3 h-3" /> Unverified
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-zinc-400">
+              {user?.is_verified
+                ? "Your email address is verified and active."
+                : "Verify your email address to secure your account and receive alerts."}
+            </p>
+          </div>
+
+          {!user?.is_verified && !showVerifyInput && (
+            <Button
+              onClick={handleSendVerificationEmail}
+              disabled={sendingVerification || verifyCooldown > 0}
+              className="text-xs py-1.5 px-3 rounded-full"
+            >
+              {sendingVerification
+                ? "Sending..."
+                : verifyCooldown > 0
+                ? `Resend in ${verifyCooldown}s`
+                : "Verify Email"}
+            </Button>
+          )}
+        </div>
+
+        {!user?.is_verified && showVerifyInput && (
+          <form onSubmit={handleConfirmVerification} className="pt-2 border-t border-zinc-800 space-y-3">
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <Input
+                  label="6-Digit Verification Code"
+                  type="text"
+                  placeholder="123456"
+                  className="rounded-full text-center tracking-[0.4em] font-mono font-bold"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  required
+                  maxLength={6}
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={verifyingEmail || verificationCode.length !== 6}
+                className="py-2.5 px-4 rounded-full font-semibold"
+              >
+                {verifyingEmail ? "Verifying..." : "Confirm"}
+              </Button>
+            </div>
+            <div className="flex items-center justify-between text-xs text-zinc-400">
+              <button
+                type="button"
+                onClick={() => setShowVerifyInput(false)}
+                className="hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSendVerificationEmail}
+                disabled={verifyCooldown > 0 || sendingVerification}
+                className={`font-medium ${
+                  verifyCooldown > 0 ? "text-zinc-600 cursor-not-allowed" : "text-amber-400 hover:text-amber-300"
+                }`}
+              >
+                {verifyCooldown > 0 ? `Resend code in ${verifyCooldown}s` : "Resend code"}
+              </button>
+            </div>
+          </form>
+        )}
+      </Card>
+
+      {/* Change Password Card */}
+      <Card hover={false} className="p-5 space-y-4">
+        <div className="space-y-0.5">
+          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            <Lock className="w-4 h-4 text-amber-400" /> Security & Password
+          </h3>
+          <p className="text-xs text-zinc-400">
+            Update your account password. Choose a strong password with at least 8 characters.
+          </p>
+        </div>
+
+        <form onSubmit={handleChangePassword} className="space-y-3 pt-2">
+          <Input
+            label="Current Password"
+            type="password"
+            placeholder="••••••••"
+            className="rounded-full"
+            showToggle
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            required
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="New Password"
+              type="password"
+              placeholder="•••••••• (min 8 chars)"
+              className="rounded-full"
+              showToggle
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+            />
+            <Input
+              label="Confirm New Password"
+              type="password"
+              placeholder="••••••••"
+              className="rounded-full"
+              showToggle
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <Button
+              type="submit"
+              disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+              className="rounded-full px-5 py-2 font-semibold text-xs"
+            >
+              {changingPassword ? "Updating..." : "Update Password"}
+            </Button>
+          </div>
+        </form>
+      </Card>
 
       {/* Usage Limits */}
       <Card hover={false} className="p-5 space-y-3">

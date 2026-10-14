@@ -12,6 +12,9 @@ import {
 import HomePage from '../pages/index';
 import LoginPage from '../pages/auth/login/index';
 import RegisterPage from '../pages/auth/register/index';
+import ForgotPasswordPage from '../pages/auth/forgot-password/index';
+import VerifyOTPPage from '../pages/auth/verify-otp/index';
+import ResetPasswordPage from '../pages/auth/reset-password/index';
 import ChatPage from '../pages/chat/index';
 import DynamicChatThreadPage from '../pages/chat/[id]/index';
 import ProfilePage from '../pages/profile/index';
@@ -41,6 +44,24 @@ const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/register',
   component: RegisterPage,
+});
+
+const forgotPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auth/forgot-password',
+  component: ForgotPasswordPage,
+});
+
+const verifyOTPRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auth/verify-otp',
+  component: VerifyOTPPage,
+});
+
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auth/reset-password',
+  component: ResetPasswordPage,
 });
 
 // Chat Routes
@@ -85,6 +106,9 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
   registerRoute,
+  forgotPasswordRoute,
+  verifyOTPRoute,
+  resetPasswordRoute,
   chatRoute,
   chatDynamicRoute,
   profileRoute,

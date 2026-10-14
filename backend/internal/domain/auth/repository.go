@@ -13,7 +13,7 @@ import (
 
 const RedisBlacklistKeyPrefix = "blacklist:jti:"
 
-type TokenBlacklistRepository interface {
+type ITokenBlacklistRepository interface {
 	BlacklistToken(ctx context.Context, jti string, userID uuid.UUID, tokenType TokenType, expiresAt time.Time, reason string) error
 	IsTokenBlacklisted(ctx context.Context, jti string) (bool, error)
 }

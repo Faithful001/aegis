@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/Faithful001/aegis/internal/domain/auth/dto"
 	"github.com/Faithful001/aegis/internal/domain/user"
@@ -74,6 +75,155 @@ func (h *AuthController) Login(c *gin.Context) {
 		"data":    result,
 	})
 }
+
+func (h *AuthController) SendVerificationEmail(c *gin.Context) {
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized"})
+		return
+	}
+	userID := userIDVal.(uuid.UUID)
+
+	if err := h.authService.SendVerificationEmail(c.Request.Context(), userID); err != nil {
+		switch {
+		case errors.Is(err, ErrEmailAlreadyVerified):
+			c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error()})
+		case errors.Is(err, user.ErrUserNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "message": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "failed to send verification email"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "verification email sent"})
+}
+
+func (h *AuthController) VerifyEmail(c *gin.Context) {
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized"})
+		return
+	}
+	userID := userIDVal.(uuid.UUID)
+
+	var req dto.VerifyEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	if err := h.authService.VerifyEmail(c.Request.Context(), userID, req); err != nil {
+		switch {
+		case errors.Is(err, ErrEmailAlreadyVerified):
+			c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error()})
+		case errors.Is(err, ErrInvalidOTP):
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid or expired verification code"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "failed to verify email"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "email verified successfully"})
+}
+
+func (h *AuthController) ForgotPassword(c *gin.Context) {
+	var req dto.ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	// Always return success to prevent email enumeration
+	_ = h.authService.ForgotPassword(c.Request.Context(), req)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "if an account with that email exists, a reset code has been sent",
+	})
+}
+
+func (h *AuthController) VerifyResetOTP(c *gin.Context) {
+	var req dto.VerifyResetOTPRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	resp, err := h.authService.VerifyResetOTP(c.Request.Context(), req)
+	if err != nil {
+		if errors.Is(err, ErrInvalidOTP) {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid or expired reset code"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *AuthController) ResetPassword(c *gin.Context) {
+	var req dto.ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	token := ""
+	authHeader := c.GetHeader("Authorization")
+	if len(authHeader) > 7 && strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+		token = strings.TrimSpace(authHeader[7:])
+	}
+
+	if err := h.authService.ResetPassword(c.Request.Context(), token, req); err != nil {
+		switch {
+		case errors.Is(err, ErrInvalidOTP):
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid or expired reset code"})
+		case errors.Is(err, ErrTokenExpired):
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "reset password token has expired"})
+		case errors.Is(err, ErrInvalidTokenType):
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "invalid token type: must be reset_password token"})
+		case errors.Is(err, ErrInvalidToken):
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "invalid reset password token"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "failed to reset password"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "password reset successfully"})
+}
+
+func (h *AuthController) ChangePassword(c *gin.Context) {
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized"})
+		return
+	}
+	userID := userIDVal.(uuid.UUID)
+
+	var req dto.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	if err := h.authService.ChangePassword(c.Request.Context(), userID, req); err != nil {
+		switch {
+		case errors.Is(err, ErrCurrentPasswordWrong):
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "current password is incorrect"})
+		case errors.Is(err, user.ErrUserNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "message": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "failed to change password"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "password changed successfully"})
+}
+
 
 func (h *AuthController) RefreshToken(c *gin.Context) {
 	var req dto.RefreshRequest

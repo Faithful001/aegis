@@ -12,6 +12,7 @@ import (
 
 	"github.com/Faithful001/aegis/internal/domain/auth"
 	"github.com/Faithful001/aegis/internal/domain/inference"
+	"github.com/Faithful001/aegis/internal/domain/otp"
 	"github.com/Faithful001/aegis/internal/domain/provider"
 	"github.com/Faithful001/aegis/internal/domain/scheduler"
 	"github.com/Faithful001/aegis/internal/domain/usage"
@@ -19,6 +20,7 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/worker"
 	"github.com/Faithful001/aegis/internal/infra/config"
 	"github.com/Faithful001/aegis/internal/infra/db"
+	infraEmail "github.com/Faithful001/aegis/internal/infra/email"
 	"github.com/Faithful001/aegis/internal/infra/observability"
 	infraProvider "github.com/Faithful001/aegis/internal/infra/provider"
 	events "github.com/Faithful001/aegis/internal/infra/queue/kafka"
@@ -47,6 +49,7 @@ func main() {
 		migrationModels := []interface{}{
 			&user.User{},
 			&auth.BlacklistedToken{},
+			&otp.OTPRecord{},
 			&usage.UsageRecord{},
 			&provider.ProviderCredential{},
 		}
@@ -87,6 +90,7 @@ func main() {
 	blacklistRepo := auth.NewTokenBlacklistRepository(redisClient, database)
 	usageRepo := usage.NewUsageRepository(database)
 	providerRepo := provider.NewProviderCredentialRepository(database)
+	otpRepo := otp.NewOTPRepository(database)
 
 	// initialize domain hasher, generators and services
 	hasher := infraAuth.NewBcryptHasher(0)
@@ -97,10 +101,33 @@ func main() {
 		cfg.JWT.RefreshTokenExpiry,
 	)
 
-	authService := auth.NewAuthService(userRepo, blacklistRepo, tokenService, hasher)
+	emailService := infraEmail.NewEmailService(cfg.Resend.APIKey, cfg.Resend.FromAddr)
+	
+	otpService := otp.NewOTPService(userRepo, otpRepo, hasher)
+	
+	authService := auth.NewAuthService(
+		userRepo,
+		otpRepo,
+		otpService,
+		emailService,
+		tokenService,
+		hasher,
+		blacklistRepo,
+	)
+
 	userService := user.NewUserService(userRepo)
 	usageService := usage.NewUsageService(usageRepo, logger)
 	providerService := provider.NewProviderCredentialService(providerRepo, cfg.JWT.Secret)
+
+	// initialize email + OTP service
+	if cfg.Resend.APIKey != "" {
+		logger.Info("Resend email service initialized", "from", cfg.Resend.FromAddr)
+	} else {
+		logger.Warn("RESEND_API_KEY is not set — email features will be unavailable")
+	}
+	
+	// authService.SetEmailService(emailSvc)
+	// authService.SetOTP(otpRepo, otpService)
 
 	// initialize event consumer (kafka)
 	var eventConsumer events.EventConsumer = events.NewKafkaConsumer(cfg.Kafka.Brokers, cfg.Kafka.GroupID, logger)

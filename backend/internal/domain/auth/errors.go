@@ -3,7 +3,7 @@ package auth
 import "errors"
 
 var (
-	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrInvalidCredentials  = errors.New("invalid credentials")
 	ErrTokenRevoked        = errors.New("token has been revoked")
 	ErrInvalidTokenType    = errors.New("invalid token type")
 	ErrTokenExpired        = errors.New("token has expired")
@@ -13,4 +13,7 @@ var (
 	ErrAPIKeyNotFound      = errors.New("API key not found")
 	ErrAPIKeyInactive      = errors.New("API key is inactive or revoked")
 	ErrAPIKeyExpired       = errors.New("API key has expired")
+	ErrInvalidOTP          = errors.New("invalid or expired OTP code")
+	ErrEmailAlreadyVerified = errors.New("email is already verified")
+	ErrCurrentPasswordWrong = errors.New("current password is incorrect")
 )

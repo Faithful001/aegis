@@ -3,24 +3,42 @@ package auth
 import (
 	"time"
 
+	"github.com/Faithful001/aegis/internal/domain/token"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
-type TokenType string
+// TokenType and its constants are type aliases over domain/token so that existing
+// code inside this package (service.go, repository.go, etc.) keeps compiling
+// unchanged. External callers should prefer the canonical token.Type.
+type TokenType = token.Type
 
 const (
-	TokenTypeAccess  TokenType = "access"
-	TokenTypeRefresh TokenType = "refresh"
+	TokenTypeAccess        TokenType = token.TypeAccess
+	TokenTypeRefresh       TokenType = token.TypeRefresh
+	TokenTypeResetPassword TokenType = token.TypeResetPassword
 )
 
-type TokenClaims struct {
-	JTI       string    `json:"jti"`
-	UserID    uuid.UUID `json:"user_id"`
-	Email     string    `json:"email"`
-	TokenType TokenType `json:"token_type"`
-	ExpiresAt time.Time `json:"expires_at"`
-	IssuedAt  time.Time `json:"issued_at"`
+// TokenClaims is an alias for token.Claims — kept here so domain/auth callers
+// don't need to import domain/token directly.
+type TokenClaims = token.Claims
+
+// TokenPair is an alias for token.Pair.
+type TokenPair = token.Pair
+
+// IJWTService is the domain-owned interface for token operations.
+// The concrete *security.JWTService satisfies this interface via Go structural
+// typing — no import of infra/security is needed here.
+type IJWTService interface {
+	GenerateTokenPair(userID uuid.UUID, email string) (*TokenPair, *TokenClaims, *TokenClaims, error)
+	GenerateResetPasswordToken(userID uuid.UUID, email string) (string, error)
+	ValidateToken(tokenStr string, expectedType TokenType) (*TokenClaims, error)
+}
+
+// IBcryptPasswordHasher is the domain-owned interface for password hashing.
+type IBcryptPasswordHasher interface {
+	Hash(password string) (string, error)
+	Compare(hashedPassword, plainPassword string) error
 }
 
 type BlacklistedToken struct {

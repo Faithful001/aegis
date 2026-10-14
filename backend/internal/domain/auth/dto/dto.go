@@ -70,3 +70,45 @@ type AuthenticatedPrincipal struct {
 	UserID         uuid.UUID
 	KeyPrefix      string
 }
+
+// --- OTP / Email flows ---
+
+type SendVerificationEmailRequest struct {
+	// No fields needed – user derived from JWT context
+}
+
+type VerifyEmailRequest struct {
+	Code string `json:"code" binding:"required,len=6"`
+}
+
+type ForgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type VerifyResetOTPRequest struct {
+	Email string `json:"email" binding:"required,email"`
+	Code  string `json:"code"  binding:"required,len=6"`
+}
+
+type VerifyResetOTPResponse struct {
+	Success    bool   `json:"success"`
+	ResetToken string `json:"reset_token"`
+	TokenType  string `json:"token_type"`
+	Message    string `json:"message"`
+}
+
+type ResetPasswordRequest struct {
+	Token    string `json:"token"`
+	Email    string `json:"email"`
+	Code     string `json:"code"`
+	Password string `json:"password" binding:"required,min=8"`
+}
+
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password"     binding:"required,min=8"`
+}
+
+type MessageResponse struct {
+	Message string `json:"message"`
+}
