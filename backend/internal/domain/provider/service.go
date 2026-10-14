@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -11,9 +12,14 @@ import (
 	"github.com/google/uuid"
 )
 
+type ProviderModelLister interface {
+	ListModels(ctx context.Context, providerName, apiKey, baseURL string) ([]dto.ModelDescriptor, error)
+}
+
 type ProviderCredentialService struct {
 	repo          IProviderCredentialRepository
 	encryptionKey []byte
+	gateway       ProviderModelLister
 }
 
 func NewProviderCredentialService(repo IProviderCredentialRepository, encryptionKey string) *ProviderCredentialService {
@@ -25,6 +31,10 @@ func NewProviderCredentialService(repo IProviderCredentialRepository, encryption
 		repo:          repo,
 		encryptionKey: keyBytes,
 	}
+}
+
+func (s *ProviderCredentialService) SetGateway(gw ProviderModelLister) {
+	s.gateway = gw
 }
 
 func (s *ProviderCredentialService) SaveCredential(
@@ -130,4 +140,61 @@ func (s *ProviderCredentialService) DeleteCredential(
 		return ErrInvalidProvider
 	}
 	return s.repo.Delete(ctx, userID, provider)
+}
+
+func (s *ProviderCredentialService) ListProviderModels(
+	ctx context.Context,
+	userID uuid.UUID,
+	providerName string,
+) ([]dto.ModelDescriptor, error) {
+	if s.gateway == nil {
+		return nil, errors.New("provider gateway not initialized")
+	}
+
+	p := strings.ToLower(strings.TrimSpace(providerName))
+	if !IsSupportedProvider(p) {
+		return nil, ErrInvalidProvider
+	}
+
+	apiKey, baseURL, err := s.GetDecryptedKey(ctx, userID, p)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.gateway.ListModels(ctx, p, apiKey, baseURL)
+}
+
+func (s *ProviderCredentialService) ListAllModels(
+	ctx context.Context,
+	userID uuid.UUID,
+) ([]dto.ModelDescriptor, error) {
+	var allModels []dto.ModelDescriptor
+
+	creds, err := s.repo.ListByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	seen := make(map[string]bool)
+
+	if s.gateway != nil && len(creds) > 0 {
+		for _, c := range creds {
+			decryptedKey, err := crypto.AESDecrypt(c.EncryptedAPIKey, s.encryptionKey)
+			if err != nil {
+				continue
+			}
+			models, err := s.gateway.ListModels(ctx, c.Provider, decryptedKey, c.BaseURL)
+			if err != nil {
+				continue
+			}
+			for _, m := range models {
+				if !seen[m.ID] {
+					seen[m.ID] = true
+					allModels = append(allModels, m)
+				}
+			}
+		}
+	}
+
+	return allModels, nil
 }

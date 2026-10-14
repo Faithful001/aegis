@@ -103,3 +103,64 @@ func (ctl *ProviderController) DeleteCredential(c *gin.Context) {
 		"message": "provider credential deleted successfully",
 	})
 }
+
+// ListProviderModels handles GET /api/v1/credentials/:provider/models
+func (ctl *ProviderController) ListProviderModels(c *gin.Context) {
+	userID, ok := getUserIDFromContext(c)
+	if !ok || userID == uuid.Nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized", "data": nil})
+		return
+	}
+
+	provider := c.Param("provider")
+	models, err := ctl.service.ListProviderModels(c.Request.Context(), userID, provider)
+	if err != nil {
+		if errors.Is(err, ErrCredentialNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"success": false,
+				"message": "API key for provider not found. Please configure your API key first.",
+				"data":    nil,
+			})
+			return
+		}
+		if errors.Is(err, ErrInvalidProvider) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": err.Error(),
+				"data":    nil,
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": err.Error(),
+			"data":    nil,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    models,
+	})
+}
+
+// ListAllModels handles GET /api/v1/models
+func (ctl *ProviderController) ListAllModels(c *gin.Context) {
+	userID, ok := getUserIDFromContext(c)
+	if !ok || userID == uuid.Nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized", "data": nil})
+		return
+	}
+
+	models, err := ctl.service.ListAllModels(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    models,
+	})
+}

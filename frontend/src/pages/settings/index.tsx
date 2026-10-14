@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from '@tanstack/react-router';
-import { MainLayout } from '../../components/layout/MainLayout';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
+import React, { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { MainLayout } from "../../components/layout/MainLayout";
+import { Card } from "../../components/ui/Card";
+import { Badge } from "../../components/ui/Badge";
+import { Button } from "../../components/ui/Button";
+import { Input } from "../../components/ui/Input";
 import {
   Key,
   Trash2,
@@ -19,83 +19,84 @@ import {
   Calendar,
   X,
   Check,
-} from 'lucide-react';
-import { useAegis, AVAILABLE_MODELS } from '../../context/AegisContext';
-import { useAuth } from '../../context/AuthContext';
-import { credentialsApi } from '../../api/credentials';
-import { toast } from 'sonner';
+  RefreshCw,
+} from "lucide-react";
+import { useAegis } from "../../context/AegisContext";
+import { useAuth } from "../../context/AuthContext";
+import { credentialsApi } from "../../api/credentials";
+import { toast } from "sonner";
 
 /* ------------------------------------------------------------------ */
 /*  Provider definitions with branding                                  */
 /* ------------------------------------------------------------------ */
 const PROVIDERS = [
   {
-    id: 'anthropic',
-    name: 'Anthropic',
-    icon: 'A',
-    iconStyle: 'bg-[#CC785C]/15 text-[#CC785C] font-bold',
-    desc: 'Claude models via api.anthropic.com',
-    placeholder: 'sk-ant-...',
-    keyLink: 'https://console.anthropic.com/account/keys',
+    id: "anthropic",
+    name: "Anthropic",
+    icon: "A",
+    iconStyle: "bg-[#CC785C]/15 text-[#CC785C] font-bold",
+    desc: "Claude models via api.anthropic.com",
+    placeholder: "sk-ant-...",
+    keyLink: "https://console.anthropic.com/account/keys",
   },
   {
-    id: 'openai',
-    name: 'OpenAI',
-    icon: '◎',
-    iconStyle: 'bg-emerald-500/10 text-emerald-400',
-    desc: 'GPT models via api.openai.com',
-    placeholder: 'sk-proj-...',
-    keyLink: 'https://platform.openai.com/api-keys',
+    id: "openai",
+    name: "OpenAI",
+    icon: "◎",
+    iconStyle: "bg-emerald-500/10 text-emerald-400",
+    desc: "GPT models via api.openai.com",
+    placeholder: "sk-proj-...",
+    keyLink: "https://platform.openai.com/api-keys",
   },
   {
-    id: 'gemini',
-    name: 'Google Gemini',
-    icon: '✦',
-    iconStyle: 'bg-blue-500/10 text-blue-400',
-    desc: 'Gemini models via Google AI Studio',
-    placeholder: 'AIzaSy...',
-    keyLink: 'https://aistudio.google.com/app/apikey',
+    id: "gemini",
+    name: "Google Gemini",
+    icon: "✦",
+    iconStyle: "bg-blue-500/10 text-blue-400",
+    desc: "Gemini models via Google AI Studio",
+    placeholder: "AIzaSy...",
+    keyLink: "https://aistudio.google.com/app/apikey",
   },
   {
-    id: 'mistral',
-    name: 'Mistral',
-    icon: 'M',
-    iconStyle: 'bg-orange-500/10 text-orange-400 font-bold',
-    desc: 'Mistral models via api.mistral.ai',
-    placeholder: 'your_mistral_api_key',
-    keyLink: 'https://console.mistral.ai/api-keys/',
+    id: "mistral",
+    name: "Mistral",
+    icon: "M",
+    iconStyle: "bg-orange-500/10 text-orange-400 font-bold",
+    desc: "Mistral models via api.mistral.ai",
+    placeholder: "your_mistral_api_key",
+    keyLink: "https://console.mistral.ai/api-keys/",
   },
   {
-    id: 'openrouter',
-    name: 'OpenRouter',
-    icon: '⊙',
-    iconStyle: 'bg-purple-500/10 text-purple-400',
-    desc: 'Universal router for 200+ models',
-    placeholder: 'sk-or-...',
-    keyLink: 'https://openrouter.ai/keys',
+    id: "openrouter",
+    name: "OpenRouter",
+    icon: "⊙",
+    iconStyle: "bg-purple-500/10 text-purple-400",
+    desc: "Universal router for 200+ models",
+    placeholder: "sk-or-...",
+    keyLink: "https://openrouter.ai/keys",
   },
 ] as const;
 
 /* ------------------------------------------------------------------ */
 /*  Settings nav tabs                                                   */
 /* ------------------------------------------------------------------ */
-type SettingsTab = 'profile' | 'providers' | 'models';
+type SettingsTab = "profile" | "providers" | "models";
 
 const NAV_ITEMS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'profile', label: 'Profile', icon: <User className="w-4 h-4" /> },
-  { id: 'providers', label: 'Providers', icon: <Blocks className="w-4 h-4" /> },
-  { id: 'models', label: 'Models', icon: <Cpu className="w-4 h-4" /> },
+  { id: "profile", label: "Profile", icon: <User className="w-4 h-4" /> },
+  { id: "providers", label: "Providers", icon: <Blocks className="w-4 h-4" /> },
+  { id: "models", label: "Models", icon: <Cpu className="w-4 h-4" /> },
 ];
 
 /* ================================================================== */
 /*  Root Component                                                      */
 /* ================================================================== */
 export const SettingsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
+  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
 
   return (
     <MainLayout>
-      <div className="flex min-h-full" style={{ height: 'calc(100vh - 0px)' }}>
+      <div className="flex min-h-full" style={{ height: "calc(100vh - 0px)" }}>
         {/* ---- Settings Sidebar ---- */}
         <nav className="w-56 shrink-0 border-r border-surface-border bg-surface/40 p-4 space-y-6">
           <div className="space-y-1">
@@ -108,8 +109,8 @@ export const SettingsPage: React.FC = () => {
                 onClick={() => setActiveTab(item.id)}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
                   activeTab === item.id
-                    ? 'bg-zinc-800 text-white'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                    ? "bg-zinc-800 text-white"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40"
                 }`}
               >
                 {item.icon}
@@ -122,9 +123,9 @@ export const SettingsPage: React.FC = () => {
         {/* ---- Content Area ---- */}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto p-8">
-            {activeTab === 'profile' && <ProfileTab />}
-            {activeTab === 'providers' && <ProvidersTab />}
-            {activeTab === 'models' && <ModelsTab />}
+            {activeTab === "profile" && <ProfileTab />}
+            {activeTab === "providers" && <ProvidersTab />}
+            {activeTab === "models" && <ModelsTab />}
           </div>
         </div>
       </div>
@@ -141,15 +142,15 @@ const ProfileTab: React.FC = () => {
 
   const handleLogout = async () => {
     await logout();
-    toast.success('Logged out successfully');
-    navigate({ to: '/auth/login' });
+    toast.success("Logged out successfully");
+    navigate({ to: "/auth/login" });
   };
 
   const initials = user?.name
     ? user.name.slice(0, 2).toUpperCase()
     : user?.email
       ? user.email.slice(0, 2).toUpperCase()
-      : 'AE';
+      : "AE";
 
   return (
     <div className="space-y-8">
@@ -159,9 +160,9 @@ const ProfileTab: React.FC = () => {
           {initials}
         </div>
         <div>
-          <h2 className="text-lg font-bold text-white">{user?.name || 'Aegis User'}</h2>
+          <h2 className="text-lg font-bold text-white">{user?.name || "Aegis User"}</h2>
           <p className="text-xs text-zinc-400 flex items-center justify-center gap-1.5 mt-0.5">
-            <Mail className="w-3.5 h-3.5 text-zinc-500" /> {user?.email || 'user@aegis.dev'}
+            <Mail className="w-3.5 h-3.5 text-zinc-500" /> {user?.email || "user@aegis.dev"}
           </p>
         </div>
       </div>
@@ -176,7 +177,7 @@ const ProfileTab: React.FC = () => {
           </div>
           <div className="flex items-center gap-3">
             <div className="w-32 h-2 rounded-full bg-zinc-800 overflow-hidden">
-              <div className="h-full bg-zinc-300 rounded-full" style={{ width: '100%' }} />
+              <div className="h-full bg-zinc-300 rounded-full" style={{ width: "100%" }} />
             </div>
             <span className="text-xs font-medium text-zinc-300 whitespace-nowrap">100% left</span>
           </div>
@@ -186,10 +187,10 @@ const ProfileTab: React.FC = () => {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { value: '0', label: 'Lifetime tokens' },
-          { value: '0', label: 'Active days' },
-          { value: 'BYOK', label: 'Auth mode' },
-          { value: 'JWT', label: 'Session type' },
+          { value: "0", label: "Lifetime tokens" },
+          { value: "0", label: "Active days" },
+          { value: "BYOK", label: "Auth mode" },
+          { value: "JWT", label: "Session type" },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -248,10 +249,10 @@ const ProfileTab: React.FC = () => {
 /*  Providers Tab                                                       */
 /* ================================================================== */
 const ProvidersTab: React.FC = () => {
-  const { credentials, refreshCredentials, hasCredential } = useAegis();
+  const { credentials, refreshCredentials, hasCredential, refreshModels } = useAegis();
   const [configuringProvider, setConfiguringProvider] = useState<string | null>(null);
-  const [apiKeyInput, setApiKeyInput] = useState('');
-  const [baseUrlInput, setBaseUrlInput] = useState('');
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [baseUrlInput, setBaseUrlInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [deletingProvider, setDeletingProvider] = useState<string | null>(null);
 
@@ -261,14 +262,15 @@ const ProvidersTab: React.FC = () => {
     try {
       await credentialsApi.save(providerId, apiKeyInput.trim(), baseUrlInput.trim() || undefined);
       const provider = PROVIDERS.find((p) => p.id === providerId);
-      toast.success(`${provider?.name || providerId} credential saved!`);
-      setApiKeyInput('');
-      setBaseUrlInput('');
+      toast.success(`${provider?.name || providerId} credential saved! Discovering models...`);
+      setApiKeyInput("");
+      setBaseUrlInput("");
       setConfiguringProvider(null);
       await refreshCredentials();
+      await refreshModels();
     } catch (err: any) {
       toast.error(
-        err?.response?.data?.error || err?.response?.data?.message || 'Failed to save credential'
+        err?.response?.data?.error || err?.response?.data?.message || "Failed to save credential"
       );
     } finally {
       setSaving(false);
@@ -282,8 +284,9 @@ const ProvidersTab: React.FC = () => {
       const provider = PROVIDERS.find((p) => p.id === providerId);
       toast.success(`${provider?.name || providerId} credential removed`);
       await refreshCredentials();
+      await refreshModels();
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Failed to remove credential');
+      toast.error(err?.response?.data?.error || "Failed to remove credential");
     } finally {
       setDeletingProvider(null);
     }
@@ -321,7 +324,7 @@ const ProvidersTab: React.FC = () => {
                     <span className="text-sm font-semibold text-zinc-100">{provider.name}</span>
                     {isConfigured && (
                       <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
-                        {cred?.masked_api_key || cred?.api_key_masked || '••••••••'}
+                        {cred?.masked_api_key || cred?.api_key_masked || "••••••••"}
                       </p>
                     )}
                   </div>
@@ -340,23 +343,21 @@ const ProvidersTab: React.FC = () => {
                     </Button>
                   )}
                   <Button
-                    variant={isConfigured ? 'ghost' : 'secondary'}
+                    variant={isConfigured ? "ghost" : "secondary"}
                     size="sm"
                     onClick={() => {
                       if (isOpen) {
                         setConfiguringProvider(null);
-                        setApiKeyInput('');
-                        setBaseUrlInput('');
+                        setApiKeyInput("");
+                        setBaseUrlInput("");
                       } else {
                         setConfiguringProvider(provider.id);
-                        setApiKeyInput('');
-                        setBaseUrlInput('');
+                        setApiKeyInput("");
+                        setBaseUrlInput("");
                       }
                     }}
                     className={
-                      isConfigured
-                        ? 'text-emerald-400 hover:text-emerald-300 gap-1.5'
-                        : 'gap-1.5'
+                      isConfigured ? "text-emerald-400 hover:text-emerald-300 gap-1.5" : "gap-1.5"
                     }
                   >
                     {isConfigured ? (
@@ -364,7 +365,7 @@ const ProvidersTab: React.FC = () => {
                         <Check className="w-3.5 h-3.5" /> Configured
                       </>
                     ) : (
-                      'Configure'
+                      "Configure"
                     )}
                   </Button>
                 </div>
@@ -409,8 +410,8 @@ const ProvidersTab: React.FC = () => {
                         size="sm"
                         onClick={() => {
                           setConfiguringProvider(null);
-                          setApiKeyInput('');
-                          setBaseUrlInput('');
+                          setApiKeyInput("");
+                          setBaseUrlInput("");
                         }}
                       >
                         Cancel
@@ -420,7 +421,7 @@ const ProvidersTab: React.FC = () => {
                         onClick={() => handleSave(provider.id)}
                         disabled={saving || !apiKeyInput.trim()}
                       >
-                        {saving ? 'Saving...' : 'Save'}
+                        {saving ? "Saving..." : "Save"}
                       </Button>
                     </div>
                   </div>
@@ -438,23 +439,37 @@ const ProvidersTab: React.FC = () => {
 /*  Models Tab                                                          */
 /* ================================================================== */
 const ModelsTab: React.FC = () => {
-  const { hasCredential, selectedModel, setSelectedModel } = useAegis();
-  const [searchQuery, setSearchQuery] = useState('');
+  const { hasCredential, selectedModel, setSelectedModel, models, refreshModels, isLoadingModels } =
+    useAegis();
+  const [searchQuery, setSearchQuery] = useState("");
   const [enabledModels, setEnabledModels] = useState<Set<string>>(() => {
-    return new Set(AVAILABLE_MODELS.map((m) => m.id));
+    return new Set(models.map((m) => m.id));
   });
 
+  // Keep enabled models synced as new models are discovered
+  useEffect(() => {
+    setEnabledModels((prev) => {
+      const next = new Set(prev);
+      models.forEach((m) => {
+        if (!prev.has(m.id)) {
+          next.add(m.id);
+        }
+      });
+      return next;
+    });
+  }, [models]);
+
   const filteredModels = useMemo(() => {
-    if (!searchQuery.trim()) return AVAILABLE_MODELS;
+    if (!searchQuery.trim()) return models;
     const q = searchQuery.toLowerCase();
-    return AVAILABLE_MODELS.filter(
+    return models.filter(
       (m) =>
         m.name.toLowerCase().includes(q) ||
         m.id.toLowerCase().includes(q) ||
         m.provider.toLowerCase().includes(q) ||
-        m.description.toLowerCase().includes(q)
+        (m.description && m.description.toLowerCase().includes(q))
     );
-  }, [searchQuery]);
+  }, [searchQuery, models]);
 
   const toggleModel = (modelId: string) => {
     setEnabledModels((prev) => {
@@ -471,13 +486,32 @@ const ModelsTab: React.FC = () => {
     });
   };
 
+  const handleScan = async () => {
+    await refreshModels();
+    toast.success("Models scanned and updated from providers");
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white tracking-tight">Models</h1>
-        <p className="text-sm text-zinc-400 mt-1">
-          Choose which models are available for inference. Models require a configured provider key.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Models</h1>
+          <p className="text-sm text-zinc-400 mt-1">
+            Dynamically discovered models from your configured upstream provider API keys.
+          </p>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleScan}
+          disabled={isLoadingModels}
+          className="gap-2 shrink-0"
+        >
+          <RefreshCw
+            className={`w-3.5 h-3.5 ${isLoadingModels ? "animate-spin text-sky-400" : ""}`}
+          />
+          {isLoadingModels ? "Scanning..." : "Scan Providers"}
+        </Button>
       </div>
 
       {/* Search */}
@@ -485,7 +519,7 @@ const ModelsTab: React.FC = () => {
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
         <input
           type="text"
-          placeholder="Search models"
+          placeholder="Search discovered models by name, ID, or provider..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full pl-10 pr-4 py-2.5 text-sm bg-surface-card border border-surface-border text-zinc-100 rounded-xl placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all duration-150"
@@ -514,16 +548,21 @@ const ModelsTab: React.FC = () => {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-zinc-100">{model.name}</span>
+                      <span className="text-sm font-semibold text-zinc-100 truncate">
+                        {model.name}
+                      </span>
+                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700/60 text-zinc-400">
+                        {model.provider}
+                      </span>
                       {model.fast && <Badge variant="info">Fast</Badge>}
                       {!providerConfigured && (
-                        <span className="text-[10px] text-zinc-500">
+                        <span className="text-[10px] text-amber-500/90 font-medium">
                           Requires {model.provider} key
                         </span>
                       )}
                     </div>
                     <p className="text-[11px] text-zinc-500 truncate mt-0.5">
-                      {model.id} &middot; {model.description}
+                      {model.id} {model.description ? `· ${model.description}` : ""}
                     </p>
                   </div>
                 </div>
@@ -533,21 +572,21 @@ const ModelsTab: React.FC = () => {
                   onClick={() => toggleModel(model.id)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 flex-shrink-0 ml-4 ${
                     isEnabled && providerConfigured
-                      ? 'bg-blue-500'
+                      ? "bg-blue-500"
                       : isEnabled && !providerConfigured
-                        ? 'bg-zinc-600'
-                        : 'bg-zinc-700'
+                        ? "bg-zinc-600"
+                        : "bg-zinc-700"
                   }`}
                   aria-label={`Toggle ${model.name}`}
                 >
                   <span
                     className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                      isEnabled ? 'translate-x-5.5' : 'translate-x-1'
+                      isEnabled ? "translate-x-5.5" : "translate-x-1"
                     }`}
                     style={{
-                      width: '18px',
-                      height: '18px',
-                      transform: isEnabled ? 'translateX(22px)' : 'translateX(4px)',
+                      width: "18px",
+                      height: "18px",
+                      transform: isEnabled ? "translateX(22px)" : "translateX(4px)",
                     }}
                   />
                 </button>

@@ -74,14 +74,9 @@ func main() {
 	events.SetBrokers(cfg.Kafka.Brokers)
 	logger.Info("Kafka event infrastructure initialized", "brokers", cfg.Kafka.Brokers)
 
-	var workerReg worker.WorkerRegistry
-	if redisClient != nil {
-		workerReg = workerregistry.NewRedisWorkerRegistry(redisClient)
-		logger.Info("Worker registry backed by Redis")
-	} else {
-		workerReg = workerregistry.NewMemoryWorkerRegistry()
-		logger.Warn("Worker registry using in-memory fallback (not suitable for production)")
-	}
+	workerReg := workerregistry.NewRedisWorkerRegistry(redisClient)
+	logger.Info("Worker registry backed by Redis")
+	
 	workerSvc := worker.NewWorkerService(workerReg, worker.DefaultHeartbeatMonitorConfig(), logger)
 	workerSvc.StartHeartbeatMonitor(context.Background())
 	defer workerSvc.StopHeartbeatMonitor()
@@ -133,8 +128,9 @@ func main() {
 
 	// setup frontier provider router
 	providerRouter := infraProvider.NewProviderRouter()
+	providerService.SetGateway(providerRouter)
 	inferenceService.SetProviderGateway(providerService, providerRouter)
-	logger.Info("BYOK Frontier Provider Gateway initialized (OpenAI, Anthropic, Gemini, Mistral AI)")
+	logger.Info("BYOK Frontier Provider Gateway initialized (OpenAI, Anthropic, Gemini, Mistral AI, OpenRouter)")
 
 	// initialize domain controllers
 	authController := auth.NewAuthController(authService)

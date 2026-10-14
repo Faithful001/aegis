@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Plus, ChevronDown, Mic, Send, Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useAegis, AVAILABLE_MODELS } from '../../context/AegisContext';
+import React, { useState, useRef, useEffect } from "react";
+import { Plus, ChevronDown, Mic, Send, Check } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAegis } from "../../context/AegisContext";
 
 interface ChatPromptInputProps {
   onSendMessage: (prompt: string) => void;
@@ -9,13 +9,13 @@ interface ChatPromptInputProps {
 }
 
 export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage, disabled }) => {
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { selectedModel, setSelectedModel } = useAegis();
+  const { selectedModel, setSelectedModel, models } = useAegis();
 
   const currentModelObj =
-    AVAILABLE_MODELS.find((m) => m.id === selectedModel) || AVAILABLE_MODELS[0];
+    models.find((m) => m.id === selectedModel) || (models.length > 0 ? models[0] : null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -23,14 +23,14 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
         setModelDropdownOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       submit();
     }
@@ -39,7 +39,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
   const submit = () => {
     if (!input.trim() || disabled) return;
     onSendMessage(input.trim());
-    setInput('');
+    setInput("");
   };
 
   return (
@@ -73,12 +73,14 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
               <button
                 type="button"
                 onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-zinc-800/80 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/60 transition-all"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-zinc-800/80 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/60 transition-all max-w-[200px]"
               >
-                <span>{currentModelObj.name}</span>
+                <span className="truncate">
+                  {currentModelObj ? currentModelObj.name : "Select Model"}
+                </span>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${
-                    modelDropdownOpen ? 'rotate-180' : ''
+                  className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 shrink-0 ${
+                    modelDropdownOpen ? "rotate-180" : ""
                   }`}
                 />
               </button>
@@ -89,38 +91,63 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
                     initial={{ opacity: 0, scale: 0.95, y: 8 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 8 }}
-                    transition={{ duration: 0.15, ease: 'easeOut' }}
-                    className="absolute right-0 bottom-full mb-2 w-64 bg-surface border border-surface-border rounded-2xl p-1.5 shadow-2xl z-50 space-y-1"
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    className="absolute right-0 bottom-full mb-2 w-72 max-h-80 overflow-y-auto bg-surface border border-surface-border rounded-2xl p-1.5 shadow-2xl z-50 space-y-1"
                   >
-                    <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
-                      Select Model
+                    <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-zinc-400 tracking-wider flex items-center justify-between">
+                      <span>Select Model</span>
+                      <span className="text-[10px] lowercase text-zinc-500 font-normal">
+                        {models.length} available
+                      </span>
                     </div>
-                    {AVAILABLE_MODELS.map((model) => (
-                      <button
-                        key={model.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedModel(model.id);
-                          setModelDropdownOpen(false);
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-xl transition-all ${
-                          selectedModel === model.id
-                            ? 'bg-zinc-800 text-white font-medium'
-                            : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-xs font-semibold">
-                          <span className="flex items-center gap-1.5">
-                            {model.name}
-                            {selectedModel === model.id && (
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            )}
-                          </span>
-                          {model.fast && <span className="text-[10px] text-emerald-400">Fast</span>}
-                        </div>
-                        <p className="text-[11px] text-zinc-400 mt-0.5">{model.description}</p>
-                      </button>
-                    ))}
+                    {models.length === 0 ? (
+                      <div className="px-3 py-4 text-center text-xs text-zinc-400 space-y-1">
+                        <p className="font-medium text-zinc-300">No models discovered</p>
+                        <p className="text-[11px] text-zinc-500">
+                          Add a provider API key in Settings to discover models.
+                        </p>
+                      </div>
+                    ) : (
+                      models.map((model) => (
+                        <button
+                          key={model.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedModel(model.id);
+                            setModelDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl transition-all ${
+                            selectedModel === model.id
+                              ? "bg-zinc-800 text-white font-medium"
+                              : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between text-xs font-semibold">
+                            <span className="flex items-center gap-1.5 truncate">
+                              <span className="truncate">{model.name}</span>
+                              {selectedModel === model.id && (
+                                <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              )}
+                            </span>
+                            <div className="flex items-center gap-1 shrink-0 ml-2">
+                              <span className="text-[9px] uppercase px-1 py-0.5 rounded bg-zinc-800/80 text-zinc-400 border border-zinc-700/50">
+                                {model.provider}
+                              </span>
+                              {model.fast && (
+                                <span className="text-[10px] text-emerald-400 font-normal">
+                                  Fast
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {model.description && (
+                            <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-1">
+                              {model.description}
+                            </p>
+                          )}
+                        </button>
+                      ))
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -137,7 +164,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
               type="button"
               onClick={submit}
               disabled={disabled || !input.trim()}
-              className="w-8 h-8 rounded-full bg-sky-500 hover:bg-sky-400 text-white flex items-center justify-center transition-all disabled:opacity-40 disabled:hover:bg-sky-500"
+              className="w-8 h-8 rounded-full bg-white hover:bg-white text-black flex items-center justify-center transition-all disabled:opacity-40 disabled:hover:bg-white"
             >
               <Send className="w-3.5 h-3.5" />
             </button>
@@ -147,5 +174,3 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
     </div>
   );
 };
-
-

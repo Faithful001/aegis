@@ -13,6 +13,7 @@ import (
 
 	"github.com/Faithful001/aegis/internal/domain/inference"
 	"github.com/Faithful001/aegis/internal/domain/inference/dto"
+	providerDTO "github.com/Faithful001/aegis/internal/domain/provider/dto"
 )
 
 type GeminiAdapter struct {
@@ -283,4 +284,90 @@ func (a *GeminiAdapter) StreamGenerate(
 	}()
 
 	return outChan, nil
+}
+
+func (a *GeminiAdapter) getModelsListEndpoint(baseURL string) string {
+	if baseURL != "" {
+		u := strings.TrimRight(baseURL, "/")
+		if strings.HasSuffix(u, "/models") {
+			return u
+		}
+		if strings.HasSuffix(u, "/v1beta") || strings.HasSuffix(u, "/v1") {
+			return u + "/models"
+		}
+		return u + "/v1beta/models"
+	}
+	return "https://generativelanguage.googleapis.com/v1beta/models"
+}
+
+type geminiModelItem struct {
+	Name                       string   `json:"name"`
+	DisplayName                string   `json:"displayName"`
+	Description                string   `json:"description"`
+	SupportedGenerationMethods []string `json:"supportedGenerationMethods"`
+}
+
+type geminiModelsResponse struct {
+	Models []geminiModelItem `json:"models"`
+}
+
+func (a *GeminiAdapter) ListModels(ctx context.Context, apiKey, baseURL string) ([]providerDTO.ModelDescriptor, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", a.getModelsListEndpoint(baseURL), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq.Header.Set("x-goog-api-key", apiKey)
+
+	resp, err := a.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query gemini models api: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("gemini api error: HTTP %d - %s", resp.StatusCode, string(respBody))
+	}
+
+	var mResp geminiModelsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&mResp); err != nil {
+		return nil, fmt.Errorf("failed to decode gemini models response: %w", err)
+	}
+
+	results := make([]providerDTO.ModelDescriptor, 0, len(mResp.Models))
+	for _, m := range mResp.Models {
+		// Filter for generateContent support
+		canGenerate := false
+		for _, method := range m.SupportedGenerationMethods {
+			if method == "generateContent" {
+				canGenerate = true
+				break
+			}
+		}
+		if !canGenerate {
+			continue
+		}
+
+		modelID := strings.TrimPrefix(m.Name, "models/")
+		displayName := m.DisplayName
+		if displayName == "" {
+			displayName = modelID
+		}
+		isFast := strings.Contains(strings.ToLower(modelID), "flash")
+		desc := m.Description
+		if desc == "" {
+			desc = "Google Gemini multimodal frontier model"
+		}
+
+		results = append(results, providerDTO.ModelDescriptor{
+			ID:          modelID,
+			Name:        displayName,
+			Provider:    "gemini",
+			Description: desc,
+			Fast:        isFast,
+		})
+	}
+
+	return results, nil
 }

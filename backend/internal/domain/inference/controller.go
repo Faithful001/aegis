@@ -174,3 +174,51 @@ func (ctrl *InferenceController) handleInferenceError(c *gin.Context, err error)
 		})
 	}
 }
+
+type openAICardModel struct {
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Created int64  `json:"created"`
+	OwnedBy string `json:"owned_by"`
+}
+
+type openAIListModelsResponse struct {
+	Object string            `json:"object"`
+	Data   []openAICardModel `json:"data"`
+}
+
+// HandleListModels handles GET /v1/models (OpenAI format)
+func (ctrl *InferenceController) HandleListModels(c *gin.Context) {
+	userIDVal, _ := c.Get("userID")
+	var userUUID uuid.UUID
+	if val, ok := userIDVal.(uuid.UUID); ok {
+		userUUID = val
+	}
+
+	models, err := ctrl.service.ListModels(c.Request.Context(), userUUID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"message": fmt.Sprintf("failed to list models: %v", err),
+				"type":    "server_error",
+			},
+		})
+		return
+	}
+
+	now := time.Now().Unix()
+	cardModels := make([]openAICardModel, 0, len(models))
+	for _, m := range models {
+		cardModels = append(cardModels, openAICardModel{
+			ID:      m.ID,
+			Object:  "model",
+			Created: now,
+			OwnedBy: m.Provider,
+		})
+	}
+
+	c.JSON(http.StatusOK, openAIListModelsResponse{
+		Object: "list",
+		Data:   cardModels,
+	})
+}

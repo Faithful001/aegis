@@ -13,6 +13,7 @@ import (
 
 	"github.com/Faithful001/aegis/internal/domain/inference"
 	"github.com/Faithful001/aegis/internal/domain/inference/dto"
+	providerDTO "github.com/Faithful001/aegis/internal/domain/provider/dto"
 )
 
 type AnthropicAdapter struct {
@@ -295,4 +296,84 @@ func (a *AnthropicAdapter) StreamGenerate(
 	}()
 
 	return outChan, nil
+}
+
+func (a *AnthropicAdapter) getModelsEndpoint(baseURL string) string {
+	if baseURL != "" {
+		u := strings.TrimRight(baseURL, "/")
+		if strings.HasSuffix(u, "/models") {
+			return u
+		}
+		if strings.HasSuffix(u, "/v1") {
+			return u + "/models"
+		}
+		return u + "/v1/models"
+	}
+	return "https://api.anthropic.com/v1/models"
+}
+
+type anthropicModelItem struct {
+	Type        string `json:"type"`
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	CreatedAt   string `json:"created_at"`
+}
+
+type anthropicModelsResponse struct {
+	Data []anthropicModelItem `json:"data"`
+}
+
+func (a *AnthropicAdapter) ListModels(ctx context.Context, apiKey, baseURL string) ([]providerDTO.ModelDescriptor, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", a.getModelsEndpoint(baseURL), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq.Header.Set("x-api-key", apiKey)
+	httpReq.Header.Set("anthropic-version", "2023-06-01")
+
+	resp, err := a.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query anthropic models api: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("anthropic api error: HTTP %d - %s", resp.StatusCode, string(respBody))
+	}
+
+	var mResp anthropicModelsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&mResp); err != nil {
+		return nil, fmt.Errorf("failed to decode anthropic models response: %w", err)
+	}
+
+	results := make([]providerDTO.ModelDescriptor, 0, len(mResp.Data))
+	for _, m := range mResp.Data {
+		name := m.DisplayName
+		if name == "" {
+			name = m.ID
+		}
+		desc := "Anthropic Claude frontier intelligence & reasoning"
+		lowerID := strings.ToLower(m.ID)
+		isFast := strings.Contains(lowerID, "haiku")
+
+		if strings.Contains(lowerID, "opus") {
+			desc = "Most capable model for highly complex tasks & deep analysis"
+		} else if strings.Contains(lowerID, "sonnet") {
+			desc = "Frontier intelligence, hybrid reasoning & superior coding"
+		} else if strings.Contains(lowerID, "haiku") {
+			desc = "Lightweight, ultra-fast model with near-instant responses"
+		}
+
+		results = append(results, providerDTO.ModelDescriptor{
+			ID:          m.ID,
+			Name:        name,
+			Provider:    "anthropic",
+			Description: desc,
+			Fast:        isFast,
+		})
+	}
+
+	return results, nil
 }

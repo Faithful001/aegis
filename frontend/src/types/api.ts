@@ -88,3 +88,11 @@ export interface ChatCompletionChunk {
   model: string;
   choices: ChatCompletionChoice[];
 }
+
+export interface DiscoveredModel {
+  id: string;
+  name: string;
+  provider: string;
+  description?: string;
+  fast?: boolean;
+}

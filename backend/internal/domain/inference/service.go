@@ -9,6 +9,7 @@ import (
 
 	"github.com/Faithful001/aegis/internal/domain/inference/dto"
 	"github.com/Faithful001/aegis/internal/domain/provider"
+	providerDTO "github.com/Faithful001/aegis/internal/domain/provider/dto"
 	"github.com/Faithful001/aegis/internal/domain/scheduler"
 	"github.com/Faithful001/aegis/internal/infra/queue/kafka"
 	"github.com/google/uuid"
@@ -46,6 +47,13 @@ func (s *InferenceService) SetProviderGateway(
 ) {
 	s.providerSvc = providerSvc
 	s.providerGateway = gateway
+}
+
+func (s *InferenceService) ListModels(ctx context.Context, userID uuid.UUID) ([]providerDTO.ModelDescriptor, error) {
+	if s.providerSvc != nil {
+		return s.providerSvc.ListAllModels(ctx, userID)
+	}
+	return nil, nil
 }
 
 func (s *InferenceService) selectWorker(ctx context.Context, req dto.ChatCompletionRequest, job *InferenceJob) error {

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ChatPromptInput } from "../components/chat/ChatPromptInput";
 import { ChatMessages } from "../components/chat/ChatMessages";
-import { useAegis, AVAILABLE_MODELS } from "../context/AegisContext";
+import { useAegis } from "../context/AegisContext";
 import { useAuth } from "../context/AuthContext";
 import { streamChatCompletion } from "../api/chat";
 import { AddCredentialModal } from "../components/modals/AddCredentialModal";
@@ -16,6 +16,7 @@ export const HomePage: React.FC = () => {
     chatThreads,
     activeThreadId,
     selectedModel,
+    models,
     hasCredential,
     addMessageToThread,
     updateLastMessageInThread,
@@ -30,7 +31,7 @@ export const HomePage: React.FC = () => {
   const messages = activeThread?.messages || [];
 
   const selectedModelMeta =
-    AVAILABLE_MODELS.find((m) => m.id === selectedModel) || AVAILABLE_MODELS[0];
+    models.find((m) => m.id === selectedModel) || (models.length > 0 ? models[0] : null);
 
   const handleSendMessage = async (promptText: string) => {
     if (!isAuthenticated) {
@@ -116,7 +117,7 @@ export const HomePage: React.FC = () => {
       <AddCredentialModal
         open={credModalOpen}
         onOpenChange={setCredModalOpen}
-        defaultProvider={selectedModelMeta.provider}
+        defaultProvider={selectedModelMeta?.provider}
       />
       <AuthModal open={authModalOpen} onOpenChange={setAuthModalOpen} initialMode="login" />
     </MainLayout>

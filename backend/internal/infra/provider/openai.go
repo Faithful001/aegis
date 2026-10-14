@@ -13,6 +13,7 @@ import (
 
 	"github.com/Faithful001/aegis/internal/domain/inference"
 	"github.com/Faithful001/aegis/internal/domain/inference/dto"
+	providerDTO "github.com/Faithful001/aegis/internal/domain/provider/dto"
 )
 
 type OpenAIAdapter struct {
@@ -183,4 +184,92 @@ func (a *OpenAIAdapter) StreamGenerate(
 	}()
 
 	return outChan, nil
+}
+
+func (a *OpenAIAdapter) getModelsEndpoint(baseURL string) string {
+	if baseURL != "" {
+		u := strings.TrimRight(baseURL, "/")
+		if strings.HasSuffix(u, "/models") {
+			return u
+		}
+		if strings.HasSuffix(u, "/v1") {
+			return u + "/models"
+		}
+		return u + "/v1/models"
+	}
+	return "https://api.openai.com/v1/models"
+}
+
+type openAIModelItem struct {
+	ID      string `json:"id"`
+	Created int64  `json:"created"`
+	OwnedBy string `json:"owned_by"`
+}
+
+type openAIModelsResponse struct {
+	Data []openAIModelItem `json:"data"`
+}
+
+func (a *OpenAIAdapter) ListModels(ctx context.Context, apiKey, baseURL string) ([]providerDTO.ModelDescriptor, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", a.getModelsEndpoint(baseURL), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := a.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query openai models api: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("openai api error: HTTP %d - %s", resp.StatusCode, string(respBody))
+	}
+
+	var mResp openAIModelsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&mResp); err != nil {
+		return nil, fmt.Errorf("failed to decode openai models response: %w", err)
+	}
+
+	results := make([]providerDTO.ModelDescriptor, 0, len(mResp.Data))
+	for _, m := range mResp.Data {
+		lowerID := strings.ToLower(m.ID)
+		// Filter for chat completion models
+		if !strings.HasPrefix(lowerID, "gpt-") &&
+			!strings.HasPrefix(lowerID, "o1") &&
+			!strings.HasPrefix(lowerID, "o3") &&
+			!strings.HasPrefix(lowerID, "chatgpt-") {
+			continue
+		}
+		// Filter out non-chat specialized variations
+		if strings.Contains(lowerID, "realtime") ||
+			strings.Contains(lowerID, "audio") ||
+			strings.Contains(lowerID, "tts") ||
+			strings.Contains(lowerID, "transcription") {
+			continue
+		}
+
+		isFast := strings.Contains(lowerID, "mini") || strings.Contains(lowerID, "turbo") || strings.Contains(lowerID, "nano")
+		desc := "OpenAI frontier model"
+		if strings.HasPrefix(lowerID, "o1") || strings.HasPrefix(lowerID, "o3") {
+			desc = "Reasoning model designed for complex science, math & code"
+		} else if strings.Contains(lowerID, "4o-mini") {
+			desc = "Fast, lightweight omni model for cost-effective tasks"
+		} else if strings.Contains(lowerID, "4o") {
+			desc = "Flagship omni model for multimodal reasoning & intelligence"
+		}
+
+		results = append(results, providerDTO.ModelDescriptor{
+			ID:          m.ID,
+			Name:        m.ID,
+			Provider:    "openai",
+			Description: desc,
+			Fast:        isFast,
+		})
+	}
+
+	return results, nil
 }

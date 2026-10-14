@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { ProviderCredential, ChatThread, ChatMessage } from "../types/api";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { ProviderCredential, ChatThread, ChatMessage, DiscoveredModel } from "../types/api";
 import { credentialsApi } from "../api/credentials";
 import { useAuth } from "./AuthContext";
 
@@ -7,6 +7,9 @@ interface AegisContextType {
   credentials: ProviderCredential[];
   refreshCredentials: () => Promise<void>;
   hasCredential: (provider: string) => boolean;
+  models: DiscoveredModel[];
+  refreshModels: () => Promise<void>;
+  isLoadingModels: boolean;
   selectedModel: string;
   setSelectedModel: (model: string) => void;
   chatThreads: ChatThread[];
@@ -19,51 +22,41 @@ interface AegisContextType {
 
 const AegisContext = createContext<AegisContextType | undefined>(undefined);
 
-export const AVAILABLE_MODELS = [
-  {
-    id: "mistral-small-latest",
-    name: "Mistral Small",
-    provider: "mistral",
-    description: "Fast, balanced general reasoning model",
-    fast: true,
-  },
-  {
-    id: "mistral-large-latest",
-    name: "Mistral Large",
-    provider: "mistral",
-    description: "Top-tier flagship reasoning & coding model",
-    fast: false,
-  },
-  {
-    id: "gpt-4o-mini",
-    name: "OpenAI GPT-4o Mini",
-    provider: "openai",
-    description: "High speed direct OpenAI BYOK route",
-    fast: true,
-  },
-  {
-    id: "claude-3-5-sonnet",
-    name: "Claude 3.5 Sonnet",
-    provider: "anthropic",
-    description: "Frontier coding & multi-turn reasoning",
-    fast: false,
-  },
-  {
-    id: "openrouter/auto",
-    name: "OpenRouter Auto",
-    provider: "openrouter",
-    description: "Universal BYOK router with fallback routing",
-    fast: true,
-  },
-];
-
 export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
   const [credentials, setCredentials] = useState<ProviderCredential[]>([]);
-  const [selectedModel, setSelectedModel] = useState<string>("mistral-small-latest");
+  const [models, setModels] = useState<DiscoveredModel[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState<boolean>(false);
+  const [selectedModel, setSelectedModel] = useState<string>("");
 
   const [chatThreads, setChatThreads] = useState<ChatThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>("default-thread-1");
+
+  const refreshModels = useCallback(async () => {
+    if (!isAuthenticated) {
+      setModels([]);
+      setSelectedModel("");
+      return;
+    }
+    setIsLoadingModels(true);
+    try {
+      const fetched = await credentialsApi.listModels();
+      const list = fetched || [];
+      setModels(list);
+      setSelectedModel((prev) => {
+        if (prev && list.some((m) => m.id === prev)) {
+          return prev;
+        }
+        return list[0]?.id || "";
+      });
+    } catch (e) {
+      console.error("Error discovering models from providers:", e);
+      setModels([]);
+      setSelectedModel("");
+    } finally {
+      setIsLoadingModels(false);
+    }
+  }, [isAuthenticated]);
 
   const refreshCredentials = async () => {
     if (!isAuthenticated) {
@@ -73,6 +66,8 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const list = await credentialsApi.list();
       setCredentials(list);
+      // Automatically refresh models whenever credentials change
+      refreshModels();
     } catch (e) {
       console.error("Error fetching user credentials:", e);
     }
@@ -85,10 +80,13 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     if (isAuthenticated) {
       refreshCredentials();
+      refreshModels();
     } else {
       setCredentials([]);
+      setModels([]);
+      setSelectedModel("");
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, refreshModels]);
 
   const createNewThread = (): string => {
     const newId = "thread-" + Date.now();
@@ -152,6 +150,9 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         credentials,
         refreshCredentials,
         hasCredential,
+        models,
+        refreshModels,
+        isLoadingModels,
         selectedModel,
         setSelectedModel,
         chatThreads,

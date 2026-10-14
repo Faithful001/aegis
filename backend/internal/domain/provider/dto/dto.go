@@ -25,3 +25,15 @@ type CredentialResponse struct {
 type CredentialListResponse struct {
 	Data []CredentialResponse `json:"data"`
 }
+
+type ModelDescriptor struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Provider    string `json:"provider"`
+	Description string `json:"description,omitempty"`
+	Fast        bool   `json:"fast,omitempty"`
+}
+
+type ModelListResponse struct {
+	Data []ModelDescriptor `json:"data"`
+}

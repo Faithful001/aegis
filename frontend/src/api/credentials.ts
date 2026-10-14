@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { ProviderCredential } from '../types/api';
+import { ProviderCredential, DiscoveredModel } from '../types/api';
 
 export const credentialsApi = {
   list: async (): Promise<ProviderCredential[]> => {
@@ -18,5 +18,11 @@ export const credentialsApi = {
 
   delete: async (provider: string): Promise<void> => {
     await apiClient.delete(`/credentials/${provider}`);
+  },
+
+  listModels: async (provider?: string): Promise<DiscoveredModel[]> => {
+    const endpoint = provider ? `/credentials/${provider}/models` : '/models';
+    const res = await apiClient.get(endpoint);
+    return res.data.data || res.data || [];
   },
 };

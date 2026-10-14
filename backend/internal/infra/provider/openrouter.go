@@ -14,6 +14,7 @@ import (
 
 	"github.com/Faithful001/aegis/internal/domain/inference"
 	"github.com/Faithful001/aegis/internal/domain/inference/dto"
+	providerDTO "github.com/Faithful001/aegis/internal/domain/provider/dto"
 )
 
 type OpenRouterAdapter struct {
@@ -192,4 +193,75 @@ func (a *OpenRouterAdapter) StreamGenerate(
 	}()
 
 	return outChan, nil
+}
+
+func (a *OpenRouterAdapter) getModelsEndpoint(baseURL string) string {
+	if baseURL != "" {
+		u := strings.TrimRight(baseURL, "/")
+		if strings.HasSuffix(u, "/models") {
+			return u
+		}
+		if strings.HasSuffix(u, "/v1") || strings.HasSuffix(u, "/api/v1") {
+			return u + "/models"
+		}
+		return u + "/api/v1/models"
+	}
+	return "https://openrouter.ai/api/v1/models"
+}
+
+type openRouterModelItem struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type openRouterModelsResponse struct {
+	Data []openRouterModelItem `json:"data"`
+}
+
+func (a *OpenRouterAdapter) ListModels(ctx context.Context, apiKey, baseURL string) ([]providerDTO.ModelDescriptor, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", a.getModelsEndpoint(baseURL), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+
+	resp, err := a.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query openrouter models api: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("openrouter api error: HTTP %d - %s", resp.StatusCode, string(respBody))
+	}
+
+	var mResp openRouterModelsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&mResp); err != nil {
+		return nil, fmt.Errorf("failed to decode openrouter models response: %w", err)
+	}
+
+	results := make([]providerDTO.ModelDescriptor, 0, len(mResp.Data))
+	for _, m := range mResp.Data {
+		name := m.Name
+		if name == "" {
+			name = m.ID
+		}
+		lowerID := strings.ToLower(m.ID)
+		isFast := strings.Contains(lowerID, "mini") || strings.Contains(lowerID, "flash") || strings.Contains(lowerID, "haiku") || strings.Contains(lowerID, "small")
+
+		results = append(results, providerDTO.ModelDescriptor{
+			ID:          m.ID,
+			Name:        name,
+			Provider:    "openrouter",
+			Description: m.Description,
+			Fast:        isFast,
+		})
+	}
+
+	return results, nil
 }

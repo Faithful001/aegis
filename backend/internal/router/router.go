@@ -111,11 +111,13 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			// User Profile
 			protected.GET("/user/me", cfg.UserController.GetMe)
 
-			// User BYOK Provider Credentials Management
+			// User BYOK Provider Credentials Management & Dynamic Models Discovery
 			if cfg.ProviderController != nil {
 				protected.POST("/credentials", cfg.ProviderController.SaveCredential)
 				protected.GET("/credentials", cfg.ProviderController.ListCredentials)
 				protected.DELETE("/credentials/:provider", cfg.ProviderController.DeleteCredential)
+				protected.GET("/credentials/:provider/models", cfg.ProviderController.ListProviderModels)
+				protected.GET("/models", cfg.ProviderController.ListAllModels)
 			}
 
 			// User Token Usage Metering
@@ -169,8 +171,9 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			})
 		})
 
-		// OpenAI-compatible Chat Completions API
+		// OpenAI-compatible Chat Completions and Models API
 		if cfg.InferenceController != nil {
+			inferenceV1.GET("/models", cfg.InferenceController.HandleListModels)
 			inferenceV1.POST("/chat/completions", cfg.InferenceController.HandleChatCompletion)
 		}
 	}

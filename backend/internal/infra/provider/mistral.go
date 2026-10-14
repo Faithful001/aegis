@@ -14,6 +14,7 @@ import (
 
 	"github.com/Faithful001/aegis/internal/domain/inference"
 	"github.com/Faithful001/aegis/internal/domain/inference/dto"
+	providerDTO "github.com/Faithful001/aegis/internal/domain/provider/dto"
 )
 
 type MistralAdapter struct {
@@ -185,4 +186,81 @@ func (a *MistralAdapter) StreamGenerate(
 	}()
 
 	return outChan, nil
+}
+
+func (a *MistralAdapter) getModelsEndpoint(baseURL string) string {
+	if baseURL != "" {
+		u := strings.TrimRight(baseURL, "/")
+		if strings.HasSuffix(u, "/models") {
+			return u
+		}
+		if strings.HasSuffix(u, "/v1") {
+			return u + "/models"
+		}
+		return u + "/v1/models"
+	}
+	return "https://api.mistral.ai/v1/models"
+}
+
+type mistralModelItem struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type mistralModelsResponse struct {
+	Data []mistralModelItem `json:"data"`
+}
+
+func (a *MistralAdapter) ListModels(ctx context.Context, apiKey, baseURL string) ([]providerDTO.ModelDescriptor, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", a.getModelsEndpoint(baseURL), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := a.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query mistral models api: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("mistral api error: HTTP %d - %s", resp.StatusCode, string(respBody))
+	}
+
+	var mResp mistralModelsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&mResp); err != nil {
+		return nil, fmt.Errorf("failed to decode mistral models response: %w", err)
+	}
+
+	results := make([]providerDTO.ModelDescriptor, 0, len(mResp.Data))
+	for _, m := range mResp.Data {
+		lowerID := strings.ToLower(m.ID)
+		if strings.Contains(lowerID, "embed") {
+			continue
+		}
+
+		name := m.Name
+		if name == "" {
+			name = m.ID
+		}
+		isFast := strings.Contains(lowerID, "small") || strings.Contains(lowerID, "codestral") || strings.Contains(lowerID, "ministral")
+		desc := m.Description
+		if desc == "" {
+			desc = "Mistral AI reasoning & code model"
+		}
+
+		results = append(results, providerDTO.ModelDescriptor{
+			ID:          m.ID,
+			Name:        name,
+			Provider:    "mistral",
+			Description: desc,
+			Fast:        isFast,
+		})
+	}
+
+	return results, nil
 }
