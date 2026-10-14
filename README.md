@@ -1,6 +1,6 @@
 # Aegis
 
-> A distributed AI inference harness with high-performance scheduling, rate limiting, and usage metering designed around a BYOK architecture.
+> A distributed harness for running AI inference reliably under load. Handles scheduling, admission control, rate limiting, and durable usage metering, and it’s built around BYOK so customers keep control of their own model credentials.
 
 Aegis is not a chatbot, a RAG application, or a simple LLM API wrapper.
 
@@ -51,7 +51,7 @@ Running an LLM-powered service in production is not primarily an AI problem: it 
 - How do you record token usage reliably even if a worker crashes mid-stream?
 - How do you guarantee that usage events are processed exactly once even with Kafka redelivery?
 
-Aegis is designed to surface and solve those problems in a clean, well-structured codebase. The LLM itself (Mistral via LangChain) is the *payload*: the interesting engineering is everything around it.
+Aegis is designed to surface and solve those problems in a clean, well-structured codebase. The LLM itself (Mistral via LangChain) is the _payload_: the interesting engineering is everything around it.
 
 ---
 
@@ -70,36 +70,36 @@ aegis/
 
 ### Frontend
 
-| | Technology |
-|---|---|
-| Framework | React 18 + TypeScript |
-| Build tool | Vite |
-| Routing | TanStack Router |
-| Data fetching | TanStack Query |
-| UI primitives | Radix UI |
-| Animations | Framer Motion |
-| Styling | Tailwind CSS |
-| HTTP client | Axios |
-| Icons | Lucide React |
-| Notifications | Sonner |
+|               | Technology            |
+| ------------- | --------------------- |
+| Framework     | React 18 + TypeScript |
+| Build tool    | Vite                  |
+| Routing       | TanStack Router       |
+| Data fetching | TanStack Query        |
+| UI primitives | Radix UI              |
+| Animations    | Framer Motion         |
+| Styling       | Tailwind CSS          |
+| HTTP client   | Axios                 |
+| Icons         | Lucide React          |
+| Notifications | Sonner                |
 
 ### Backend
 
-| Layer | Technology |
-|---|---|
-| Control plane | Go 1.26+ |
-| HTTP framework | Gin |
-| Inference workers | Python 3.12+ |
-| LLM orchestration | LangChain |
-| LLM provider | Mistral (via BYOK API key) |
-| Go to Python RPC | gRPC / Protocol Buffers |
-| Token streaming | gRPC server-side streaming → SSE |
-| Async event bus | Kafka (segmentio/kafka-go) |
-| Distributed state | Redis (go-redis/v9) |
-| Durable storage | PostgreSQL (GORM + pgx/v5) |
-| Observability | OpenTelemetry + Prometheus |
-| Containerisation | Docker / Docker Compose |
-| Orchestration | Kubernetes |
+| Layer             | Technology                       |
+| ----------------- | -------------------------------- |
+| Control plane     | Go 1.26+                         |
+| HTTP framework    | Gin                              |
+| Inference workers | Python 3.12+                     |
+| LLM orchestration | LangChain                        |
+| LLM provider      | Mistral (via BYOK API key)       |
+| Go to Python RPC  | gRPC / Protocol Buffers          |
+| Token streaming   | gRPC server-side streaming → SSE |
+| Async event bus   | Kafka (segmentio/kafka-go)       |
+| Distributed state | Redis (go-redis/v9)              |
+| Durable storage   | PostgreSQL (GORM + pgx/v5)       |
+| Observability     | OpenTelemetry + Prometheus       |
+| Containerisation  | Docker / Docker Compose          |
+| Orchestration     | Kubernetes                       |
 
 ---
 
@@ -177,15 +177,15 @@ The frontend (`frontend/`) is a React + TypeScript single-page application built
 
 Pages and features:
 
-| Page | Purpose |
-|---|---|
-| **Auth** | Login and registration |
-| **Chat** | Interactive inference interface: send requests and receive streamed responses |
-| **Projects** | Create and manage projects within an organisation |
-| **Organizations** | Tenant management |
-| **Analytics** | Usage charts and token consumption metrics per project and organisation |
-| **Settings** | BYOK provider key management, API key management |
-| **Profile** | User account settings |
+| Page              | Purpose                                                                       |
+| ----------------- | ----------------------------------------------------------------------------- |
+| **Auth**          | Login and registration                                                        |
+| **Chat**          | Interactive inference interface: send requests and receive streamed responses |
+| **Projects**      | Create and manage projects within an organisation                             |
+| **Organizations** | Tenant management                                                             |
+| **Analytics**     | Usage charts and token consumption metrics per project and organisation       |
+| **Settings**      | BYOK provider key management, API key management                              |
+| **Profile**       | User account settings                                                         |
 
 The dashboard communicates with the Go backend over HTTP. Streaming responses from the inference endpoint are consumed via Server-Sent Events (SSE) and rendered token-by-token in the chat interface.
 
@@ -226,11 +226,11 @@ The Python worker has no knowledge of rate limiting, scheduling, quotas, or admi
 
 Kafka decouples inference completion from usage persistence. The Python worker does not wait for PostgreSQL before returning. This keeps the hot inference path free of database latency.
 
-| Topic | Producer | Consumer |
-|---|---|---|
-| `aegis.inference.events` | Go backend | Metering consumer |
-| `aegis.usage.events` | Python worker | Go metering consumer |
-| `aegis.dlq` | All consumers | Manual investigation |
+| Topic                    | Producer      | Consumer             |
+| ------------------------ | ------------- | -------------------- |
+| `aegis.inference.events` | Go backend    | Metering consumer    |
+| `aegis.usage.events`     | Python worker | Go metering consumer |
+| `aegis.dlq`              | All consumers | Manual investigation |
 
 Token streaming does **not** go through Kafka. Tokens flow: `Mistral → LangChain → gRPC stream → Go → SSE → Client`.
 
@@ -238,14 +238,14 @@ Token streaming does **not** go through Kafka. Tokens flow: `Mistral → LangCha
 
 Redis stores state that is fast to read/write, acceptable to lose on restart, and shared across multiple Go backend replicas.
 
-| Key Namespace | Purpose |
-|---|---|
-| `rl:{api_key_id}` | Rate limit counters |
-| `rl:{project_id}` | Project-level rate limits |
-| `rl:{org_id}` | Organisation-level rate limits |
-| `worker:{worker_id}` | Worker registry entry |
-| `worker:{worker_id}:hb` | Heartbeat TTL key |
-| `lock:{resource}` | Distributed locks |
+| Key Namespace           | Purpose                        |
+| ----------------------- | ------------------------------ |
+| `rl:{api_key_id}`       | Rate limit counters            |
+| `rl:{project_id}`       | Project-level rate limits      |
+| `rl:{org_id}`           | Organisation-level rate limits |
+| `worker:{worker_id}`    | Worker registry entry          |
+| `worker:{worker_id}:hb` | Heartbeat TTL key              |
+| `lock:{resource}`       | Distributed locks              |
 
 Redis is **not** the source of truth for usage, pricing, or metering. PostgreSQL owns that.
 
@@ -253,17 +253,17 @@ Redis is **not** the source of truth for usage, pricing, or metering. PostgreSQL
 
 All durable state lives in PostgreSQL.
 
-| Table | Purpose |
-|---|---|
-| `users` | User accounts |
-| `organizations` | Tenants |
-| `projects` | Workspaces within an organisation |
-| `api_keys` | Hashed API keys with prefix |
-| `inference_records` | One record per inference job |
-| `usage_records` | Actual token consumption |
-| `pricing` | Versioned model pricing |
-| `idempotency_records` | Deduplication for API requests |
-| `outbox_events` | Transactional outbox for Kafka |
+| Table                 | Purpose                           |
+| --------------------- | --------------------------------- |
+| `users`               | User accounts                     |
+| `organizations`       | Tenants                           |
+| `projects`            | Workspaces within an organisation |
+| `api_keys`            | Hashed API keys with prefix       |
+| `inference_records`   | One record per inference job      |
+| `usage_records`       | Actual token consumption          |
+| `pricing`             | Versioned model pricing           |
+| `idempotency_records` | Deduplication for API requests    |
+| `outbox_events`       | Transactional outbox for Kafka    |
 
 ---
 
@@ -389,16 +389,16 @@ Implications:
 
 The scheduler (`backend/internal/domain/scheduler/`) does not use round-robin. Worker selection scores each candidate on:
 
-| Factor | Rationale |
-|---|---|
-| Supported model | Worker must support the requested model |
-| Health status | Only `READY` workers are eligible |
-| Active requests | Prefer workers with spare capacity |
-| Max concurrency | Hard upper bound per worker |
-| Queue depth | Avoid overloading a single worker |
+| Factor               | Rationale                                             |
+| -------------------- | ----------------------------------------------------- |
+| Supported model      | Worker must support the requested model               |
+| Health status        | Only `READY` workers are eligible                     |
+| Active requests      | Prefer workers with spare capacity                    |
+| Max concurrency      | Hard upper bound per worker                           |
+| Queue depth          | Avoid overloading a single worker                     |
 | Estimated token load | Heavier jobs are routed to workers with more headroom |
-| Request priority | Higher-priority jobs influence routing decisions |
-| Retry count | Retried jobs avoid the worker that last failed them |
+| Request priority     | Higher-priority jobs influence routing decisions      |
+| Retry count          | Retried jobs avoid the worker that last failed them   |
 
 ---
 
@@ -406,10 +406,10 @@ The scheduler (`backend/internal/domain/scheduler/`) does not use round-robin. W
 
 The admission controller (`backend/internal/domain/admission/`) gates every request before it reaches the scheduler.
 
-| Decision | Condition |
-|---|---|
-| `ACCEPT` | Rate limits clear, quota available, worker capacity available |
-| `QUEUE` | Rate limits clear but no immediate worker capacity |
+| Decision | Condition                                                       |
+| -------- | --------------------------------------------------------------- |
+| `ACCEPT` | Rate limits clear, quota available, worker capacity available   |
+| `QUEUE`  | Rate limits clear but no immediate worker capacity              |
 | `REJECT` | Rate limit exceeded, quota exhausted, or queue at maximum depth |
 
 Queuing is bounded. The controller implements backpressure rather than allowing unbounded growth.
@@ -469,11 +469,11 @@ A background publisher relays outbox events to Kafka with exponential backoff re
 
 ## Observability
 
-| Signal | Implementation |
-|---|---|
-| Structured logging | JSON with `request_id`, `job_id`, `trace_id` on every line |
+| Signal              | Implementation                                              |
+| ------------------- | ----------------------------------------------------------- |
+| Structured logging  | JSON with `request_id`, `job_id`, `trace_id` on every line  |
 | Distributed tracing | OpenTelemetry, propagated through HTTP → Go → gRPC → Python |
-| Metrics | Prometheus, exposed at `GET /metrics` |
+| Metrics             | Prometheus, exposed at `GET /metrics`                       |
 
 Key metrics tracked:
 
@@ -546,19 +546,19 @@ The dashboard is available at `http://localhost:5173`.
 
 ### Backend: see [`backend/.env.example`](backend/.env.example)
 
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_URL` | Redis connection string |
-| `KAFKA_BROKERS` | Comma-separated Kafka broker addresses |
-| `GRPC_WORKER_ADDRESSES` | Comma-separated Python worker gRPC addresses |
-| `JWT_SECRET` | Secret for signing JWT tokens |
-| `ENCRYPTION_KEY` | Key used to encrypt stored BYOK provider keys |
+| Variable                | Description                                   |
+| ----------------------- | --------------------------------------------- |
+| `DATABASE_URL`          | PostgreSQL connection string                  |
+| `REDIS_URL`             | Redis connection string                       |
+| `KAFKA_BROKERS`         | Comma-separated Kafka broker addresses        |
+| `GRPC_WORKER_ADDRESSES` | Comma-separated Python worker gRPC addresses  |
+| `JWT_SECRET`            | Secret for signing JWT tokens                 |
+| `ENCRYPTION_KEY`        | Key used to encrypt stored BYOK provider keys |
 
 ### Frontend: see [`frontend/.env.example`](frontend/.env.example)
 
-| Variable | Description |
-|---|---|
+| Variable       | Description                    |
+| -------------- | ------------------------------ |
 | `VITE_API_URL` | Base URL of the Go backend API |
 
 ---
