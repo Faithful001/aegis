@@ -19,16 +19,13 @@ const (
 	TokenTypeResetPassword TokenType = token.TypeResetPassword
 )
 
-// TokenClaims is an alias for token.Claims — kept here so domain/auth callers
-// don't need to import domain/token directly.
+// TokenClaims is an alias for token.Claims, kept here so domain/auth callers
 type TokenClaims = token.Claims
 
 // TokenPair is an alias for token.Pair.
 type TokenPair = token.Pair
 
 // IJWTService is the domain-owned interface for token operations.
-// The concrete *security.JWTService satisfies this interface via Go structural
-// typing — no import of infra/security is needed here.
 type IJWTService interface {
 	GenerateTokenPair(userID uuid.UUID, email string) (*TokenPair, *TokenClaims, *TokenClaims, error)
 	GenerateResetPasswordToken(userID uuid.UUID, email string) (string, error)

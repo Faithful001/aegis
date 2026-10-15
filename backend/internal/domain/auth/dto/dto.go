@@ -28,12 +28,20 @@ type LogoutRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type RegisterResponse struct {
+	User         *user.User `json:"user"`
+}
+
 type AuthResponse struct {
+	Token TokenResponse `json:"token"`
+	User         *user.User `json:"user"`
+}
+
+type TokenResponse struct {
 	AccessToken  string     `json:"access_token"`
 	RefreshToken string     `json:"refresh_token"`
 	TokenType    string     `json:"token_type"`
 	ExpiresIn    int64      `json:"expires_in"`
-	User         *user.User `json:"user"`
 }
 
 type CreateAPIKeyRequest struct {

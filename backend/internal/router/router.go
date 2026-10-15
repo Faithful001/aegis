@@ -108,6 +108,8 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 				authRoutes.POST("/verify-reset-otp", cfg.AuthController.VerifyResetOTP)
 				authRoutes.POST("/verify-otp", cfg.AuthController.VerifyResetOTP)
 				authRoutes.POST("/reset-password", cfg.AuthController.ResetPassword)
+				authRoutes.POST("/send-verification-email", cfg.AuthController.SendVerificationEmail)
+				authRoutes.POST("/verify-email", cfg.AuthController.VerifyEmail)
 			}
 		}
 
@@ -120,8 +122,6 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 
 			// Protected OTP routes (JWT required)
 			if cfg.AuthController != nil {
-				protected.POST("/auth/send-verification-email", cfg.AuthController.SendVerificationEmail)
-				protected.POST("/auth/verify-email", cfg.AuthController.VerifyEmail)
 				protected.POST("/auth/change-password", cfg.AuthController.ChangePassword)
 			}
 

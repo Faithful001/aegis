@@ -99,7 +99,7 @@ func Load() (*Config, error) {
 		},
 		Resend: ResendConfig{
 			APIKey:   getEnv("RESEND_API_KEY", ""),
-			FromAddr: getEnv("RESEND_FROM_ADDR", "Aegis <noreply@yourdomain.com>"),
+			FromAddr: getEnv("RESEND_FROM_ADDR", "noreply@resend.dev"),
 		},
 	}
 

@@ -1,42 +1,36 @@
 export interface User {
   id: string;
-  email: string;
-  first_name?: string;
-  last_name?: string;
+  first_name: string;
+  last_name: string;
   name?: string;
-  is_verified?: boolean;
-  created_at?: string;
+  email: string;
+  status: string;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AuthResponse {
-  success: boolean;
+  user: User;
+  token: AuthToken;
+}
+
+export interface AuthToken {
   token?: string;
   access_token?: string;
   refresh_token?: string;
-  user?: User;
-  data?: {
-    user_id?: string;
-    email?: string;
-    token?: string;
-    access_token?: string;
-    refresh_token?: string;
-    user?: User;
-  };
-  message?: string;
 }
-
 
 export interface ProviderCredential {
   id?: string;
   user_id?: string;
-  provider: 'openai' | 'openrouter' | 'anthropic' | 'gemini' | 'mistral' | string;
+  provider: "openai" | "openrouter" | "anthropic" | "gemini" | "mistral" | string;
   masked_api_key?: string;
   api_key_masked?: string;
   base_url?: string;
   created_at?: string;
   updated_at?: string;
 }
-
 
 export interface UsageMetric {
   total_requests: number;
@@ -53,7 +47,7 @@ export interface UsageMetric {
 
 export interface ChatMessage {
   id: string;
-  role: 'system' | 'user' | 'assistant';
+  role: "system" | "user" | "assistant";
   content: string;
   timestamp: Date;
   model?: string;

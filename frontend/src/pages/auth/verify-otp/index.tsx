@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, KeyRound, CheckCircle2 } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import { authApi } from "../../../api/auth";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
@@ -12,7 +13,6 @@ export const VerifyOTPPage: React.FC = () => {
     return params.get("email") || sessionStorage.getItem("aegis_reset_email") || "";
   });
   const [code, setCode] = useState("");
-  const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(60);
   const navigate = useNavigate();
 
@@ -31,45 +31,52 @@ export const VerifyOTPPage: React.FC = () => {
     }
   }, [email, navigate]);
 
-  const handleVerify = async (e: React.FormEvent) => {
+  const verifyOTPMutation = useMutation({
+    mutationFn: async ({ email, code }: { email: string; code: string }) => {
+      return await authApi.verifyResetOTP(email, code);
+    },
+    onSuccess: (res, variables) => {
+      const resetToken = res.reset_token;
+      sessionStorage.setItem("aegis_reset_token", resetToken);
+      sessionStorage.setItem("aegis_reset_email", variables.email);
+      toast.success("Code verified! Set your new password.");
+      navigate({ to: "/auth/reset-password" });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Invalid or expired reset code");
+    },
+  });
+
+  const resendOTPMutation = useMutation({
+    mutationFn: async (targetEmail: string) => {
+      return await authApi.forgotPassword(targetEmail);
+    },
+    onSuccess: () => {
+      toast.success("A new 6-digit code has been sent!");
+      setResendCooldown(60);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to resend code");
+    },
+  });
+
+  const handleVerify = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
       toast.error("Email is missing. Please start over.");
       navigate({ to: "/auth/forgot-password" });
       return;
     }
-    if (code.length !== 6) {
+    if (code.length !== 6 || verifyOTPMutation.isPending) {
       toast.error("Please enter the 6-digit verification code");
       return;
     }
-
-    setLoading(true);
-    try {
-      const res = await authApi.verifyResetOTP(email.trim(), code.trim());
-      const resetToken = res.reset_token;
-      sessionStorage.setItem("aegis_reset_token", resetToken);
-      sessionStorage.setItem("aegis_reset_email", email.trim());
-      toast.success("Code verified! Set your new password.");
-      navigate({ to: "/auth/reset-password" });
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Invalid or expired reset code");
-    } finally {
-      setLoading(false);
-    }
+    verifyOTPMutation.mutate({ email: email.trim(), code: code.trim() });
   };
 
-  const handleResend = async () => {
-    if (resendCooldown > 0 || !email.trim()) return;
-    setLoading(true);
-    try {
-      await authApi.forgotPassword(email.trim());
-      toast.success("A new 6-digit code has been sent!");
-      setResendCooldown(60);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to resend code");
-    } finally {
-      setLoading(false);
-    }
+  const handleResend = () => {
+    if (resendCooldown > 0 || !email.trim() || resendOTPMutation.isPending) return;
+    resendOTPMutation.mutate(email.trim());
   };
 
   return (
@@ -83,13 +90,13 @@ export const VerifyOTPPage: React.FC = () => {
       </Link>
 
       <div className="text-center mb-6">
-        {/* <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white text-xl font-bold mx-auto mb-3">
+        <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white text-xl font-bold mx-auto mb-3">
           <KeyRound className="w-5 h-5" />
-        </div> */}
+        </div>
         <h2 className="text-2xl font-medium text-white tracking-tight">Verify Reset Code</h2>
-        <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">
+        <p className="text-xs text-zinc-400 mt-2 max-w-xs mx-auto leading-relaxed">
           Enter the 6-digit verification code sent to{" "}
-          <span className="text-zinc-200 font-semibold">{email || "your email"}</span>.
+          <span className="text-zinc-200 font-semibold">{email || "your email"}</span>
         </p>
       </div>
 
@@ -109,9 +116,9 @@ export const VerifyOTPPage: React.FC = () => {
         <Button
           type="submit"
           className="w-full py-2.5 font-semibold mt-2 rounded-full"
-          disabled={loading || code.length !== 6}
+          disabled={verifyOTPMutation.isPending || code.length !== 6}
         >
-          {loading ? "Verifying..." : "Verify Code"}
+          {verifyOTPMutation.isPending ? "Verifying..." : "Verify Code"}
         </Button>
 
         <div className="flex items-center justify-between text-xs text-zinc-400 pt-2">
@@ -121,14 +128,18 @@ export const VerifyOTPPage: React.FC = () => {
           <button
             type="button"
             onClick={handleResend}
-            disabled={resendCooldown > 0 || loading || !email.trim()}
+            disabled={resendCooldown > 0 || resendOTPMutation.isPending || !email.trim()}
             className={`font-medium ${
-              resendCooldown > 0 || !email.trim()
+              resendCooldown > 0 || !email.trim() || resendOTPMutation.isPending
                 ? "text-zinc-600 cursor-not-allowed"
                 : "text-white"
             }`}
           >
-            {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend code"}
+            {resendCooldown > 0
+              ? `Resend code in ${resendCooldown}s`
+              : resendOTPMutation.isPending
+                ? "Sending..."
+                : "Resend code"}
           </button>
         </div>
       </form>

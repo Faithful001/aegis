@@ -10,6 +10,7 @@ import (
 const (
 	TopicUsageEvents = "aegis.events.usage"
 	TopicJobEvents   = "aegis.events.jobs"
+	TopicEmailEvents = "aegis.events.email"
 )
 
 // Event is the interface implemented by all infrastructure events.
@@ -116,6 +117,35 @@ func NewJobEvent(
 		Model:          model,
 		WorkerID:       workerID,
 		Status:         status,
+	}
+}
+
+// EmailEvent represents an asynchronous email sending task.
+type EmailEvent struct {
+	BaseEvent
+	ToEmail string `json:"to_email"`
+	Name    string `json:"name"`
+	OTPCode string `json:"otp_code"`
+	Purpose string `json:"purpose"`
+}
+
+// NewEmailEvent constructs a new EmailEvent.
+func NewEmailEvent(
+	eventID, toEmail, name, otpCode, purpose string,
+) EmailEvent {
+	if eventID == "" {
+		eventID = "evt_" + uuid.New().String()
+	}
+	return EmailEvent{
+		BaseEvent: BaseEvent{
+			EventID:   eventID,
+			EventType: "email.send_otp",
+			Timestamp: time.Now().UTC(),
+		},
+		ToEmail: toEmail,
+		Name:    name,
+		OTPCode: otpCode,
+		Purpose: purpose,
 	}
 }
 

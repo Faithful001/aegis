@@ -3,7 +3,9 @@ import { Dialog } from "../ui/Dialog";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { useAuth } from "../../context/AuthContext";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Link } from "@tanstack/react-router";
 
 interface AuthModalProps {
   open: boolean;
@@ -20,28 +22,47 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const { login, register } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      if (mode === "login") {
-        await login(email, password);
-        toast.success("Signed in successfully!");
-      } else {
-        await register(email, password, name);
-        toast.success("Account created successfully!");
-      }
+  const resetForm = () => {
+    setEmail("");
+    setPassword("");
+    setName("");
+  };
+
+  const loginMutation = useMutation({
+    mutationFn: () => login(email, password),
+    onSuccess: () => {
+      toast.success("Signed in successfully!");
       onOpenChange(false);
-      setEmail("");
-      setPassword("");
-      setName("");
-    } catch (err: any) {
+      resetForm();
+    },
+    onError: (err: any) => {
       toast.error(err?.response?.data?.message || "Authentication failed. Please try again.");
-    } finally {
-      setLoading(false);
+    },
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: () => register(email, password, name),
+    onSuccess: () => {
+      toast.success("Account created successfully!");
+      onOpenChange(false);
+      resetForm();
+      // AuthContext.registerMutation.onSuccess handles redirect to /auth/verify-email
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Authentication failed. Please try again.");
+    },
+  });
+
+  const isPending = loginMutation.isPending || registerMutation.isPending;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (mode === "login") {
+      loginMutation.mutate();
+    } else {
+      registerMutation.mutate();
     }
   };
 
@@ -92,7 +113,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <Input
             label="Email Address"
             type="email"
-            placeholder="developer@aegis.ai"
+            placeholder="name@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -107,12 +128,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             required
           />
 
+          <div className="flex justify-end pt-1">
+            <Link
+              to="/auth/forgot-password"
+              className="text-xs text-zinc-400 hover:text-white transition-colors"
+            >
+              Forgot password?
+            </Link>
+          </div>
+
           <div className="flex justify-end gap-3 pt-3">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="px-6 font-semibold">
-              {loading
+            <Button type="submit" disabled={isPending} className="px-6 font-semibold">
+              {isPending
                 ? mode === "login"
                   ? "Signing in..."
                   : "Creating Account..."

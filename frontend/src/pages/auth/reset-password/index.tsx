@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Lock, ShieldCheck } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import { authApi } from "../../../api/auth";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
@@ -13,7 +14,6 @@ export const ResetPasswordPage: React.FC = () => {
   });
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,7 +23,22 @@ export const ResetPasswordPage: React.FC = () => {
     }
   }, [token, navigate]);
 
-  const handleResetPassword = async (e: React.FormEvent) => {
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ token, newPassword }: { token: string; newPassword: string }) => {
+      return await authApi.resetPassword(token, newPassword);
+    },
+    onSuccess: () => {
+      sessionStorage.removeItem("aegis_reset_token");
+      sessionStorage.removeItem("aegis_reset_email");
+      toast.success("Password reset successfully! Please sign in with your new password.");
+      navigate({ to: "/auth/login" });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to reset password. Token may have expired.");
+    },
+  });
+
+  const handleResetPassword = (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) {
       toast.error("Reset token missing or expired");
@@ -37,19 +52,7 @@ export const ResetPasswordPage: React.FC = () => {
       toast.error("Passwords do not match");
       return;
     }
-
-    setLoading(true);
-    try {
-      await authApi.resetPassword(token, newPassword);
-      sessionStorage.removeItem("aegis_reset_token");
-      sessionStorage.removeItem("aegis_reset_email");
-      toast.success("Password reset successfully! Please sign in with your new password.");
-      navigate({ to: "/auth/login" });
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to reset password. Token may have expired.");
-    } finally {
-      setLoading(false);
-    }
+    resetPasswordMutation.mutate({ token, newPassword });
   };
 
   return (
@@ -99,9 +102,9 @@ export const ResetPasswordPage: React.FC = () => {
         <Button
           type="submit"
           className="w-full py-2.5 font-semibold mt-2 rounded-full"
-          disabled={loading || !newPassword || !confirmPassword}
+          disabled={resetPasswordMutation.isPending || !newPassword || !confirmPassword}
         >
-          {loading ? "Updating Password..." : "Update Password"}
+          {resetPasswordMutation.isPending ? "Updating Password..." : "Update Password"}
         </Button>
 
         <p className="text-xs text-center text-zinc-400 mt-4">

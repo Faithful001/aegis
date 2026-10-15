@@ -1,32 +1,32 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "../../../context/AuthContext";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { toast } from "sonner";
 
 export const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const { register } = useAuth();
-  const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await register(email, password, name);
+  const registerMutation = useMutation({
+    mutationFn: () => register(email, password, name),
+    onSuccess: () => {
       toast.success("Account created successfully!");
-      navigate({ to: "/" });
-    } catch (err: any) {
+      // AuthContext.registerMutation.onSuccess handles redirect to /auth/verify-email
+    },
+    onError: (err: any) => {
       toast.error(err?.response?.data?.message || "Registration failed");
-    } finally {
-      setLoading(false);
-    }
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    registerMutation.mutate();
   };
 
   return (
@@ -76,9 +76,9 @@ export const RegisterPage: React.FC = () => {
         <Button
           type="submit"
           className="w-full py-2.5 font-semibold mt-2 rounded-full"
-          disabled={loading}
+          disabled={registerMutation.isPending}
         >
-          {loading ? "Creating Account..." : "Register"}
+          {registerMutation.isPending ? "Creating Account..." : "Register"}
         </Button>
       </form>
 

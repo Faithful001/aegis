@@ -12,6 +12,7 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/project"
 	"github.com/Faithful001/aegis/internal/domain/user"
 	"github.com/Faithful001/aegis/internal/infra/email"
+	"github.com/Faithful001/aegis/internal/infra/queue/kafka"
 	"github.com/google/uuid"
 )
 
@@ -23,6 +24,7 @@ type AuthService struct {
 	tokenService  IJWTService
 	hasher        IBcryptPasswordHasher
 	blacklistRepo ITokenBlacklistRepository
+	eventProducer kafka.EventProducer
 }
 
 func NewAuthService(
@@ -33,7 +35,12 @@ func NewAuthService(
 	tokenService  	IJWTService,
 	hasher        	IBcryptPasswordHasher,
 	blacklistRepo 	ITokenBlacklistRepository,
+	eventProducer ...kafka.EventProducer,
 ) *AuthService {
+	var ep kafka.EventProducer
+	if len(eventProducer) > 0 {
+		ep = eventProducer[0]
+	}
 	return &AuthService{
 		userRepo:      userRepo,
 		otpRepo:       otpRepo,
@@ -41,7 +48,13 @@ func NewAuthService(
 		emailService:  emailService,
 		tokenService:  tokenService,
 		hasher:        hasher,
+		blacklistRepo: blacklistRepo,
+		eventProducer: ep,
 	}
+}
+
+func (s *AuthService) SetEventProducer(ep kafka.EventProducer) {
+	s.eventProducer = ep
 }
 
 // func (s *AuthService) SetEmailService(emailService *email.EmailService) {
@@ -53,40 +66,31 @@ func NewAuthService(
 // 	s.otpService = otpService
 // }
 
-func (s *AuthService) Register(ctx context.Context, req dto.RegisterRequest) (*dto.AuthResponse, error) {
+func (s *AuthService) Register(ctx context.Context, req dto.RegisterRequest) (bool, error) {
 	email := strings.TrimSpace(strings.ToLower(req.Email))
 
 	existing, err := s.userRepo.GetByEmail(ctx, email)
 	if err == nil && existing != nil {
-		return nil, user.ErrEmailAlreadyExists
+		return false, user.ErrEmailAlreadyExists
 	}
 
 	hashedPassword, err := s.hasher.Hash(req.Password)
 	if err != nil {
-		return nil, fmt.Errorf("failed to hash password: %w", err)
+		return false, fmt.Errorf("failed to hash password: %w", err)
 	}
 
 	newUser, err := user.NewUser(req.FirstName, req.LastName, email, hashedPassword)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
 	if err := s.userRepo.Create(ctx, newUser); err != nil {
-		return nil, fmt.Errorf("failed to persist user: %w", err)
+		return false, fmt.Errorf("failed to persist user: %w", err)
 	}
 
-	tokenPair, _, _, err := s.tokenService.GenerateTokenPair(newUser.ID, newUser.Email)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate token pair: %w", err)
-	}
+	s.SendVerificationEmail(ctx, newUser.ID)
 
-	return &dto.AuthResponse{
-		AccessToken:  tokenPair.AccessToken,
-		RefreshToken: tokenPair.RefreshToken,
-		TokenType:    tokenPair.TokenType,
-		ExpiresIn:    tokenPair.ExpiresIn,
-		User:         newUser,
-	}, nil
+	return true, nil
 }
 
 func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*dto.AuthResponse, error) {
@@ -111,18 +115,20 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*dto.Aut
 	}
 
 	return &dto.AuthResponse{
-		AccessToken:  tokenPair.AccessToken,
-		RefreshToken: tokenPair.RefreshToken,
-		TokenType:    tokenPair.TokenType,
-		ExpiresIn:    tokenPair.ExpiresIn,
-		User:         userEntity,
+		Token: dto.TokenResponse{
+			AccessToken:  tokenPair.AccessToken,
+			RefreshToken: tokenPair.RefreshToken,
+			TokenType:    tokenPair.TokenType,
+			ExpiresIn:    tokenPair.ExpiresIn,
+		},
+		User: userEntity,
 	}, nil
 }
 
 
 // SendVerificationEmail sends an OTP to the authenticated user's email for verification.
 func (s *AuthService) SendVerificationEmail(ctx context.Context, userID uuid.UUID) error {
-	if s.emailService == nil {
+	if s.emailService == nil && s.eventProducer == nil {
 		return fmt.Errorf("email service is not configured")
 	}
 	u, err := s.userRepo.GetByID(ctx, userID)
@@ -154,6 +160,19 @@ func (s *AuthService) SendVerificationEmail(ctx context.Context, userID uuid.UUI
 	}
 
 	name := strings.TrimSpace(u.FirstName + " " + u.LastName)
+
+	if s.eventProducer != nil {
+		evt := kafka.NewEmailEvent("", u.Email, name, code, string(otp.OTPPurposeEmailVerification))
+		if err := s.eventProducer.Publish(ctx, kafka.TopicEmailEvents, u.Email, evt); err != nil {
+			log.Printf("Failed to publish verification email event to Kafka: %v", err)
+			if s.emailService != nil {
+				return s.emailService.SendOTPEmail(ctx, u.Email, name, code, otp.OTPPurposeEmailVerification)
+			}
+			return fmt.Errorf("failed to publish verification email event: %w", err)
+		}
+		return nil
+	}
+
 	return s.emailService.SendOTPEmail(ctx, u.Email, name, code, otp.OTPPurposeEmailVerification)
 }
 
@@ -182,7 +201,7 @@ func (s *AuthService) VerifyEmail(ctx context.Context, userID uuid.UUID, req dto
 }
 
 func (s *AuthService) ForgotPassword(ctx context.Context, req dto.ForgotPasswordRequest) error {
-	if s.emailService == nil {
+	if s.emailService == nil && s.eventProducer == nil {
 		return fmt.Errorf("email service is not configured")
 	}
 	email := strings.ToLower(strings.TrimSpace(req.Email))
@@ -211,6 +230,19 @@ func (s *AuthService) ForgotPassword(ctx context.Context, req dto.ForgotPassword
 	}
 
 	name := strings.TrimSpace(u.FirstName + " " + u.LastName)
+
+	if s.eventProducer != nil {
+		evt := kafka.NewEmailEvent("", u.Email, name, code, string(otp.OTPPurposePasswordReset))
+		if err := s.eventProducer.Publish(ctx, kafka.TopicEmailEvents, u.Email, evt); err != nil {
+			log.Printf("Failed to publish password reset email event to Kafka: %v", err)
+			if s.emailService != nil {
+				return s.emailService.SendOTPEmail(ctx, u.Email, name, code, otp.OTPPurposePasswordReset)
+			}
+			return fmt.Errorf("failed to publish password reset email event: %w", err)
+		}
+		return nil
+	}
+
 	return s.emailService.SendOTPEmail(ctx, u.Email, name, code, otp.OTPPurposePasswordReset)
 }
 
@@ -334,11 +366,13 @@ func (s *AuthService) RefreshToken(ctx context.Context, req dto.RefreshRequest) 
 	}
 
 	return &dto.AuthResponse{
-		AccessToken:  tokenPair.AccessToken,
-		RefreshToken: tokenPair.RefreshToken,
-		TokenType:    tokenPair.TokenType,
-		ExpiresIn:    tokenPair.ExpiresIn,
-		User:         userEntity,
+		Token: dto.TokenResponse{
+			AccessToken:  tokenPair.AccessToken,
+			RefreshToken: tokenPair.RefreshToken,
+			TokenType:    tokenPair.TokenType,
+			ExpiresIn:    tokenPair.ExpiresIn,
+		},
+		User: userEntity,
 	}, nil
 }
 

@@ -1,13 +1,14 @@
 import { apiClient } from "./client";
 import { User, AuthResponse } from "../types/api";
+import { BaseResponse } from ".";
 
 export const authApi = {
-  login: async (email: string, password: string): Promise<AuthResponse> => {
+  login: async (email: string, password: string): Promise<BaseResponse<AuthResponse>> => {
     const res = await apiClient.post("/auth/login", { email, password });
     return res.data;
   },
 
-  register: async (email: string, password: string, name: string): Promise<AuthResponse> => {
+  register: async (email: string, password: string, name: string): Promise<BaseResponse<void>> => {
     const trimmed = name.trim();
     const parts = trimmed.split(/\s+/);
     const firstName = parts[0] || "User";
@@ -29,9 +30,9 @@ export const authApi = {
     }
   },
 
-  getMe: async (): Promise<User> => {
+  getMe: async (): Promise<BaseResponse<User>> => {
     const res = await apiClient.get("/user/me");
-    return res.data.data;
+    return res.data;
   },
 
   sendVerificationEmail: async (): Promise<{ success: boolean; message: string }> => {

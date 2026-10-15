@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Mail } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import { authApi } from "../../../api/auth";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
@@ -8,24 +9,26 @@ import { toast } from "sonner";
 
 export const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleRequestOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-
-    setLoading(true);
-    try {
-      await authApi.forgotPassword(email.trim());
-      sessionStorage.setItem("aegis_reset_email", email.trim());
+  const forgotPasswordMutation = useMutation({
+    mutationFn: async (targetEmail: string) => {
+      return await authApi.forgotPassword(targetEmail);
+    },
+    onSuccess: (_, targetEmail) => {
+      sessionStorage.setItem("aegis_reset_email", targetEmail);
       toast.success("If an account exists, a 6-digit code has been sent!");
-      navigate({ to: "/auth/verify-otp", search: { email: email.trim() } as any });
-    } catch (err: any) {
+      navigate({ to: "/auth/verify-otp", search: { email: targetEmail } as any });
+    },
+    onError: (err: any) => {
       toast.error(err?.response?.data?.message || "Failed to send reset code");
-    } finally {
-      setLoading(false);
-    }
+    },
+  });
+
+  const handleRequestOTP = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || forgotPasswordMutation.isPending) return;
+    forgotPasswordMutation.mutate(email.trim());
   };
 
   return (
@@ -63,9 +66,9 @@ export const ForgotPasswordPage: React.FC = () => {
         <Button
           type="submit"
           className="w-full py-2.5 font-semibold mt-2 rounded-full"
-          disabled={loading}
+          disabled={forgotPasswordMutation.isPending}
         >
-          {loading ? "Sending Code..." : "Send Reset Code"}
+          {forgotPasswordMutation.isPending ? "Sending Code..." : "Send Reset Code"}
         </Button>
 
         <p className="text-xs text-center text-zinc-400 mt-4">

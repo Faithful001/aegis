@@ -27,7 +27,7 @@ func (h *AuthController) Register(c *gin.Context) {
 		return
 	}
 
-	result, err := h.authService.Register(c.Request.Context(), req)
+	_, err := h.authService.Register(c.Request.Context(), req)
 	if err != nil {
 		if errors.Is(err, user.ErrEmailAlreadyExists) {
 			c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error(), "data": nil})
@@ -44,7 +44,7 @@ func (h *AuthController) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
 		"message": "user registered successfully",
-		"data":    result,
+		"data":    nil,
 	})
 }
 

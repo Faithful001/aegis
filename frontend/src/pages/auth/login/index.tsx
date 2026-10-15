@@ -1,31 +1,32 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "../../../context/AuthContext";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { toast } from "sonner";
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await login(email, password);
+  const loginMutation = useMutation({
+    mutationFn: () => login(email, password),
+    onSuccess: () => {
       toast.success("Logged in successfully!");
       navigate({ to: "/" });
-    } catch (err: any) {
+    },
+    onError: (err: any) => {
       toast.error(err?.response?.data?.message || "Login failed");
-    } finally {
-      setLoading(false);
-    }
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    loginMutation.mutate();
   };
 
   return (
@@ -77,9 +78,9 @@ export const LoginPage: React.FC = () => {
         <Button
           type="submit"
           className="w-full py-2.5 font-semibold mt-2 rounded-full"
-          disabled={loading}
+          disabled={loginMutation.isPending}
         >
-          {loading ? "Authenticating..." : "Sign In"}
+          {loginMutation.isPending ? "Authenticating..." : "Sign In"}
         </Button>
       </form>
 

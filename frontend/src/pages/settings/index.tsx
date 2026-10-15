@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useMutation } from "@tanstack/react-query";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { Card } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
@@ -148,15 +149,12 @@ const ProfileTab: React.FC = () => {
   // Email verification state
   const [showVerifyInput, setShowVerifyInput] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
-  const [sendingVerification, setSendingVerification] = useState(false);
-  const [verifyingEmail, setVerifyingEmail] = useState(false);
   const [verifyCooldown, setVerifyCooldown] = useState(0);
 
   // Change password state
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     if (verifyCooldown <= 0) return;
@@ -172,41 +170,68 @@ const ProfileTab: React.FC = () => {
     navigate({ to: "/auth/login" });
   };
 
-  const handleSendVerificationEmail = async () => {
-    setSendingVerification(true);
-    try {
-      await authApi.sendVerificationEmail();
+  const sendVerificationMutation = useMutation({
+    mutationFn: async () => {
+      return await authApi.sendVerificationEmail();
+    },
+    onSuccess: () => {
       toast.success("6-digit verification code sent to your email!");
       setShowVerifyInput(true);
       setVerifyCooldown(60);
-    } catch (err: any) {
+    },
+    onError: (err: any) => {
       toast.error(err?.response?.data?.message || "Failed to send verification email");
-    } finally {
-      setSendingVerification(false);
-    }
-  };
+    },
+  });
 
-  const handleConfirmVerification = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (verificationCode.length !== 6) {
-      toast.error("Please enter a valid 6-digit code");
-      return;
-    }
-    setVerifyingEmail(true);
-    try {
-      await authApi.verifyEmail(verificationCode.trim());
+  const confirmVerificationMutation = useMutation({
+    mutationFn: async (code: string) => {
+      return await authApi.verifyEmail(code);
+    },
+    onSuccess: async () => {
       toast.success("Email verified successfully!");
       setShowVerifyInput(false);
       setVerificationCode("");
       await refreshUser();
-    } catch (err: any) {
+    },
+    onError: (err: any) => {
       toast.error(err?.response?.data?.message || "Invalid or expired code");
-    } finally {
-      setVerifyingEmail(false);
-    }
+    },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async ({ currentPass, newPass }: { currentPass: string; newPass: string }) => {
+      return await authApi.changePassword(currentPass, newPass);
+    },
+    onSuccess: () => {
+      toast.success("Password changed successfully!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    },
+    onError: (err: any) => {
+      toast.error(
+        err?.response?.data?.message ||
+          "Failed to change password. Please check your current password."
+      );
+    },
+  });
+
+  const handleSendVerificationEmail = () => {
+    if (verifyCooldown > 0 || sendVerificationMutation.isPending) return;
+    sendVerificationMutation.mutate();
   };
 
-  const handleChangePassword = async (e: React.FormEvent) => {
+  const handleConfirmVerification = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (verificationCode.length !== 6 || confirmVerificationMutation.isPending) {
+      toast.error("Please enter a valid 6-digit code");
+      return;
+    }
+    confirmVerificationMutation.mutate(verificationCode.trim());
+  };
+
+  const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword.length < 8) {
       toast.error("New password must be at least 8 characters");
@@ -216,25 +241,16 @@ const ProfileTab: React.FC = () => {
       toast.error("New passwords do not match");
       return;
     }
-    setChangingPassword(true);
-    try {
-      await authApi.changePassword(currentPassword, newPassword);
-      toast.success("Password changed successfully!");
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to change password. Please check your current password.");
-    } finally {
-      setChangingPassword(false);
-    }
+    if (changePasswordMutation.isPending) return;
+    changePasswordMutation.mutate({ currentPass: currentPassword, newPass: newPassword });
   };
 
-  const initials = user?.name
-    ? user.name.slice(0, 2).toUpperCase()
-    : user?.email
-      ? user.email.slice(0, 2).toUpperCase()
-      : "AE";
+  const initials =
+    user?.first_name && user?.last_name
+      ? user.first_name.slice(0, 1).toUpperCase() + user.last_name.slice(0, 1).toUpperCase()
+      : user?.email
+        ? user.email.slice(0, 2).toUpperCase()
+        : "AE";
 
   return (
     <div className="space-y-8">
@@ -244,7 +260,9 @@ const ProfileTab: React.FC = () => {
           {initials}
         </div>
         <div>
-          <h2 className="text-lg font-bold text-white">{user?.name || "Aegis User"}</h2>
+          <h2 className="text-lg font-bold text-white">
+            {user?.first_name + " " + user?.last_name || "Aegis User"}
+          </h2>
           <p className="text-xs text-zinc-400 flex items-center justify-center gap-1.5 mt-0.5">
             <Mail className="w-3.5 h-3.5 text-zinc-500" /> {user?.email || "user@aegis.dev"}
           </p>
@@ -277,20 +295,23 @@ const ProfileTab: React.FC = () => {
           {!user?.is_verified && !showVerifyInput && (
             <Button
               onClick={handleSendVerificationEmail}
-              disabled={sendingVerification || verifyCooldown > 0}
+              disabled={sendVerificationMutation.isPending || verifyCooldown > 0}
               className="text-xs py-1.5 px-3 rounded-full"
             >
-              {sendingVerification
+              {sendVerificationMutation.isPending
                 ? "Sending..."
                 : verifyCooldown > 0
-                ? `Resend in ${verifyCooldown}s`
-                : "Verify Email"}
+                  ? `Resend in ${verifyCooldown}s`
+                  : "Verify Email"}
             </Button>
           )}
         </div>
 
         {!user?.is_verified && showVerifyInput && (
-          <form onSubmit={handleConfirmVerification} className="pt-2 border-t border-zinc-800 space-y-3">
+          <form
+            onSubmit={handleConfirmVerification}
+            className="pt-2 border-t border-zinc-800 space-y-3"
+          >
             <div className="flex items-end gap-3">
               <div className="flex-1">
                 <Input
@@ -299,17 +320,19 @@ const ProfileTab: React.FC = () => {
                   placeholder="123456"
                   className="rounded-full text-center tracking-[0.4em] font-mono font-bold"
                   value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) =>
+                    setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
                   required
                   maxLength={6}
                 />
               </div>
               <Button
                 type="submit"
-                disabled={verifyingEmail || verificationCode.length !== 6}
+                disabled={confirmVerificationMutation.isPending || verificationCode.length !== 6}
                 className="py-2.5 px-4 rounded-full font-semibold"
               >
-                {verifyingEmail ? "Verifying..." : "Confirm"}
+                {confirmVerificationMutation.isPending ? "Verifying..." : "Confirm"}
               </Button>
             </div>
             <div className="flex items-center justify-between text-xs text-zinc-400">
@@ -323,12 +346,18 @@ const ProfileTab: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSendVerificationEmail}
-                disabled={verifyCooldown > 0 || sendingVerification}
+                disabled={verifyCooldown > 0 || sendVerificationMutation.isPending}
                 className={`font-medium ${
-                  verifyCooldown > 0 ? "text-zinc-600 cursor-not-allowed" : "text-amber-400 hover:text-amber-300"
+                  verifyCooldown > 0
+                    ? "text-zinc-600 cursor-not-allowed"
+                    : "text-amber-400 hover:text-amber-300"
                 }`}
               >
-                {verifyCooldown > 0 ? `Resend code in ${verifyCooldown}s` : "Resend code"}
+                {verifyCooldown > 0
+                  ? `Resend code in ${verifyCooldown}s`
+                  : sendVerificationMutation.isPending
+                    ? "Sending..."
+                    : "Resend code"}
               </button>
             </div>
           </form>
@@ -384,10 +413,15 @@ const ProfileTab: React.FC = () => {
           <div className="flex justify-end pt-1">
             <Button
               type="submit"
-              disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+              disabled={
+                changePasswordMutation.isPending ||
+                !currentPassword ||
+                !newPassword ||
+                !confirmPassword
+              }
               className="rounded-full px-5 py-2 font-semibold text-xs"
             >
-              {changingPassword ? "Updating..." : "Update Password"}
+              {changePasswordMutation.isPending ? "Updating..." : "Update Password"}
             </Button>
           </div>
         </form>
@@ -479,14 +513,20 @@ const ProvidersTab: React.FC = () => {
   const [configuringProvider, setConfiguringProvider] = useState<string | null>(null);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [baseUrlInput, setBaseUrlInput] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [deletingProvider, setDeletingProvider] = useState<string | null>(null);
 
-  const handleSave = async (providerId: string) => {
-    if (!apiKeyInput.trim()) return;
-    setSaving(true);
-    try {
-      await credentialsApi.save(providerId, apiKeyInput.trim(), baseUrlInput.trim() || undefined);
+  const saveCredentialMutation = useMutation({
+    mutationFn: async ({
+      providerId,
+      apiKey,
+      baseUrl,
+    }: {
+      providerId: string;
+      apiKey: string;
+      baseUrl?: string;
+    }) => {
+      return await credentialsApi.save(providerId, apiKey, baseUrl);
+    },
+    onSuccess: async (_, { providerId }) => {
       const provider = PROVIDERS.find((p) => p.id === providerId);
       toast.success(`${provider?.name || providerId} credential saved! Discovering models...`);
       setApiKeyInput("");
@@ -494,28 +534,41 @@ const ProvidersTab: React.FC = () => {
       setConfiguringProvider(null);
       await refreshCredentials();
       await refreshModels();
-    } catch (err: any) {
+    },
+    onError: (err: any) => {
       toast.error(
         err?.response?.data?.error || err?.response?.data?.message || "Failed to save credential"
       );
-    } finally {
-      setSaving(false);
-    }
-  };
+    },
+  });
 
-  const handleDelete = async (providerId: string) => {
-    setDeletingProvider(providerId);
-    try {
-      await credentialsApi.delete(providerId);
+  const deleteCredentialMutation = useMutation({
+    mutationFn: async (providerId: string) => {
+      return await credentialsApi.delete(providerId);
+    },
+    onSuccess: async (_, providerId) => {
       const provider = PROVIDERS.find((p) => p.id === providerId);
       toast.success(`${provider?.name || providerId} credential removed`);
       await refreshCredentials();
       await refreshModels();
-    } catch (err: any) {
+    },
+    onError: (err: any) => {
       toast.error(err?.response?.data?.error || "Failed to remove credential");
-    } finally {
-      setDeletingProvider(null);
-    }
+    },
+  });
+
+  const handleSave = (providerId: string) => {
+    if (!apiKeyInput.trim() || saveCredentialMutation.isPending) return;
+    saveCredentialMutation.mutate({
+      providerId,
+      apiKey: apiKeyInput.trim(),
+      baseUrl: baseUrlInput.trim() || undefined,
+    });
+  };
+
+  const handleDelete = (providerId: string) => {
+    if (deleteCredentialMutation.isPending) return;
+    deleteCredentialMutation.mutate(providerId);
   };
 
   const getCredentialForProvider = (providerId: string) =>
@@ -562,7 +615,7 @@ const ProvidersTab: React.FC = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDelete(provider.id)}
-                      disabled={deletingProvider === provider.id}
+                      disabled={deleteCredentialMutation.isPending}
                       className="text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -645,9 +698,9 @@ const ProvidersTab: React.FC = () => {
                       <Button
                         size="sm"
                         onClick={() => handleSave(provider.id)}
-                        disabled={saving || !apiKeyInput.trim()}
+                        disabled={saveCredentialMutation.isPending || !apiKeyInput.trim()}
                       >
-                        {saving ? "Saving..." : "Save"}
+                        {saveCredentialMutation.isPending ? "Saving..." : "Save"}
                       </Button>
                     </div>
                   </div>

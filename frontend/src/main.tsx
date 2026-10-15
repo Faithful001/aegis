@@ -7,7 +7,7 @@ import { AegisProvider } from './context/AegisContext';
 import { AppRouter } from './router';
 import './index.css';
 
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,

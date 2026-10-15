@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { MainLayout } from '../../components/layout/MainLayout';
 import { useAuth } from '../../context/AuthContext';
 import { Card } from '../../components/ui/Card';
@@ -9,27 +10,22 @@ import { UsageMetric } from '../../types/api';
 
 export const AnalyticsPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
-  const [metrics, setMetrics] = useState<UsageMetric | null>(null);
 
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      if (!isAuthenticated) return;
-      try {
-        const data = await usageApi.getUserUsage(true);
-        setMetrics(data);
-      } catch (e) {
-        // Default initial display
-        setMetrics({
-          total_requests: 0,
-          total_tokens: 0,
-          prompt_tokens: 0,
-          completion_tokens: 0,
-          total_cost_usd: 0,
-        });
-      }
-    };
-    fetchMetrics();
-  }, [isAuthenticated]);
+  const { data: metrics } = useQuery<UsageMetric>({
+    queryKey: ['usage', 'metrics'],
+    queryFn: async () => {
+      return await usageApi.getUserUsage(true);
+    },
+    enabled: isAuthenticated,
+    refetchInterval: 10000,
+    initialData: {
+      total_requests: 0,
+      total_tokens: 0,
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      total_cost_usd: 0,
+    },
+  });
 
   return (
     <MainLayout>

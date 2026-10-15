@@ -13,6 +13,7 @@ import HomePage from '../pages/index';
 import LoginPage from '../pages/auth/login/index';
 import RegisterPage from '../pages/auth/register/index';
 import ForgotPasswordPage from '../pages/auth/forgot-password/index';
+import VerifyEmailPage from '../pages/auth/verify-email/index';
 import VerifyOTPPage from '../pages/auth/verify-otp/index';
 import ResetPasswordPage from '../pages/auth/reset-password/index';
 import ChatPage from '../pages/chat/index';
@@ -50,6 +51,12 @@ const forgotPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/forgot-password',
   component: ForgotPasswordPage,
+});
+
+const verifyEmailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auth/verify-email',
+  component: VerifyEmailPage,
 });
 
 const verifyOTPRoute = createRoute({
@@ -107,6 +114,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   registerRoute,
   forgotPasswordRoute,
+  verifyEmailRoute,
   verifyOTPRoute,
   resetPasswordRoute,
   chatRoute,

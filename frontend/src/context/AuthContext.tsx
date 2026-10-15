@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { User } from "../types/api";
 import { authApi } from "../api/auth";
 import { router } from "../router";
@@ -8,8 +9,8 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, pass: string) => Promise<void>;
-  register: (email: string, pass: string, name: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   setToken: (token: string) => void;
   refreshUser: () => Promise<void>;
@@ -18,9 +19,10 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setTokenState] = useState<string | null>(sessionStorage.getItem("aegis_jwt_token"));
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const queryClient = useQueryClient();
+  const [token, setTokenState] = useState<string | null>(() =>
+    sessionStorage.getItem("aegis_jwt_token")
+  );
 
   const setToken = (newToken: string) => {
     sessionStorage.setItem("aegis_jwt_token", newToken);
@@ -30,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logoutLocal = () => {
     sessionStorage.removeItem("aegis_jwt_token");
     setTokenState(null);
-    setUser(null);
+    queryClient.setQueryData(["auth", "me"], null);
   };
 
   const formatUser = (rawUser: any): User | null => {
@@ -45,35 +47,76 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   };
 
-  const verifyAndFetchUser = async () => {
-    const currentToken = sessionStorage.getItem("aegis_jwt_token");
-    if (!currentToken) {
+  // TanStack Query for User profile
+  const {
+    data: user = null,
+    isLoading: isUserLoading,
+    refetch: refetchUserQuery,
+  } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: async () => {
+      const res = await authApi.getMe();
+      return formatUser(res.data);
+    },
+    enabled: !!token,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // TanStack Mutation for Login
+  const loginMutation = useMutation({
+    mutationFn: async ({ email, password }: { email: string; password: string }) => {
+      return await authApi.login(email, password);
+    },
+    onSuccess: (res) => {
+      const jwt = res.data?.token.access_token;
+      if (jwt) {
+        setToken(jwt);
+        const userData = res.data?.user;
+        if (userData) {
+          queryClient.setQueryData(["auth", "me"], formatUser(userData));
+        } else {
+          queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+        }
+      }
+    },
+  });
+
+  // TanStack Mutation for Register
+  const registerMutation = useMutation({
+    mutationFn: async ({
+      email,
+      password,
+      name,
+    }: {
+      email: string;
+      password: string;
+      name: string;
+    }) => {
+      return await authApi.register(email, password, name);
+    },
+    onSuccess: () => {
+      router.navigate({ to: "/auth/verify-email" });
+    },
+  });
+
+  // TanStack Mutation for Logout
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      await authApi.logout();
+    },
+    onSettled: () => {
       logoutLocal();
-      setIsLoading(false);
-      return;
-    }
-    try {
-      const u = await authApi.getMe();
-      setUser(formatUser(u));
-    } catch (e) {
-      console.error("Failed to load user profile:", e);
-      logoutLocal();
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+  });
 
   useEffect(() => {
-    // Initial fetch on mount
-    verifyAndFetchUser();
-
     // Listen for page changes / route navigations
     const unsubscribeRouter = router.history.subscribe(() => {
       const currentToken = sessionStorage.getItem("aegis_jwt_token");
       if (!currentToken) {
         logoutLocal();
       } else {
-        verifyAndFetchUser();
+        queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       }
     });
 
@@ -88,54 +131,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       unsubscribeRouter();
       window.removeEventListener("unauthorized", handleUnauthorized);
     };
-  }, []);
+  }, [queryClient]);
 
-  const login = async (email: string, pass: string) => {
-    const res = await authApi.login(email, pass);
-    const jwt = res.data?.access_token || res.data?.token || res.access_token || res.token;
-    if (jwt) {
-      setToken(jwt);
-      const rawUser = res.data?.user || res.user;
-      if (rawUser) {
-        setUser(formatUser(rawUser));
-      } else {
-        try {
-          const profile = await authApi.getMe();
-          setUser(formatUser(profile));
-        } catch (e) {
-          console.error("Failed to load user profile after login:", e);
-        }
-      }
-    }
+  const login = async (email: string, password: string) => {
+    await loginMutation.mutateAsync({ email, password });
   };
 
-  const register = async (email: string, pass: string, name: string) => {
-    const res = await authApi.register(email, pass, name);
-    const jwt = res.data?.access_token || res.data?.token || res.access_token || res.token;
-    if (jwt) {
-      setToken(jwt);
-      const rawUser = res.data?.user || res.user;
-      if (rawUser) {
-        setUser(formatUser(rawUser));
-      } else {
-        try {
-          const profile = await authApi.getMe();
-          setUser(formatUser(profile));
-        } catch (e) {
-          console.error("Failed to load user profile after register:", e);
-        }
-      }
-    }
+  const register = async (email: string, password: string, name: string) => {
+    await registerMutation.mutateAsync({ email, password, name });
   };
 
   const logout = async () => {
     try {
-      await authApi.logout();
+      await logoutMutation.mutateAsync();
     } catch (e) {
       console.error("Logout error:", e);
-    } finally {
       logoutLocal();
     }
+  };
+
+  const refreshUser = async () => {
+    await refetchUserQuery();
   };
 
   return (
@@ -144,12 +160,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         token,
         isAuthenticated: !!token,
-        isLoading,
+        isLoading: !!token && isUserLoading,
         login,
         register,
         logout,
         setToken,
-        refreshUser: verifyAndFetchUser,
+        refreshUser,
       }}
     >
       {children}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { Dialog } from '../ui/Dialog';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
@@ -30,29 +31,46 @@ export const AddCredentialModal: React.FC<Props> = ({
   const [provider, setProvider] = useState<string>(defaultProvider);
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
-  const [loading, setLoading] = useState(false);
   const { refreshCredentials } = useAegis();
 
   const selectedProviderMeta =
     SUPPORTED_PROVIDERS.find((p) => p.id === provider) || SUPPORTED_PROVIDERS[0];
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!apiKey.trim()) return;
-    setLoading(true);
-    try {
-      await credentialsApi.save(provider, apiKey.trim(), baseUrl.trim() || undefined);
+  const saveMutation = useMutation({
+    mutationFn: async ({
+      provider,
+      apiKey,
+      baseUrl,
+    }: {
+      provider: string;
+      apiKey: string;
+      baseUrl?: string;
+    }) => {
+      return await credentialsApi.save(provider, apiKey, baseUrl);
+    },
+    onSuccess: async () => {
       toast.success(`${selectedProviderMeta.name} credential saved to your vault!`);
       setApiKey('');
       setBaseUrl('');
       await refreshCredentials();
       onOpenChange(false);
       if (onSuccess) onSuccess();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || err?.response?.data?.message || 'Failed to save credential');
-    } finally {
-      setLoading(false);
-    }
+    },
+    onError: (err: any) => {
+      toast.error(
+        err?.response?.data?.error || err?.response?.data?.message || 'Failed to save credential'
+      );
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!apiKey.trim() || saveMutation.isPending) return;
+    saveMutation.mutate({
+      provider,
+      apiKey: apiKey.trim(),
+      baseUrl: baseUrl.trim() || undefined,
+    });
   };
 
   return (
@@ -104,8 +122,8 @@ export const AddCredentialModal: React.FC<Props> = ({
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" disabled={loading}>
-            {loading ? 'Saving...' : 'Save Credential'}
+          <Button type="submit" disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? 'Saving...' : 'Save Credential'}
           </Button>
         </div>
       </form>

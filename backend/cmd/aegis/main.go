@@ -113,6 +113,7 @@ func main() {
 		tokenService,
 		hasher,
 		blacklistRepo,
+		eventProducer,
 	)
 
 	userService := user.NewUserService(userRepo)
@@ -135,6 +136,11 @@ func main() {
 	meteringConsumer := usage.NewMeteringConsumer(eventConsumer, usageService, logger)
 	if err := meteringConsumer.Start(context.Background()); err != nil {
 		logger.Warn("Could not start metering consumer background listener", "error", err)
+	}
+
+	emailConsumer := auth.NewEmailConsumer(eventConsumer, emailService, logger)
+	if err := emailConsumer.Start(context.Background()); err != nil {
+		logger.Warn("Could not start email consumer background listener", "error", err)
 	}
 
 	// initialize worker client, capacity scheduler & byok provider gateway
