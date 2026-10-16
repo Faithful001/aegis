@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ProviderCredential, ChatThread, ChatMessage, DiscoveredModel, ProviderMeta } from "../types/api";
+import {
+  ProviderCredential,
+  ChatThread,
+  ChatMessage,
+  DiscoveredModel,
+  ProviderMeta,
+} from "../types/api";
 import { credentialsApi } from "../api/credentials";
 import { useAuth } from "./AuthContext";
 
@@ -33,9 +39,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activeThreadId, setActiveThreadId] = useState<string | null>("default-thread-1");
 
   // TanStack Query for supported providers metadata
-  const {
-    data: rawSupportedProviders = [],
-  } = useQuery<ProviderMeta[]>({
+  const { data: rawSupportedProviders = [] } = useQuery<ProviderMeta[]>({
     queryKey: ["providers", "supported"],
     queryFn: async () => {
       const list = await credentialsApi.getProviders();
@@ -47,10 +51,9 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const supportedProviders = Array.isArray(rawSupportedProviders) ? rawSupportedProviders : [];
 
   // TanStack Query for credentials
-  const {
-    data: rawCredentials = [],
-    refetch: refetchCredentialsQuery,
-  } = useQuery<ProviderCredential[]>({
+  const { data: rawCredentials = [], refetch: refetchCredentialsQuery } = useQuery<
+    ProviderCredential[]
+  >({
     queryKey: ["credentials", "list"],
     queryFn: async () => {
       const list = await credentialsApi.list();

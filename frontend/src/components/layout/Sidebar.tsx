@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import {
   MessageSquare,
   Key,
@@ -10,6 +10,7 @@ import {
   Grid,
   Shield,
   Settings,
+  PlusIcon,
 } from "lucide-react";
 import { useAegis } from "../../context/AegisContext";
 import { useAuth } from "../../context/AuthContext";
@@ -25,6 +26,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
   const { user } = useAuth();
   const { credentials, chatThreads, activeThreadId, setActiveThreadId, createNewThread } =
     useAegis();
+
+  const { pathname } = useLocation();
+
+  const isChat = pathname === "/" || pathname.startsWith("/chat");
+  const isAnalytics = pathname.startsWith("/analytics");
+  const isSettings = pathname.startsWith("/settings");
 
   const [addCredOpen, setAddCredOpen] = useState(false);
 
@@ -72,40 +79,45 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
           onClick={() => {
             createNewThread();
           }}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl bg-surface-hover text-zinc-100 font-medium text-sm transition-all hover:bg-zinc-800"
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl font-medium text-sm transition-all hover:bg-zinc-800 ${
+            isChat
+              ? "bg-zinc-800 text-white font-semibold"
+              : "text-zinc-400 hover:text-zinc-200"
+          }`}
         >
-          <MessageSquare className="w-4 h-4 text-zinc-300 flex-shrink-0" />
+          <PlusIcon className="w-4 h-4 text-zinc-300 flex-shrink-0" />
           {!collapsed && <span>New Chat</span>}
-        </button>
-
-        <button
-          onClick={() => setAddCredOpen(true)}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 font-medium text-sm transition-all"
-        >
-          <div className="flex items-center gap-3">
-            <Key className="w-4 h-4 text-amber-400 flex-shrink-0" />
-            {!collapsed && <span>BYOK Vault</span>}
-          </div>
-          {!collapsed && (
-            <span className="text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded text-zinc-400">
-              {credentials.length} Keys
-            </span>
-          )}
         </button>
 
         <Link
           to="/analytics"
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 font-medium text-sm transition-all"
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl font-medium text-sm transition-all hover:bg-zinc-800/60 ${
+            isAnalytics
+              ? "bg-zinc-800 text-white font-semibold"
+              : "text-zinc-400 hover:text-zinc-200"
+          }`}
         >
-          <BarChart2 className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+          <BarChart2
+            className={`w-4 h-4 flex-shrink-0 ${
+              isAnalytics ? "text-white" : "text-zinc-400"
+            }`}
+          />
           {!collapsed && <span>Usage Analytics</span>}
         </Link>
 
         <Link
           to="/settings"
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 font-medium text-sm transition-all"
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl font-medium text-sm transition-all hover:bg-zinc-800/60 ${
+            isSettings
+              ? "bg-zinc-800 text-white font-semibold"
+              : "text-zinc-400 hover:text-zinc-200"
+          }`}
         >
-          <Settings className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+          <Settings
+            className={`w-4 h-4 flex-shrink-0 ${
+              isSettings ? "text-white" : "text-zinc-400"
+            }`}
+          />
           {!collapsed && <span>Settings</span>}
         </Link>
       </div>

@@ -30,10 +30,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTokenState(newToken);
   };
 
-  const logoutLocal = () => {
+  const logoutLocal = (redirectToHome = false) => {
     sessionStorage.removeItem("aegis_jwt_token");
     setTokenState(null);
     queryClient.setQueryData(["auth", "me"], null);
+    if (redirectToHome && window.location.pathname !== "/") {
+      router.navigate({ to: "/", replace: true });
+    }
   };
 
   const formatUser = (rawUser: any): User | null => {
@@ -116,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await authApi.logout();
     },
     onSettled: () => {
-      logoutLocal();
+      logoutLocal(true);
     },
   });
 
@@ -125,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribeRouter = router.history.subscribe(() => {
       const currentToken = sessionStorage.getItem("aegis_jwt_token");
       if (!currentToken) {
-        logoutLocal();
+        logoutLocal(false);
       } else {
         queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       }
@@ -133,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for 401 or 403 unauthorized events emitted by API client
     const handleUnauthorized = () => {
-      logoutLocal();
+      logoutLocal(true);
     };
 
     window.addEventListener("unauthorized", handleUnauthorized);
@@ -157,7 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await logoutMutation.mutateAsync();
     } catch (e) {
       console.error("Logout error:", e);
-      logoutLocal();
+      logoutLocal(true);
     }
   };
 

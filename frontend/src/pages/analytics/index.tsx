@@ -1,18 +1,18 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { MainLayout } from '../../components/layout/MainLayout';
-import { useAuth } from '../../context/AuthContext';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { Activity, Cpu, DollarSign, Zap, BarChart3 } from 'lucide-react';
-import { usageApi } from '../../api/usage';
-import { UsageMetric } from '../../types/api';
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { MainLayout } from "../../components/layout/MainLayout";
+import { useAuth } from "../../context/AuthContext";
+import { Card } from "../../components/ui/Card";
+import { Badge } from "../../components/ui/Badge";
+import { Activity, Cpu, DollarSign, Zap, BarChart3 } from "lucide-react";
+import { usageApi } from "../../api/usage";
+import { UsageMetric } from "../../types/api";
 
 export const AnalyticsPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
 
   const { data: metrics } = useQuery<UsageMetric>({
-    queryKey: ['usage', 'metrics'],
+    queryKey: ["usage", "metrics"],
     queryFn: async () => {
       return await usageApi.getUserUsage(true);
     },
@@ -31,13 +31,9 @@ export const AnalyticsPage: React.FC = () => {
     <MainLayout>
       <div className="max-w-5xl mx-auto p-8 space-y-8">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
-              Kafka Usage Metering
-            </span>
-            <Badge variant="info">Real-time Stream</Badge>
-          </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Personal Usage & Metering</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            Personal Usage & Metering
+          </h1>
           <p className="text-xs text-zinc-400 mt-1">
             Durable token consumption, prompt analytics, and inference request throughput.
           </p>
@@ -51,7 +47,7 @@ export const AnalyticsPage: React.FC = () => {
               <Activity className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="text-2xl font-bold text-white">
-              {metrics?.total_requests ? metrics.total_requests.toLocaleString() : '0'}
+              {metrics?.total_requests ? metrics.total_requests.toLocaleString() : "0"}
             </div>
             <p className="text-[11px] text-emerald-400 font-medium">Real-time tracked</p>
           </Card>
@@ -62,10 +58,11 @@ export const AnalyticsPage: React.FC = () => {
               <Cpu className="w-4 h-4 text-sky-400" />
             </div>
             <div className="text-2xl font-bold text-white">
-              {metrics?.total_tokens ? metrics.total_tokens.toLocaleString() : '0'}
+              {metrics?.total_tokens ? metrics.total_tokens.toLocaleString() : "0"}
             </div>
             <p className="text-[11px] text-zinc-400">
-              Prompt: {metrics?.prompt_tokens?.toLocaleString() || '0'} | Completion: {metrics?.completion_tokens?.toLocaleString() || '0'}
+              Prompt: {metrics?.prompt_tokens?.toLocaleString() || "0"} | Completion:{" "}
+              {metrics?.completion_tokens?.toLocaleString() || "0"}
             </p>
           </Card>
 

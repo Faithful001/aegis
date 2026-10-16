@@ -55,9 +55,6 @@ export const SettingsPage: React.FC = () => {
         {/* ---- Settings Sidebar ---- */}
         <nav className="w-56 shrink-0 border-r border-surface-border bg-surface/40 p-4 space-y-6">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-3">
-              Personal
-            </span>
             {NAV_ITEMS.map((item) => (
               <button
                 key={item.id}
@@ -205,7 +202,7 @@ const ProfileTab: React.FC = () => {
     <div className="space-y-8">
       {/* Avatar + Name */}
       <div className="flex flex-col items-center text-center space-y-3 pt-4">
-        <div className="w-20 h-20 rounded-full bg-zinc-800 border-2 border-amber-500/40 flex items-center justify-center text-zinc-100 text-2xl font-bold shadow-glow-yellow">
+        <div className="w-20 h-20 rounded-full bg-[#27AF61] flex items-center justify-center text-zinc-100 text-3xl">
           {initials}
         </div>
         <div>
@@ -213,111 +210,16 @@ const ProfileTab: React.FC = () => {
             {user?.first_name + " " + user?.last_name || "Aegis User"}
           </h2>
           <p className="text-xs text-zinc-400 flex items-center justify-center gap-1.5 mt-0.5">
-            <Mail className="w-3.5 h-3.5 text-zinc-500" /> {user?.email || "user@aegis.dev"}
+            {user?.email || "user@aegis.dev"}
           </p>
         </div>
       </div>
-
-      {/* Email Verification Status Card */}
-      <Card hover={false} className="p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-white">Email Verification</h3>
-              {user?.is_verified ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                  <CheckCircle2 className="w-3 h-3" /> Verified
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                  <AlertCircle className="w-3 h-3" /> Unverified
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-zinc-400">
-              {user?.is_verified
-                ? "Your email address is verified and active."
-                : "Verify your email address to secure your account and receive alerts."}
-            </p>
-          </div>
-
-          {!user?.is_verified && !showVerifyInput && (
-            <Button
-              onClick={handleSendVerificationEmail}
-              disabled={sendVerificationMutation.isPending || verifyCooldown > 0}
-              className="text-xs py-1.5 px-3 rounded-full"
-            >
-              {sendVerificationMutation.isPending
-                ? "Sending..."
-                : verifyCooldown > 0
-                  ? `Resend in ${verifyCooldown}s`
-                  : "Verify Email"}
-            </Button>
-          )}
-        </div>
-
-        {!user?.is_verified && showVerifyInput && (
-          <form
-            onSubmit={handleConfirmVerification}
-            className="pt-2 border-t border-zinc-800 space-y-3"
-          >
-            <div className="flex items-end gap-3">
-              <div className="flex-1">
-                <Input
-                  label="6-Digit Verification Code"
-                  type="text"
-                  placeholder="123456"
-                  className="rounded-full text-center tracking-[0.4em] font-mono font-bold"
-                  value={verificationCode}
-                  onChange={(e) =>
-                    setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  required
-                  maxLength={6}
-                />
-              </div>
-              <Button
-                type="submit"
-                disabled={confirmVerificationMutation.isPending || verificationCode.length !== 6}
-                className="py-2.5 px-4 rounded-full font-semibold"
-              >
-                {confirmVerificationMutation.isPending ? "Verifying..." : "Confirm"}
-              </Button>
-            </div>
-            <div className="flex items-center justify-between text-xs text-zinc-400">
-              <button
-                type="button"
-                onClick={() => setShowVerifyInput(false)}
-                className="hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSendVerificationEmail}
-                disabled={verifyCooldown > 0 || sendVerificationMutation.isPending}
-                className={`font-medium ${
-                  verifyCooldown > 0
-                    ? "text-zinc-600 cursor-not-allowed"
-                    : "text-amber-400 hover:text-amber-300"
-                }`}
-              >
-                {verifyCooldown > 0
-                  ? `Resend code in ${verifyCooldown}s`
-                  : sendVerificationMutation.isPending
-                    ? "Sending..."
-                    : "Resend code"}
-              </button>
-            </div>
-          </form>
-        )}
-      </Card>
 
       {/* Change Password Card */}
       <Card hover={false} className="p-5 space-y-4">
         <div className="space-y-0.5">
           <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Lock className="w-4 h-4 text-amber-400" /> Security & Password
+            Security & Password
           </h3>
           <p className="text-xs text-zinc-400">
             Update your account password. Choose a strong password with at least 8 characters.
