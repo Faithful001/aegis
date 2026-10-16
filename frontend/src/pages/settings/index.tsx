@@ -32,9 +32,6 @@ import { credentialsApi } from "../../api/credentials";
 import { authApi } from "../../api/auth";
 import { toast } from "sonner";
 
-/* ------------------------------------------------------------------ */
-/*  Provider definitions with branding                                  */
-/* ------------------------------------------------------------------ */
 const PROVIDERS = [
   {
     id: "anthropic",
@@ -505,9 +502,6 @@ const ProfileTab: React.FC = () => {
   );
 };
 
-/* ================================================================== */
-/*  Providers Tab                                                       */
-/* ================================================================== */
 const ProvidersTab: React.FC = () => {
   const { credentials, refreshCredentials, hasCredential, refreshModels } = useAegis();
   const [configuringProvider, setConfiguringProvider] = useState<string | null>(null);

@@ -106,7 +106,6 @@ export const HomePage: React.FC = () => {
           </div>
         )}
 
-        {/* Bottom Fixed Input when messages exist */}
         {messages.length > 0 && (
           <div className="pt-4 bg-gradient-to-t from-background via-background to-transparent sticky bottom-0 z-10">
             <ChatPromptInput onSendMessage={handleSendMessage} disabled={isStreaming} />
