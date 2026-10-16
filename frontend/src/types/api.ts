@@ -21,6 +21,16 @@ export interface AuthToken {
   refresh_token?: string;
 }
 
+export interface ProviderMeta {
+  id: string;
+  name: string;
+  desc: string;
+  placeholder: string;
+  key_link: string;
+  icon: string;
+  icon_style: string;
+}
+
 export interface ProviderCredential {
   id?: string;
   user_id?: string;

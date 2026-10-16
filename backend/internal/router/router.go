@@ -127,6 +127,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 
 			// User BYOK Provider Credentials Management & Dynamic Models Discovery
 			if cfg.ProviderController != nil {
+				protected.GET("/providers", cfg.ProviderController.ListSupportedProviders)
 				protected.POST("/credentials", cfg.ProviderController.SaveCredential)
 				protected.GET("/credentials", cfg.ProviderController.ListCredentials)
 				protected.DELETE("/credentials/:provider", cfg.ProviderController.DeleteCredential)

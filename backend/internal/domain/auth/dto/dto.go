@@ -82,11 +82,12 @@ type AuthenticatedPrincipal struct {
 // --- OTP / Email flows ---
 
 type SendVerificationEmailRequest struct {
-	// No fields needed – user derived from JWT context
+	Email string `json:"email" binding:"required,email"`
 }
 
 type VerifyEmailRequest struct {
-	Code string `json:"code" binding:"required,len=6"`
+	Code  string `json:"code" binding:"required,len=6"`
+	Email string `json:"email" binding:"required,email"`
 }
 
 type ForgotPasswordRequest struct {

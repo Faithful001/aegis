@@ -14,8 +14,9 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { selectedModel, setSelectedModel, models } = useAegis();
 
+  const modelList = Array.isArray(models) ? models : [];
   const currentModelObj =
-    models.find((m) => m.id === selectedModel) || (models.length > 0 ? models[0] : null);
+    modelList.find((m) => m.id === selectedModel) || (modelList.length > 0 ? modelList[0] : null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

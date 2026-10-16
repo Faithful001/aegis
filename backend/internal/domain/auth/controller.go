@@ -77,14 +77,13 @@ func (h *AuthController) Login(c *gin.Context) {
 }
 
 func (h *AuthController) SendVerificationEmail(c *gin.Context) {
-	userIDVal, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized"})
+	var req dto.SendVerificationEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	userID := userIDVal.(uuid.UUID)
 
-	if err := h.authService.SendVerificationEmail(c.Request.Context(), userID); err != nil {
+	if err := h.authService.SendVerificationEmail(c.Request.Context(), req.Email); err != nil {
 		switch {
 		case errors.Is(err, ErrEmailAlreadyVerified):
 			c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error()})
@@ -100,32 +99,30 @@ func (h *AuthController) SendVerificationEmail(c *gin.Context) {
 }
 
 func (h *AuthController) VerifyEmail(c *gin.Context) {
-	userIDVal, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized"})
-		return
-	}
-	userID := userIDVal.(uuid.UUID)
-
 	var req dto.VerifyEmailRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
 	}
 
-	if err := h.authService.VerifyEmail(c.Request.Context(), userID, req); err != nil {
+	result, err := h.authService.VerifyEmail(c.Request.Context(), req)
+	if err != nil {
 		switch {
 		case errors.Is(err, ErrEmailAlreadyVerified):
-			c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error()})
+			c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error(), "data": nil})
 		case errors.Is(err, ErrInvalidOTP):
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid or expired verification code"})
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid or expired verification code", "data": nil})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "failed to verify email"})
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "failed to verify email", "data": nil})
 		}
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "email verified successfully"})
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "email verified successfully",
+		"data":    result,
+	})
 }
 
 func (h *AuthController) ForgotPassword(c *gin.Context) {

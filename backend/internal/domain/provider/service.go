@@ -168,7 +168,7 @@ func (s *ProviderCredentialService) ListAllModels(
 	ctx context.Context,
 	userID uuid.UUID,
 ) ([]dto.ModelDescriptor, error) {
-	var allModels []dto.ModelDescriptor
+	allModels := make([]dto.ModelDescriptor, 0)
 
 	creds, err := s.repo.ListByUser(ctx, userID)
 	if err != nil {
@@ -197,4 +197,54 @@ func (s *ProviderCredentialService) ListAllModels(
 	}
 
 	return allModels, nil
+}
+
+func (s *ProviderCredentialService) GetSupportedProviders() []dto.ProviderDescriptor {
+	return []dto.ProviderDescriptor{
+		{
+			ID:          "openai",
+			Name:        "OpenAI",
+			Description: "GPT models via api.openai.com",
+			Placeholder: "sk-proj-...",
+			KeyLink:     "https://platform.openai.com/api-keys",
+			Icon:        "◎",
+			IconStyle:   "bg-emerald-500/10 text-emerald-400",
+		},
+		{
+			ID:          "anthropic",
+			Name:        "Anthropic",
+			Description: "Claude models via api.anthropic.com",
+			Placeholder: "sk-ant-...",
+			KeyLink:     "https://console.anthropic.com/account/keys",
+			Icon:        "A",
+			IconStyle:   "bg-[#CC785C]/15 text-[#CC785C] font-bold",
+		},
+		{
+			ID:          "gemini",
+			Name:        "Google Gemini",
+			Description: "Gemini models via Google AI Studio",
+			Placeholder: "AIzaSy...",
+			KeyLink:     "https://aistudio.google.com/app/apikey",
+			Icon:        "✦",
+			IconStyle:   "bg-blue-500/10 text-blue-400",
+		},
+		{
+			ID:          "mistral",
+			Name:        "Mistral",
+			Description: "Mistral models via api.mistral.ai",
+			Placeholder: "your_mistral_api_key",
+			KeyLink:     "https://console.mistral.ai/api-keys/",
+			Icon:        "M",
+			IconStyle:   "bg-orange-500/10 text-orange-400 font-bold",
+		},
+		{
+			ID:          "openrouter",
+			Name:        "OpenRouter",
+			Description: "Universal router for 200+ models",
+			Placeholder: "sk-or-...",
+			KeyLink:     "https://openrouter.ai/keys",
+			Icon:        "⊙",
+			IconStyle:   "bg-purple-500/10 text-purple-400",
+		},
+	}
 }

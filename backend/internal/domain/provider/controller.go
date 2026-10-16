@@ -164,3 +164,12 @@ func (ctl *ProviderController) ListAllModels(c *gin.Context) {
 		"data":    models,
 	})
 }
+
+// ListSupportedProviders handles GET /api/v1/providers
+func (ctl *ProviderController) ListSupportedProviders(c *gin.Context) {
+	providers := ctl.service.GetSupportedProviders()
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    providers,
+	})
+}

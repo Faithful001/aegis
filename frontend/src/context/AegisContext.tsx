@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ProviderCredential, ChatThread, ChatMessage, DiscoveredModel } from "../types/api";
+import { ProviderCredential, ChatThread, ChatMessage, DiscoveredModel, ProviderMeta } from "../types/api";
 import { credentialsApi } from "../api/credentials";
 import { useAuth } from "./AuthContext";
 
 interface AegisContextType {
+  supportedProviders: ProviderMeta[];
   credentials: ProviderCredential[];
   refreshCredentials: () => Promise<void>;
   hasCredential: (provider: string) => boolean;
@@ -31,34 +32,52 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [chatThreads, setChatThreads] = useState<ChatThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>("default-thread-1");
 
+  // TanStack Query for supported providers metadata
+  const {
+    data: rawSupportedProviders = [],
+  } = useQuery<ProviderMeta[]>({
+    queryKey: ["providers", "supported"],
+    queryFn: async () => {
+      const list = await credentialsApi.getProviders();
+      return Array.isArray(list) ? list : [];
+    },
+    staleTime: 1000 * 60 * 30, // 30 minutes
+  });
+
+  const supportedProviders = Array.isArray(rawSupportedProviders) ? rawSupportedProviders : [];
+
   // TanStack Query for credentials
   const {
-    data: credentials = [],
+    data: rawCredentials = [],
     refetch: refetchCredentialsQuery,
   } = useQuery<ProviderCredential[]>({
     queryKey: ["credentials", "list"],
     queryFn: async () => {
       const list = await credentialsApi.list();
-      return list || [];
+      return Array.isArray(list) ? list : [];
     },
     enabled: isAuthenticated,
     staleTime: 1000 * 60,
   });
 
+  const credentials = Array.isArray(rawCredentials) ? rawCredentials : [];
+
   // TanStack Query for models
   const {
-    data: models = [],
+    data: rawModels = [],
     isLoading: isLoadingModels,
     refetch: refetchModelsQuery,
   } = useQuery<DiscoveredModel[]>({
     queryKey: ["credentials", "models"],
     queryFn: async () => {
       const fetched = await credentialsApi.listModels();
-      return fetched || [];
+      return Array.isArray(fetched) ? fetched : [];
     },
     enabled: isAuthenticated,
     staleTime: 1000 * 60,
   });
+
+  const models = Array.isArray(rawModels) ? rawModels : [];
 
   // Automatically adjust selectedModel when models update
   useEffect(() => {
@@ -146,6 +165,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <AegisContext.Provider
       value={{
+        supportedProviders,
         credentials,
         refreshCredentials,
         hasCredential,

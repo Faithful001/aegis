@@ -30,8 +30,9 @@ export const HomePage: React.FC = () => {
   const activeThread = chatThreads.find((t) => t.id === activeThreadId);
   const messages = activeThread?.messages || [];
 
+  const modelList = Array.isArray(models) ? models : [];
   const selectedModelMeta =
-    models.find((m) => m.id === selectedModel) || (models.length > 0 ? models[0] : null);
+    modelList.find((m) => m.id === selectedModel) || (modelList.length > 0 ? modelList[0] : null);
 
   const handleSendMessage = async (promptText: string) => {
     if (!isAuthenticated) {

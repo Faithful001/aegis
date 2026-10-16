@@ -32,54 +32,6 @@ import { credentialsApi } from "../../api/credentials";
 import { authApi } from "../../api/auth";
 import { toast } from "sonner";
 
-const PROVIDERS = [
-  {
-    id: "anthropic",
-    name: "Anthropic",
-    icon: "A",
-    iconStyle: "bg-[#CC785C]/15 text-[#CC785C] font-bold",
-    desc: "Claude models via api.anthropic.com",
-    placeholder: "sk-ant-...",
-    keyLink: "https://console.anthropic.com/account/keys",
-  },
-  {
-    id: "openai",
-    name: "OpenAI",
-    icon: "◎",
-    iconStyle: "bg-emerald-500/10 text-emerald-400",
-    desc: "GPT models via api.openai.com",
-    placeholder: "sk-proj-...",
-    keyLink: "https://platform.openai.com/api-keys",
-  },
-  {
-    id: "gemini",
-    name: "Google Gemini",
-    icon: "✦",
-    iconStyle: "bg-blue-500/10 text-blue-400",
-    desc: "Gemini models via Google AI Studio",
-    placeholder: "AIzaSy...",
-    keyLink: "https://aistudio.google.com/app/apikey",
-  },
-  {
-    id: "mistral",
-    name: "Mistral",
-    icon: "M",
-    iconStyle: "bg-orange-500/10 text-orange-400 font-bold",
-    desc: "Mistral models via api.mistral.ai",
-    placeholder: "your_mistral_api_key",
-    keyLink: "https://console.mistral.ai/api-keys/",
-  },
-  {
-    id: "openrouter",
-    name: "OpenRouter",
-    icon: "⊙",
-    iconStyle: "bg-purple-500/10 text-purple-400",
-    desc: "Universal router for 200+ models",
-    placeholder: "sk-or-...",
-    keyLink: "https://openrouter.ai/keys",
-  },
-] as const;
-
 /* ------------------------------------------------------------------ */
 /*  Settings nav tabs                                                   */
 /* ------------------------------------------------------------------ */
@@ -183,7 +135,7 @@ const ProfileTab: React.FC = () => {
 
   const confirmVerificationMutation = useMutation({
     mutationFn: async (code: string) => {
-      return await authApi.verifyEmail(code);
+      return await authApi.verifyEmail({ code, email: user?.email ?? "" });
     },
     onSuccess: async () => {
       toast.success("Email verified successfully!");
@@ -503,7 +455,9 @@ const ProfileTab: React.FC = () => {
 };
 
 const ProvidersTab: React.FC = () => {
-  const { credentials, refreshCredentials, hasCredential, refreshModels } = useAegis();
+  const { credentials, refreshCredentials, hasCredential, refreshModels, supportedProviders } =
+    useAegis();
+  const providersList = Array.isArray(supportedProviders) ? supportedProviders : [];
   const [configuringProvider, setConfiguringProvider] = useState<string | null>(null);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [baseUrlInput, setBaseUrlInput] = useState("");
@@ -521,7 +475,7 @@ const ProvidersTab: React.FC = () => {
       return await credentialsApi.save(providerId, apiKey, baseUrl);
     },
     onSuccess: async (_, { providerId }) => {
-      const provider = PROVIDERS.find((p) => p.id === providerId);
+      const provider = providersList.find((p) => p.id === providerId);
       toast.success(`${provider?.name || providerId} credential saved! Discovering models...`);
       setApiKeyInput("");
       setBaseUrlInput("");
@@ -541,7 +495,7 @@ const ProvidersTab: React.FC = () => {
       return await credentialsApi.delete(providerId);
     },
     onSuccess: async (_, providerId) => {
-      const provider = PROVIDERS.find((p) => p.id === providerId);
+      const provider = providersList.find((p) => p.id === providerId);
       toast.success(`${provider?.name || providerId} credential removed`);
       await refreshCredentials();
       await refreshModels();
@@ -578,7 +532,7 @@ const ProvidersTab: React.FC = () => {
       </div>
 
       <Card hover={false} className="p-0 divide-y divide-surface-border/60 overflow-hidden">
-        {PROVIDERS.map((provider) => {
+        {providersList.map((provider) => {
           const cred = getCredentialForProvider(provider.id);
           const isConfigured = !!cred;
           const isOpen = configuringProvider === provider.id;
@@ -589,7 +543,11 @@ const ProvidersTab: React.FC = () => {
               <div className="flex items-center justify-between px-5 py-4 hover:bg-surface-hover/50 transition-colors">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm ${provider.iconStyle}`}
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm ${
+                      provider.icon_style ||
+                      (provider as any).iconStyle ||
+                      "bg-zinc-800 text-zinc-300"
+                    }`}
                   >
                     {provider.icon}
                   </div>
@@ -650,7 +608,11 @@ const ProvidersTab: React.FC = () => {
                   <div className="max-w-md space-y-4">
                     <div className="flex items-center gap-2.5">
                       <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs ${provider.iconStyle}`}
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs ${
+                          provider.icon_style ||
+                          (provider as any).iconStyle ||
+                          "bg-zinc-800 text-zinc-300"
+                        }`}
                       >
                         {provider.icon}
                       </div>
@@ -669,7 +631,7 @@ const ProvidersTab: React.FC = () => {
                     />
 
                     <a
-                      href={provider.keyLink}
+                      href={provider.key_link || (provider as any).keyLink}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"

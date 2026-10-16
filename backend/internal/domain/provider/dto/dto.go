@@ -37,3 +37,13 @@ type ModelDescriptor struct {
 type ModelListResponse struct {
 	Data []ModelDescriptor `json:"data"`
 }
+
+type ProviderDescriptor struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"desc"`
+	Placeholder string `json:"placeholder"`
+	KeyLink     string `json:"key_link"`
+	Icon        string `json:"icon"`
+	IconStyle   string `json:"icon_style"`
+}

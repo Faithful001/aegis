@@ -35,13 +35,16 @@ export const authApi = {
     return res.data;
   },
 
-  sendVerificationEmail: async (): Promise<{ success: boolean; message: string }> => {
-    const res = await apiClient.post("/auth/send-verification-email");
+  sendVerificationEmail: async (email?: string): Promise<{ success: boolean; message: string }> => {
+    const res = await apiClient.post("/auth/send-verification-email", { email });
     return res.data;
   },
 
-  verifyEmail: async (code: string): Promise<{ success: boolean; message: string }> => {
-    const res = await apiClient.post("/auth/verify-email", { code });
+  verifyEmail: async (payload: {
+    code: string;
+    email: string;
+  }): Promise<BaseResponse<AuthResponse>> => {
+    const res = await apiClient.post("/auth/verify-email", payload);
     return res.data;
   },
 

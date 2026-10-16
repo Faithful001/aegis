@@ -9,10 +9,14 @@ import { toast } from "sonner";
 import { useAuth } from "../../../context/AuthContext";
 
 export const VerifyEmailPage: React.FC = () => {
+  const [email] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("email") || sessionStorage.getItem("aegis_verify_email") || "";
+  });
   const [code, setCode] = useState("");
   const [resendCooldown, setResendCooldown] = useState(60);
   const navigate = useNavigate();
-  const { refreshUser } = useAuth();
+  const { setAuthData, setToken, refreshUser } = useAuth();
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -24,9 +28,19 @@ export const VerifyEmailPage: React.FC = () => {
 
   const verifyEmailMutation = useMutation({
     mutationFn: async (otpCode: string) => {
-      return await authApi.verifyEmail(otpCode);
+      return await authApi.verifyEmail({ code: otpCode, email });
     },
-    onSuccess: async () => {
+    onSuccess: async (res) => {
+      const jwt = res.data?.token?.access_token || res.data?.token?.token;
+      const userData = res.data?.user;
+
+      if (jwt && userData) {
+        setAuthData(jwt, userData);
+      } else if (jwt) {
+        setToken(jwt);
+      }
+
+      sessionStorage.removeItem("aegis_verify_email");
       toast.success("Email verified! Welcome to Aegis.");
       await refreshUser();
       navigate({ to: "/chat" });
@@ -38,7 +52,7 @@ export const VerifyEmailPage: React.FC = () => {
 
   const resendEmailMutation = useMutation({
     mutationFn: async () => {
-      return await authApi.sendVerificationEmail();
+      return await authApi.sendVerificationEmail(email);
     },
     onSuccess: () => {
       toast.success("A new verification code has been sent!");
@@ -51,6 +65,10 @@ export const VerifyEmailPage: React.FC = () => {
 
   const handleVerify = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email) {
+      toast.error("Email is missing. Please register or sign in again.");
+      return;
+    }
     if (code.length !== 6 || verifyEmailMutation.isPending) {
       toast.error("Please enter the 6-digit verification code.");
       return;
@@ -60,6 +78,10 @@ export const VerifyEmailPage: React.FC = () => {
 
   const handleResend = () => {
     if (resendCooldown > 0 || resendEmailMutation.isPending) return;
+    if (!email) {
+      toast.error("Email is missing. Please register or sign in again.");
+      return;
+    }
     resendEmailMutation.mutate();
   };
 
@@ -71,7 +93,9 @@ export const VerifyEmailPage: React.FC = () => {
         </div>
         <h2 className="text-2xl font-medium text-white tracking-tight">Verify your email</h2>
         <p className="text-xs text-zinc-400 mt-2 max-w-xs mx-auto leading-relaxed">
-          We sent a 6-digit code to your email address. Enter it below to activate your account.
+          We sent a 6-digit code to{" "}
+          <span className="text-white font-medium">{email || "your email address"}</span>.
+          Enter it below to activate your account.
         </p>
       </div>
 

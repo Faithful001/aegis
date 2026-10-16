@@ -88,7 +88,7 @@ func (s *AuthService) Register(ctx context.Context, req dto.RegisterRequest) (bo
 		return false, fmt.Errorf("failed to persist user: %w", err)
 	}
 
-	s.SendVerificationEmail(ctx, newUser.ID)
+	s.SendVerificationEmail(ctx, newUser.Email)
 
 	return true, nil
 }
@@ -127,11 +127,11 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*dto.Aut
 
 
 // SendVerificationEmail sends an OTP to the authenticated user's email for verification.
-func (s *AuthService) SendVerificationEmail(ctx context.Context, userID uuid.UUID) error {
+func (s *AuthService) SendVerificationEmail(ctx context.Context, userEmail string) error {
 	if s.emailService == nil && s.eventProducer == nil {
 		return fmt.Errorf("email service is not configured")
 	}
-	u, err := s.userRepo.GetByID(ctx, userID)
+	u, err := s.userRepo.GetByEmail(ctx, userEmail)
 	if err != nil {
 		return user.ErrUserNotFound
 	}
@@ -141,7 +141,7 @@ func (s *AuthService) SendVerificationEmail(ctx context.Context, userID uuid.UUI
 	}
 
 	// Invalidate old OTPs for this user+purpose
-	_ = s.otpRepo.DeleteExpiredForUser(ctx, userID, otp.OTPPurposeEmailVerification)
+	_ = s.otpRepo.DeleteExpiredForUser(ctx, u.ID, otp.OTPPurposeEmailVerification)
 
 	code, err := s.otpService.GenerateOTPCode()
 	if err != nil {
@@ -149,7 +149,7 @@ func (s *AuthService) SendVerificationEmail(ctx context.Context, userID uuid.UUI
 	}
 
 	record := &otp.OTPRecord{
-		UserID:    userID,
+		UserID:    u.ID,
 		Email:     u.Email,
 		Code:      code,
 		Purpose:   otp.OTPPurposeEmailVerification,
@@ -177,27 +177,46 @@ func (s *AuthService) SendVerificationEmail(ctx context.Context, userID uuid.UUI
 }
 
 
-// VerifyEmail validates the OTP and marks the user as verified.
-func (s *AuthService) VerifyEmail(ctx context.Context, userID uuid.UUID, req dto.VerifyEmailRequest) error {
-	u, err := s.userRepo.GetByID(ctx, userID)
+// VerifyEmail validates the OTP, marks the user as verified, and returns auth credentials.
+func (s *AuthService) VerifyEmail(ctx context.Context, req dto.VerifyEmailRequest) (*dto.AuthResponse, error) {
+	u, err := s.userRepo.GetByEmail(ctx, req.Email)
 	if err != nil {
-		return user.ErrUserNotFound
+		return nil, user.ErrUserNotFound
 	}
 
 	if u.IsVerified {
-		return ErrEmailAlreadyVerified
+		return nil, ErrEmailAlreadyVerified
 	}
 
 	record, err := s.otpRepo.FindValid(ctx, u.Email, req.Code, otp.OTPPurposeEmailVerification)
 	if err != nil {
-		return ErrInvalidOTP
+		return nil, ErrInvalidOTP
 	}
 
 	if err := s.otpRepo.MarkUsed(ctx, record.ID); err != nil {
-		return fmt.Errorf("failed to consume OTP: %w", err)
+		return nil, fmt.Errorf("failed to consume OTP: %w", err)
 	}
 
-	return s.userRepo.MarkVerified(ctx, userID)
+	if err := s.userRepo.MarkVerified(ctx, u.ID); err != nil {
+		return nil, fmt.Errorf("failed to mark user verified: %w", err)
+	}
+
+	u.IsVerified = true
+
+	tokenPair, _, _, err := s.tokenService.GenerateTokenPair(u.ID, u.Email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate token pair: %w", err)
+	}
+
+	return &dto.AuthResponse{
+		Token: dto.TokenResponse{
+			AccessToken:  tokenPair.AccessToken,
+			RefreshToken: tokenPair.RefreshToken,
+			TokenType:    tokenPair.TokenType,
+			ExpiresIn:    tokenPair.ExpiresIn,
+		},
+		User: u,
+	}, nil
 }
 
 func (s *AuthService) ForgotPassword(ctx context.Context, req dto.ForgotPasswordRequest) error {

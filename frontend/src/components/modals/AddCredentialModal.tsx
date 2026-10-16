@@ -14,14 +14,6 @@ interface Props {
   defaultProvider?: string;
 }
 
-const SUPPORTED_PROVIDERS = [
-  { id: 'mistral', name: 'Mistral AI', placeholder: 'your_mistral_api_key' },
-  { id: 'openai', name: 'OpenAI', placeholder: 'sk-proj-...' },
-  { id: 'anthropic', name: 'Anthropic', placeholder: 'sk-ant-...' },
-  { id: 'openrouter', name: 'OpenRouter', placeholder: 'sk-or-...' },
-  { id: 'gemini', name: 'Google Gemini', placeholder: 'AIzaSy...' },
-];
-
 export const AddCredentialModal: React.FC<Props> = ({
   open,
   onOpenChange,
@@ -31,10 +23,17 @@ export const AddCredentialModal: React.FC<Props> = ({
   const [provider, setProvider] = useState<string>(defaultProvider);
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
-  const { refreshCredentials } = useAegis();
+  const { refreshCredentials, supportedProviders } = useAegis();
+
+  const providersList = supportedProviders.length > 0 ? supportedProviders : [];
 
   const selectedProviderMeta =
-    SUPPORTED_PROVIDERS.find((p) => p.id === provider) || SUPPORTED_PROVIDERS[0];
+    providersList.find((p) => p.id === provider) ||
+    providersList[0] || {
+      id: provider,
+      name: provider,
+      placeholder: 'Enter API key...',
+    };
 
   const saveMutation = useMutation({
     mutationFn: async ({
@@ -84,7 +83,7 @@ export const AddCredentialModal: React.FC<Props> = ({
         <div>
           <label className="block text-xs font-medium text-zinc-400 mb-1.5">Provider</label>
           <div className="grid grid-cols-3 gap-2">
-            {SUPPORTED_PROVIDERS.map((p) => (
+            {providersList.map((p) => (
               <button
                 key={p.id}
                 type="button"

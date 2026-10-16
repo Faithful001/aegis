@@ -13,6 +13,7 @@ interface AuthContextType {
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   setToken: (token: string) => void;
+  setAuthData: (token: string, user: any) => void;
   refreshUser: () => Promise<void>;
 }
 
@@ -47,6 +48,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   };
 
+  const setAuthData = (newToken: string, rawUser: any) => {
+    setToken(newToken);
+    const formatted = formatUser(rawUser);
+    if (formatted) {
+      queryClient.setQueryData(["auth", "me"], formatted);
+    }
+  };
+
   // TanStack Query for User profile
   const {
     data: user = null,
@@ -62,7 +71,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     staleTime: 1000 * 60 * 5,
   });
 
-  // TanStack Mutation for Login
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
       return await authApi.login(email, password);
@@ -70,18 +78,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     onSuccess: (res) => {
       const jwt = res.data?.token.access_token;
       if (jwt) {
-        setToken(jwt);
         const userData = res.data?.user;
         if (userData) {
-          queryClient.setQueryData(["auth", "me"], formatUser(userData));
+          setAuthData(jwt, userData);
         } else {
+          setToken(jwt);
           queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
         }
       }
     },
   });
 
-  // TanStack Mutation for Register
   const registerMutation = useMutation({
     mutationFn: async ({
       email,
@@ -94,8 +101,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }) => {
       return await authApi.register(email, password, name);
     },
-    onSuccess: () => {
-      router.navigate({ to: "/auth/verify-email" });
+    onSuccess: (_data, variables) => {
+      sessionStorage.setItem("aegis_verify_email", variables.email);
+      router.navigate({
+        to: "/auth/verify-email",
+        search: { email: variables.email } as any,
+      });
     },
   });
 
@@ -165,6 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         setToken,
+        setAuthData,
         refreshUser,
       }}
     >
