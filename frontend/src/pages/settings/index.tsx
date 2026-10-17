@@ -515,7 +515,6 @@ const ProvidersTab: React.FC = () => {
                       }
                       className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-100 px-2.5 py-1.5 rounded-lg hover:bg-zinc-800/60 transition-all"
                     >
-                      <Cpu className="w-3.5 h-3.5" />
                       Models
                       {isModelsOpen ? (
                         <ChevronUp className="w-3 h-3" />
