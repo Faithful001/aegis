@@ -141,11 +141,6 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
                               )}
                             </div>
                           </div>
-                          {model.description && (
-                            <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-1">
-                              {model.description}
-                            </p>
-                          )}
                         </button>
                       ))
                     )}

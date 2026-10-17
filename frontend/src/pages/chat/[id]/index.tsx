@@ -34,8 +34,11 @@ export const DynamicChatThreadPage: React.FC<Props> = ({ id }) => {
     if (!id) return;
     setActiveThreadId(id);
 
-    if (isAuthenticated) {
-      fetchThreadById(id);
+    const existing = chatThreads.find((t) => t.id === id);
+    if (!existing || (!isStreaming && existing.messages.length === 0)) {
+      if (isAuthenticated) {
+        fetchThreadById(id);
+      }
     }
   }, [id, isAuthenticated, setActiveThreadId, fetchThreadById]);
 

@@ -23,7 +23,7 @@ interface AegisContextType {
   createNewThread: (title?: string, model?: string) => Promise<string>;
   deleteThread: (id: string) => Promise<void>;
   addMessageToThread: (threadId: string, msg: ChatMessage) => void;
-  updateLastMessageInThread: (threadId: string, content: string) => void;
+  updateLastMessageInThread: (threadId: string, content: string, msgId?: string) => void;
   persistMessage: (
     threadId: string,
     role: "system" | "user" | "assistant",
@@ -251,15 +251,45 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   };
 
-  const updateLastMessageInThread = (threadId: string, content: string) => {
+  const updateLastMessageInThread = (
+    threadId: string,
+    content: string,
+    msgId?: string
+  ) => {
     setChatThreads((prev) =>
       prev.map((t) => {
         if (t.id === threadId && t.messages && t.messages.length > 0) {
           const msgs = [...t.messages];
-          const lastIndex = msgs.length - 1;
-          msgs[lastIndex] = {
-            ...msgs[lastIndex],
-            content: msgs[lastIndex].content + content,
+          let targetIndex = -1;
+          if (msgId) {
+            targetIndex = msgs.findIndex((m) => m.id === msgId);
+          }
+          if (targetIndex === -1) {
+            for (let i = msgs.length - 1; i >= 0; i--) {
+              if (msgs[i].role === "assistant") {
+                targetIndex = i;
+                break;
+              }
+            }
+          }
+
+          if (targetIndex === -1) {
+            const newAssistantMsg: ChatMessage = {
+              id: msgId || "msg-" + Date.now(),
+              role: "assistant",
+              content: content,
+              timestamp: new Date(),
+            };
+            return {
+              ...t,
+              updated_at: new Date().toISOString(),
+              messages: [...msgs, newAssistantMsg],
+            };
+          }
+
+          msgs[targetIndex] = {
+            ...msgs[targetIndex],
+            content: msgs[targetIndex].content + content,
           };
           return {
             ...t,
@@ -306,12 +336,29 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const thread = response.data;
       if (!thread) return null;
 
-      const normalized: ChatThread = {
-        ...thread,
-        messages: Array.isArray(thread.messages) ? thread.messages : [],
-      };
+      const remoteMessages = Array.isArray(thread.messages) ? thread.messages : [];
 
       setChatThreads((prev) => {
+        const existing = prev.find((t) => t.id === thread.id);
+        let mergedMessages = [...remoteMessages];
+
+        // If local state has in-flight unsaved assistant messages, preserve them!
+        if (existing?.messages) {
+          existing.messages.forEach((localMsg) => {
+            if (
+              localMsg.role === "assistant" &&
+              !mergedMessages.some((rm) => rm.id === localMsg.id)
+            ) {
+              mergedMessages.push(localMsg);
+            }
+          });
+        }
+
+        const normalized: ChatThread = {
+          ...thread,
+          messages: mergedMessages,
+        };
+
         const exists = prev.some((t) => t.id === thread.id);
         if (exists) {
           return prev.map((t) => (t.id === thread.id ? normalized : t));
@@ -319,7 +366,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return [normalized, ...prev];
       });
       setActiveThreadId((prev) => (prev === thread.id ? prev : thread.id));
-      return normalized;
+      return thread;
     } catch (err) {
       console.error("Failed to fetch thread by id:", id, err);
       return null;
@@ -371,7 +418,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       },
       (chunk) => {
         fullAssistantResponse += chunk;
-        updateLastMessageInThread(currentThreadId!, chunk);
+        updateLastMessageInThread(currentThreadId!, chunk, assistantMsgId);
       },
       async () => {
         setIsStreaming(false);
@@ -389,7 +436,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const errMsg = err.message || "Inference failed";
         toast.error(`Inference Error: ${errMsg}`);
         const errorContent = `\n\n*[Aegis Error: ${errMsg}. If you are using a BYOK model, ensure your provider key is saved in your Vault.]*`;
-        updateLastMessageInThread(currentThreadId!, errorContent);
+        updateLastMessageInThread(currentThreadId!, errorContent, assistantMsgId);
         fullAssistantResponse += errorContent;
         if (fullAssistantResponse.trim()) {
           persistMessage(
