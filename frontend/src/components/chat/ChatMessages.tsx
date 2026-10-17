@@ -127,8 +127,8 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isStreamin
       })}
 
       {isStreaming && (
-        <div className="flex items-center gap-2 text-xs text-zinc-400 font-mono py-1">
-          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+        <div className="flex items-center gap-2 text-xs text-zinc-400 py-1">
+          <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
           <span>Thinking...</span>
         </div>
       )}

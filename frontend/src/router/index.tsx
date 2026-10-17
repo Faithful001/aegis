@@ -87,6 +87,16 @@ const chatDynamicRoute = createRoute({
   },
 });
 
+// Thread Route (/c/:id)
+const threadRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/c/$id",
+  component: () => {
+    const { id } = useParams({ from: "/c/$id" });
+    return <DynamicChatThreadPage id={id} />;
+  },
+});
+
 // Profile Route (/profile)
 const profileRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -119,6 +129,7 @@ const routeTree = rootRoute.addChildren([
   resetPasswordRoute,
   chatRoute,
   chatDynamicRoute,
+  threadRoute,
   profileRoute,
   analyticsRoute,
   settingsRoute,

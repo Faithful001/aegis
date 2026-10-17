@@ -36,7 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
 
   const { pathname } = useLocation();
 
-  const isChat = pathname === "/" || pathname.startsWith("/chat");
+  const isChat = pathname === "/" || pathname.startsWith("/chat") || pathname.startsWith("/c");
   const isAnalytics = pathname.startsWith("/analytics");
   const isSettings = pathname.startsWith("/settings");
 
@@ -83,12 +83,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
       {/* Main Action Links */}
       <div className="p-2 space-y-1">
         <button
-          onClick={async () => {
-            await createNewThread();
+          onClick={() => {
+            setActiveThreadId(null);
             router.navigate({ to: "/" });
           }}
           className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-xl font-medium text-sm transition-all hover:bg-zinc-800 ${
-            isChat ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
+            isChat && !activeThreadId
+              ? "bg-zinc-800 text-white font-semibold"
+              : "text-zinc-400 hover:text-zinc-200"
           }`}
         >
           <PlusIcon className="w-4 h-4 text-zinc-300 flex-shrink-0" />
@@ -132,11 +134,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
           <div className="flex items-center justify-between text-xs text-zinc-400 font-medium">
             <span>Recent Chats</span>
             <button
-              onClick={async () => {
-                await createNewThread();
+              onClick={() => {
+                setActiveThreadId(null);
                 router.navigate({ to: "/" });
               }}
               className="p-1 text-zinc-400 hover:text-white rounded hover:bg-zinc-800/60"
+              title="New Chat"
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
@@ -158,7 +161,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
                   <button
                     onClick={() => {
                       setActiveThreadId(thread.id);
-                      router.navigate({ to: "/" });
+                      router.navigate({ to: `/c/${thread.id}` });
                     }}
                     className="flex-1 text-left truncate mr-1.5"
                     title={thread.title}
@@ -169,6 +172,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
                     onClick={async (e) => {
                       e.stopPropagation();
                       await deleteThread(thread.id);
+                      if (activeThreadId === thread.id) {
+                        router.navigate({ to: "/" });
+                      }
                     }}
                     className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-red-400 rounded transition-opacity"
                     title="Delete chat"

@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChatThread, ChatMessage, DiscoveredModel, ProviderMeta } from "../types/api";
 import { credentialsApi } from "../api/credentials";
 import { threadsApi } from "../api/threads";
+import { streamChatCompletion } from "../api/chat";
+import { toast } from "sonner";
 import { useAuth } from "./AuthContext";
 
 interface AegisContextType {
@@ -28,7 +30,10 @@ interface AegisContextType {
     content: string,
     model?: string
   ) => Promise<ChatMessage | null>;
+  fetchThreadById: (id: string) => Promise<ChatThread | null>;
   refetchThreads: () => Promise<void>;
+  isStreaming: boolean;
+  sendMessage: (promptText: string, targetThreadId?: string) => Promise<void>;
 }
 
 const AegisContext = createContext<AegisContextType | undefined>(undefined);
@@ -69,6 +74,11 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (rawThreads.length > 0) {
       setChatThreads(rawThreads);
       setActiveThreadId((prev) => {
+        // If the URL already targets /c/:id or /chat/:id, respect that
+        const match = window.location.pathname.match(/\/(?:c|chat)\/([^/]+)/);
+        if (match && match[1]) {
+          return match[1];
+        }
         if (prev && rawThreads.some((t) => t.id === prev)) {
           return prev;
         }
@@ -290,6 +300,109 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const fetchThreadById = useCallback(async (id: string): Promise<ChatThread | null> => {
+    try {
+      const response = await threadsApi.get(id);
+      const thread = response.data;
+      if (!thread) return null;
+
+      const normalized: ChatThread = {
+        ...thread,
+        messages: Array.isArray(thread.messages) ? thread.messages : [],
+      };
+
+      setChatThreads((prev) => {
+        const exists = prev.some((t) => t.id === thread.id);
+        if (exists) {
+          return prev.map((t) => (t.id === thread.id ? normalized : t));
+        }
+        return [normalized, ...prev];
+      });
+      setActiveThreadId((prev) => (prev === thread.id ? prev : thread.id));
+      return normalized;
+    } catch (err) {
+      console.error("Failed to fetch thread by id:", id, err);
+      return null;
+    }
+  }, []);
+
+  const [isStreaming, setIsStreaming] = useState(false);
+
+  const sendMessage = async (promptText: string, targetThreadId?: string): Promise<void> => {
+    let currentThreadId = targetThreadId || activeThreadId;
+    if (!currentThreadId) {
+      currentThreadId = await createNewThread(promptText, selectedModel);
+    }
+
+    const userMsg: ChatMessage = {
+      id: "msg-" + Date.now(),
+      role: "user",
+      content: promptText,
+      timestamp: new Date(),
+    };
+
+    addMessageToThread(currentThreadId, userMsg);
+    persistMessage(currentThreadId, "user", promptText);
+
+    const assistantMsgId = "msg-" + (Date.now() + 1);
+    const initialAssistantMsg: ChatMessage = {
+      id: assistantMsgId,
+      role: "assistant",
+      content: "",
+      timestamp: new Date(),
+      model: selectedModel,
+    };
+
+    addMessageToThread(currentThreadId, initialAssistantMsg);
+    setIsStreaming(true);
+
+    let fullAssistantResponse = "";
+
+    const currentThread = chatThreads.find((t) => t.id === currentThreadId);
+    const currentMessages = currentThread?.messages || [];
+
+    await streamChatCompletion(
+      {
+        model: selectedModel,
+        messages: [...currentMessages, userMsg].map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+      },
+      (chunk) => {
+        fullAssistantResponse += chunk;
+        updateLastMessageInThread(currentThreadId!, chunk);
+      },
+      async () => {
+        setIsStreaming(false);
+        if (fullAssistantResponse.trim()) {
+          await persistMessage(
+            currentThreadId!,
+            "assistant",
+            fullAssistantResponse,
+            selectedModel
+          );
+        }
+      },
+      (err) => {
+        setIsStreaming(false);
+        const errMsg = err.message || "Inference failed";
+        toast.error(`Inference Error: ${errMsg}`);
+        const errorContent = `\n\n*[Aegis Error: ${errMsg}. If you are using a BYOK model, ensure your provider key is saved in your Vault.]*`;
+        updateLastMessageInThread(currentThreadId!, errorContent);
+        fullAssistantResponse += errorContent;
+        if (fullAssistantResponse.trim()) {
+          persistMessage(
+            currentThreadId!,
+            "assistant",
+            fullAssistantResponse,
+            selectedModel
+          );
+        }
+      }
+    );
+  };
+
   return (
     <AegisContext.Provider
       value={{
@@ -310,7 +423,10 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addMessageToThread,
         updateLastMessageInThread,
         persistMessage,
+        fetchThreadById,
         refetchThreads,
+        isStreaming,
+        sendMessage,
       }}
     >
       {children}
