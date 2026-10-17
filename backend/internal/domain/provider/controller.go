@@ -29,7 +29,6 @@ func getUserIDFromContext(c *gin.Context) (uuid.UUID, bool) {
 	return uuid.Nil, false
 }
 
-// SaveCredential handles POST /api/v1/credentials
 func (ctl *ProviderController) SaveCredential(c *gin.Context) {
 	userID, ok := getUserIDFromContext(c)
 	if !ok || userID == uuid.Nil {
@@ -45,7 +44,9 @@ func (ctl *ProviderController) SaveCredential(c *gin.Context) {
 
 	resp, err := ctl.service.SaveCredential(c.Request.Context(), userID, req)
 	if err != nil {
-		if errors.Is(err, ErrInvalidProvider) || errors.Is(err, ErrInvalidCredentialData) {
+		var valErr *ValidationError
+		if errors.As(err, &valErr) || errors.Is(err, ErrInvalidProvider) || errors.Is(err, ErrInvalidCredentialData) ||
+			errors.Is(err, ErrInvalidAPIKey) || errors.Is(err, ErrInvalidBaseURL) {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
 		}
@@ -59,7 +60,6 @@ func (ctl *ProviderController) SaveCredential(c *gin.Context) {
 	})
 }
 
-// ListCredentials handles GET /api/v1/credentials
 func (ctl *ProviderController) ListCredentials(c *gin.Context) {
 	userID, ok := getUserIDFromContext(c)
 	if !ok || userID == uuid.Nil {
@@ -79,7 +79,6 @@ func (ctl *ProviderController) ListCredentials(c *gin.Context) {
 	})
 }
 
-// DeleteCredential handles DELETE /api/v1/credentials/:provider
 func (ctl *ProviderController) DeleteCredential(c *gin.Context) {
 	userID, ok := getUserIDFromContext(c)
 	if !ok || userID == uuid.Nil {
@@ -107,7 +106,6 @@ func (ctl *ProviderController) DeleteCredential(c *gin.Context) {
 	})
 }
 
-// ListProviderModels handles GET /api/v1/credentials/:provider/models
 func (ctl *ProviderController) ListProviderModels(c *gin.Context) {
 	userID, ok := getUserIDFromContext(c)
 	if !ok || userID == uuid.Nil {
@@ -202,7 +200,6 @@ func (ctl *ProviderController) ListProviderModels(c *gin.Context) {
 	})
 }
 
-// ListAllModels handles GET /api/v1/models
 func (ctl *ProviderController) ListAllModels(c *gin.Context) {
 	userID, ok := getUserIDFromContext(c)
 	if !ok || userID == uuid.Nil {
@@ -228,7 +225,6 @@ func (ctl *ProviderController) ListAllModels(c *gin.Context) {
 	})
 }
 
-// ToggleModel handles POST /api/v1/models/toggle
 func (ctl *ProviderController) ToggleModel(c *gin.Context) {
 	userID, ok := getUserIDFromContext(c)
 	if !ok || userID == uuid.Nil {
@@ -254,7 +250,6 @@ func (ctl *ProviderController) ToggleModel(c *gin.Context) {
 	})
 }
 
-// ListSupportedProviders handles GET /api/v1/providers
 func (ctl *ProviderController) ListSupportedProviders(c *gin.Context) {
 	userID, ok := getUserIDFromContext(c)
 	if !ok || userID == uuid.Nil {

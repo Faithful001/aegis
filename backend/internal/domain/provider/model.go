@@ -11,8 +11,10 @@ import (
 
 var (
 	ErrCredentialNotFound    = errors.New("provider credential not found")
-	ErrInvalidProvider      = errors.New("invalid provider specified (supported: openai, anthropic, gemini, mistral)")
+	ErrInvalidProvider      = errors.New("invalid provider specified (supported: openai, anthropic, gemini, mistral, openrouter)")
 	ErrInvalidCredentialData = errors.New("invalid provider credential data")
+	ErrInvalidAPIKey         = errors.New("invalid API key")
+	ErrInvalidBaseURL        = errors.New("invalid base URL")
 )
 
 const (

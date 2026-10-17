@@ -43,6 +43,9 @@ export interface ProviderCredential {
 }
 
 export interface UsageMetric {
+  organization_id: string;
+  input_tokens: number;
+  output_tokens: number;
   total_requests: number;
   total_tokens: number;
   prompt_tokens: number;

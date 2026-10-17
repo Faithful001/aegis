@@ -12,11 +12,8 @@ import {
   Blocks,
   ChevronDown,
   ChevronUp,
-  ExternalLink,
   LogOut,
-  Check,
   RefreshCw,
-  Cpu,
   ChevronLeft,
   ChevronRight,
   Search,
@@ -27,7 +24,8 @@ import { useAuth } from "../../context/AuthContext";
 import { credentialsApi } from "../../api/credentials";
 import { authApi } from "../../api/auth";
 import { toast } from "sonner";
-import { DiscoveredModel, PaginatedResult } from "../../types/api";
+import { DiscoveredModel, PaginatedResult, ProviderMeta } from "../../types/api";
+import { ConfigureProviderModal } from "../../components/modals/ConfigureProviderModal";
 
 type SettingsTab = "profile" | "providers";
 
@@ -424,35 +422,8 @@ const ProvidersTab: React.FC = () => {
   const { supportedProviders, refreshCredentials } = useAegis();
   const providersList = Array.isArray(supportedProviders) ? supportedProviders : [];
 
-  const [configuringProvider, setConfiguringProvider] = useState<string | null>(null);
+  const [configuringProvider, setConfiguringProvider] = useState<ProviderMeta | null>(null);
   const [expandedModels, setExpandedModels] = useState<string | null>(null);
-  const [apiKeyInput, setApiKeyInput] = useState("");
-  const [baseUrlInput, setBaseUrlInput] = useState("");
-
-  const saveCredentialMutation = useMutation({
-    mutationFn: async ({
-      providerId,
-      apiKey,
-      baseUrl,
-    }: {
-      providerId: string;
-      apiKey: string;
-      baseUrl?: string;
-    }) => credentialsApi.save(providerId, apiKey, baseUrl),
-    onSuccess: async (_, { providerId }) => {
-      const provider = providersList.find((p) => p.id === providerId);
-      toast.success(`${provider?.name || providerId} credential saved! Discovering models…`);
-      setApiKeyInput("");
-      setBaseUrlInput("");
-      setConfiguringProvider(null);
-      await refreshCredentials();
-    },
-    onError: (err: any) => {
-      toast.error(
-        err?.response?.data?.error || err?.response?.data?.message || "Failed to save credential"
-      );
-    },
-  });
 
   const deleteCredentialMutation = useMutation({
     mutationFn: async (providerId: string) => credentialsApi.delete(providerId),
@@ -467,15 +438,6 @@ const ProvidersTab: React.FC = () => {
     },
   });
 
-  const handleSave = (providerId: string) => {
-    if (!apiKeyInput.trim() || saveCredentialMutation.isPending) return;
-    saveCredentialMutation.mutate({
-      providerId,
-      apiKey: apiKeyInput.trim(),
-      baseUrl: baseUrlInput.trim() || undefined,
-    });
-  };
-
   return (
     <div className="space-y-6">
       <div>
@@ -488,7 +450,6 @@ const ProvidersTab: React.FC = () => {
       <Card hover={false} className="p-0 divide-y divide-surface-border/60 overflow-hidden">
         {providersList.map((provider) => {
           const isConfigured = provider.is_configured;
-          const isConfigOpen = configuringProvider === provider.id;
           const isModelsOpen = expandedModels === provider.id;
 
           return (
@@ -507,6 +468,31 @@ const ProvidersTab: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 ml-4">
+                  {/* Delete */}
+                  {isConfigured && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteCredentialMutation.mutate(provider.id)}
+                      disabled={deleteCredentialMutation.isPending}
+                      className="text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+
+                  {/* Configure button */}
+                  {!isConfigured && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setConfiguringProvider(provider)}
+                      className="rounded-full gap-1.5"
+                    >
+                      Configure
+                    </Button>
+                  )}
+
                   {/* Models toggle — only when configured */}
                   {isConfigured && (
                     <button
@@ -523,92 +509,8 @@ const ProvidersTab: React.FC = () => {
                       )}
                     </button>
                   )}
-
-                  {/* Delete */}
-                  {isConfigured && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteCredentialMutation.mutate(provider.id)}
-                      disabled={deleteCredentialMutation.isPending}
-                      className="text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  )}
-
-                  {/* Configure toggle */}
-                  <Button
-                    variant={isConfigured ? "ghost" : "secondary"}
-                    size="sm"
-                    onClick={() => {
-                      if (isConfigOpen) {
-                        setConfiguringProvider(null);
-                        setApiKeyInput("");
-                        setBaseUrlInput("");
-                      } else {
-                        setConfiguringProvider(provider.id);
-                        setApiKeyInput("");
-                        setBaseUrlInput("");
-                      }
-                    }}
-                    className={
-                      isConfigured ? "text-emerald-400 hover:text-emerald-300 gap-1.5" : "gap-1.5"
-                    }
-                  >
-                    {isConfigured ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" /> Configured
-                      </>
-                    ) : (
-                      "Configure"
-                    )}
-                  </Button>
                 </div>
               </div>
-
-              {/* ---- Inline configure panel ---- */}
-              {isConfigOpen && (
-                <div className="px-5 pb-5 pt-3 bg-zinc-900/40 border-t border-surface-border/40">
-                  <div className="max-w-md space-y-3">
-                    <Input
-                      type="password"
-                      placeholder={provider.placeholder}
-                      value={apiKeyInput}
-                      onChange={(e) => setApiKeyInput(e.target.value)}
-                      showToggle
-                    />
-                    <a
-                      href={provider.key_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
-                    >
-                      Get API key <ExternalLink className="w-3 h-3" />
-                    </a>
-                    <div className="flex items-center gap-3 pt-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setConfiguringProvider(null);
-                          setApiKeyInput("");
-                          setBaseUrlInput("");
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => handleSave(provider.id)}
-                        disabled={saveCredentialMutation.isPending || !apiKeyInput.trim()}
-                      >
-                        {saveCredentialMutation.isPending ? "Saving…" : "Save"}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* ---- Model drawer ---- */}
               {isModelsOpen && isConfigured && (
@@ -620,6 +522,13 @@ const ProvidersTab: React.FC = () => {
           );
         })}
       </Card>
+
+      {/* Configure Provider Modal */}
+      <ConfigureProviderModal
+        open={!!configuringProvider}
+        onOpenChange={(open) => !open && setConfiguringProvider(null)}
+        provider={configuringProvider}
+      />
     </div>
   );
 };

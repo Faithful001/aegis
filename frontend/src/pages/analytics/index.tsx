@@ -19,6 +19,9 @@ export const AnalyticsPage: React.FC = () => {
     enabled: isAuthenticated,
     refetchInterval: 10000,
     initialData: {
+      input_tokens: 0,
+      organization_id: "",
+      output_tokens: 0,
       total_requests: 0,
       total_tokens: 0,
       prompt_tokens: 0,
@@ -52,6 +55,28 @@ export const AnalyticsPage: React.FC = () => {
 
           <Card className="p-5 space-y-2">
             <div className="flex items-center justify-between text-zinc-400 text-[12px]">
+              <span>Input Tokens</span>
+              <DollarSign className="w-4 h-4" />
+            </div>
+            <div className="text-xl font-semibold text-white">
+              {metrics?.input_tokens ? metrics.input_tokens.toLocaleString() : "0"}
+            </div>
+            <p className="text-[10px] text-zinc-400">Durable Tracking</p>
+          </Card>
+
+          <Card className="p-5 space-y-2">
+            <div className="flex items-center justify-between text-zinc-400 text-xs">
+              <span>Output Tokens</span>
+              <Zap className="w-4 h-4" />
+            </div>
+            <div className="text-xl font-semibold text-white">
+              {metrics?.output_tokens ? metrics.output_tokens.toLocaleString() : "0"}
+            </div>
+            <p className="text-[11px] font-medium text-zinc-400">Durable Tracking</p>
+          </Card>
+
+          <Card className="p-5 space-y-2">
+            <div className="flex items-center justify-between text-zinc-400 text-[12px]">
               <span>Tokens Processed</span>
               <Cpu className="w-4 h-4" />
             </div>
@@ -62,24 +87,6 @@ export const AnalyticsPage: React.FC = () => {
               Prompt: {metrics?.prompt_tokens?.toLocaleString() || "0"} | Completion:{" "}
               {metrics?.completion_tokens?.toLocaleString() || "0"}
             </p>
-          </Card>
-
-          <Card className="p-5 space-y-2">
-            <div className="flex items-center justify-between text-zinc-400 text-[12px]">
-              <span>Rate Limit Remaining</span>
-              <DollarSign className="w-4 h-4" />
-            </div>
-            <div className="text-xl font-semibold text-white">600 RPM</div>
-            <p className="text-[10px] text-zinc-400">Redis sliding window</p>
-          </Card>
-
-          <Card className="p-5 space-y-2">
-            <div className="flex items-center justify-between text-zinc-400 text-xs">
-              <span>Worker Latency</span>
-              <Zap className="w-4 h-4" />
-            </div>
-            <div className="text-2xl font-bold text-white">~120 ms</div>
-            <p className="text-[11px] font-medium text-zinc-400">Direct gRPC stream</p>
           </Card>
         </div>
 

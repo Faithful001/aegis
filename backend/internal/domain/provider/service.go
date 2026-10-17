@@ -43,13 +43,11 @@ func (s *ProviderCredentialService) SaveCredential(
 	req dto.SaveCredentialRequest,
 ) (*dto.CredentialResponse, error) {
 	provider := strings.ToLower(strings.TrimSpace(req.Provider))
-	if !IsSupportedProvider(provider) {
-		return nil, ErrInvalidProvider
-	}
-
 	apiKey := strings.TrimSpace(req.APIKey)
-	if apiKey == "" {
-		return nil, ErrInvalidCredentialData
+	baseURL := strings.TrimSpace(req.BaseURL)
+
+	if err := ValidateCredentialInput(provider, apiKey, baseURL); err != nil {
+		return nil, err
 	}
 
 	encryptedKey, err := crypto.AESEncrypt(apiKey, s.encryptionKey)
@@ -62,7 +60,7 @@ func (s *ProviderCredentialService) SaveCredential(
 		UserID:          userID,
 		Provider:        provider,
 		EncryptedAPIKey: encryptedKey,
-		BaseURL:         strings.TrimSpace(req.BaseURL),
+		BaseURL:         baseURL,
 	}
 
 	if err := s.repo.Save(ctx, cred); err != nil {
@@ -166,7 +164,6 @@ func (s *ProviderCredentialService) ListProviderModels(
 		return nil, err
 	}
 
-	// Fetch existing user models for this provider from DB
 	dbModels, _ := s.repo.ListUserModels(ctx, userID, p, false)
 	activeMap := make(map[string]bool)
 	for _, m := range dbModels {
@@ -180,7 +177,6 @@ func (s *ProviderCredentialService) ListProviderModels(
 		if val, exists := activeMap[m.ID]; exists {
 			isActive = val
 		} else {
-			// Newly discovered model - persist to DB with default inactive
 			toCreate = append(toCreate, &UserModel{
 				ID:          uuid.New(),
 				UserID:      userID,
@@ -220,7 +216,6 @@ func (s *ProviderCredentialService) ListAllModels(
 		filterActive = isActiveFilter[0]
 	}
 
-	// When active models are requested, query directly from the DB level!
 	if filterActive != nil && *filterActive {
 		dbModels, err := s.repo.ListAllUserModels(ctx, userID, true)
 		if err != nil {
@@ -346,12 +341,9 @@ func staticProviders() []dto.ProviderDescriptor {
 	}
 }
 
-// GetSupportedProviders returns the provider catalogue annotated with the
-// user's credential status (IsConfigured + MaskedAPIKey).
 func (s *ProviderCredentialService) GetSupportedProviders(ctx context.Context, userID uuid.UUID) []dto.ProviderDescriptor {
 	providers := staticProviders()
 
-	// Build a map of provider → masked key from the user's stored credentials.
 	credMap := make(map[string]string)
 	if userID != uuid.Nil {
 		if creds, err := s.repo.ListByUser(ctx, userID); err == nil {
