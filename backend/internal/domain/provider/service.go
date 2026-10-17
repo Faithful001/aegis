@@ -161,37 +161,105 @@ func (s *ProviderCredentialService) ListProviderModels(
 		return nil, err
 	}
 
-	return s.gateway.ListModels(ctx, p, apiKey, baseURL)
+	gatewayModels, err := s.gateway.ListModels(ctx, p, apiKey, baseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch existing user models for this provider from DB
+	dbModels, _ := s.repo.ListUserModels(ctx, userID, p, false)
+	activeMap := make(map[string]bool)
+	for _, m := range dbModels {
+		activeMap[m.ModelID] = m.IsActive
+	}
+
+	toCreate := make([]*UserModel, 0)
+	result := make([]dto.ModelDescriptor, len(gatewayModels))
+	for i, m := range gatewayModels {
+		isActive := false
+		if val, exists := activeMap[m.ID]; exists {
+			isActive = val
+		} else {
+			// Newly discovered model - persist to DB with default inactive
+			toCreate = append(toCreate, &UserModel{
+				ID:          uuid.New(),
+				UserID:      userID,
+				Provider:    p,
+				ModelID:     m.ID,
+				Name:        m.Name,
+				Description: m.Description,
+				Fast:        m.Fast,
+				IsActive:    false,
+			})
+		}
+
+		result[i] = dto.ModelDescriptor{
+			ID:          m.ID,
+			Name:        m.Name,
+			Provider:    p,
+			Description: m.Description,
+			Fast:        m.Fast,
+			IsActive:    isActive,
+		}
+	}
+
+	if len(toCreate) > 0 {
+		_ = s.repo.UpsertUserModelsBatch(ctx, toCreate)
+	}
+
+	return result, nil
 }
 
 func (s *ProviderCredentialService) ListAllModels(
 	ctx context.Context,
 	userID uuid.UUID,
+	isActiveFilter ...*bool,
 ) ([]dto.ModelDescriptor, error) {
-	allModels := make([]dto.ModelDescriptor, 0)
+	var filterActive *bool
+	if len(isActiveFilter) > 0 {
+		filterActive = isActiveFilter[0]
+	}
 
+	// When active models are requested, query directly from the DB level!
+	if filterActive != nil && *filterActive {
+		dbModels, err := s.repo.ListAllUserModels(ctx, userID, true)
+		if err != nil {
+			return nil, err
+		}
+
+		result := make([]dto.ModelDescriptor, len(dbModels))
+		for i, m := range dbModels {
+			result[i] = dto.ModelDescriptor{
+				ID:          m.ModelID,
+				Name:        m.Name,
+				Provider:    m.Provider,
+				Description: m.Description,
+				Fast:        m.Fast,
+				IsActive:    m.IsActive,
+			}
+		}
+		return result, nil
+	}
+
+	allModels := make([]dto.ModelDescriptor, 0)
 	creds, err := s.repo.ListByUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	seen := make(map[string]bool)
-
-	if s.gateway != nil && len(creds) > 0 {
-		for _, c := range creds {
-			decryptedKey, err := crypto.AESDecrypt(c.EncryptedAPIKey, s.encryptionKey)
-			if err != nil {
-				continue
-			}
-			models, err := s.gateway.ListModels(ctx, c.Provider, decryptedKey, c.BaseURL)
-			if err != nil {
-				continue
-			}
-			for _, m := range models {
-				if !seen[m.ID] {
-					seen[m.ID] = true
-					allModels = append(allModels, m)
+	for _, c := range creds {
+		models, err := s.ListProviderModels(ctx, userID, c.Provider)
+		if err != nil {
+			continue
+		}
+		for _, m := range models {
+			if !seen[m.ID] {
+				seen[m.ID] = true
+				if filterActive != nil && m.IsActive != *filterActive {
+					continue
 				}
+				allModels = append(allModels, m)
 			}
 		}
 	}
@@ -199,7 +267,35 @@ func (s *ProviderCredentialService) ListAllModels(
 	return allModels, nil
 }
 
-func (s *ProviderCredentialService) GetSupportedProviders() []dto.ProviderDescriptor {
+func (s *ProviderCredentialService) ToggleModelActive(
+	ctx context.Context,
+	userID uuid.UUID,
+	providerName string,
+	modelID string,
+	isActive *bool,
+) (*dto.ModelDescriptor, error) {
+	p := strings.ToLower(strings.TrimSpace(providerName))
+	if !IsSupportedProvider(p) {
+		return nil, ErrInvalidProvider
+	}
+
+	updated, err := s.repo.ToggleUserModel(ctx, userID, p, modelID, isActive)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dto.ModelDescriptor{
+		ID:          updated.ModelID,
+		Name:        updated.Name,
+		Provider:    updated.Provider,
+		Description: updated.Description,
+		Fast:        updated.Fast,
+		IsActive:    updated.IsActive,
+	}, nil
+}
+
+// staticProviders returns the immutable provider catalogue.
+func staticProviders() []dto.ProviderDescriptor {
 	return []dto.ProviderDescriptor{
 		{
 			ID:          "openai",
@@ -207,8 +303,6 @@ func (s *ProviderCredentialService) GetSupportedProviders() []dto.ProviderDescri
 			Description: "GPT models via api.openai.com",
 			Placeholder: "sk-proj-...",
 			KeyLink:     "https://platform.openai.com/api-keys",
-			Icon:        "◎",
-			IconStyle:   "bg-emerald-500/10 text-emerald-400",
 		},
 		{
 			ID:          "anthropic",
@@ -216,8 +310,6 @@ func (s *ProviderCredentialService) GetSupportedProviders() []dto.ProviderDescri
 			Description: "Claude models via api.anthropic.com",
 			Placeholder: "sk-ant-...",
 			KeyLink:     "https://console.anthropic.com/account/keys",
-			Icon:        "A",
-			IconStyle:   "bg-[#CC785C]/15 text-[#CC785C] font-bold",
 		},
 		{
 			ID:          "gemini",
@@ -225,8 +317,6 @@ func (s *ProviderCredentialService) GetSupportedProviders() []dto.ProviderDescri
 			Description: "Gemini models via Google AI Studio",
 			Placeholder: "AIzaSy...",
 			KeyLink:     "https://aistudio.google.com/app/apikey",
-			Icon:        "✦",
-			IconStyle:   "bg-blue-500/10 text-blue-400",
 		},
 		{
 			ID:          "mistral",
@@ -234,8 +324,6 @@ func (s *ProviderCredentialService) GetSupportedProviders() []dto.ProviderDescri
 			Description: "Mistral models via api.mistral.ai",
 			Placeholder: "your_mistral_api_key",
 			KeyLink:     "https://console.mistral.ai/api-keys/",
-			Icon:        "M",
-			IconStyle:   "bg-orange-500/10 text-orange-400 font-bold",
 		},
 		{
 			ID:          "openrouter",
@@ -243,8 +331,37 @@ func (s *ProviderCredentialService) GetSupportedProviders() []dto.ProviderDescri
 			Description: "Universal router for 200+ models",
 			Placeholder: "sk-or-...",
 			KeyLink:     "https://openrouter.ai/keys",
-			Icon:        "⊙",
-			IconStyle:   "bg-purple-500/10 text-purple-400",
 		},
 	}
+}
+
+// GetSupportedProviders returns the provider catalogue annotated with the
+// user's credential status (IsConfigured + MaskedAPIKey).
+func (s *ProviderCredentialService) GetSupportedProviders(ctx context.Context, userID uuid.UUID) []dto.ProviderDescriptor {
+	providers := staticProviders()
+
+	// Build a map of provider → masked key from the user's stored credentials.
+	credMap := make(map[string]string)
+	if userID != uuid.Nil {
+		if creds, err := s.repo.ListByUser(ctx, userID); err == nil {
+			for _, c := range creds {
+				masked := "••••••••"
+				if decrypted, err := crypto.AESDecrypt(c.EncryptedAPIKey, s.encryptionKey); err == nil {
+					masked = crypto.MaskAPIKey(decrypted)
+				}
+				credMap[c.Provider] = masked
+			}
+		}
+	}
+
+	for i, p := range providers {
+		if masked, ok := credMap[p.ID]; ok {
+			providers[i].IsConfigured = true
+			providers[i].MaskedAPIKey = &masked
+		} else {
+			providers[i].IsConfigured = false
+			providers[i].MaskedAPIKey = nil
+		}
+	}
+	return providers
 }

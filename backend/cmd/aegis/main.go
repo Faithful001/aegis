@@ -52,6 +52,7 @@ func main() {
 			&otp.OTPRecord{},
 			&usage.UsageRecord{},
 			&provider.ProviderCredential{},
+			&provider.UserModel{},
 		}
 		if err := db.AutoMigrate(migrationModels...); err != nil {
 			logger.Error("Failed to run database migrations", "error", err)

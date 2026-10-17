@@ -27,8 +27,8 @@ export interface ProviderMeta {
   desc: string;
   placeholder: string;
   key_link: string;
-  icon: string;
-  icon_style: string;
+  is_configured: boolean;
+  masked_api_key: string | null;
 }
 
 export interface ProviderCredential {
@@ -100,4 +100,13 @@ export interface DiscoveredModel {
   provider: string;
   description?: string;
   fast?: boolean;
+  is_active?: boolean;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
 }

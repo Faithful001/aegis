@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Sidebar } from './Sidebar';
-import { Header } from './Header';
-import { useAuth } from '../../context/AuthContext';
+import React, { useState } from "react";
+import { Sidebar } from "./Sidebar";
+import { Header } from "./Header";
+import { useAuth } from "../../context/AuthContext";
 
 interface MainLayoutProps {
   children: React.ReactNode;

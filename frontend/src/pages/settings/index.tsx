@@ -1,84 +1,71 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { Card } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import {
-  Key,
   Trash2,
   User,
   Blocks,
-  Cpu,
-  Search,
+  ChevronDown,
+  ChevronUp,
   ExternalLink,
   LogOut,
-  Mail,
-  Shield,
-  Calendar,
-  X,
   Check,
   RefreshCw,
-  ShieldCheck,
-  AlertCircle,
+  Cpu,
+  ChevronLeft,
+  ChevronRight,
+  Search,
   Lock,
-  CheckCircle2,
 } from "lucide-react";
 import { useAegis } from "../../context/AegisContext";
 import { useAuth } from "../../context/AuthContext";
 import { credentialsApi } from "../../api/credentials";
 import { authApi } from "../../api/auth";
 import { toast } from "sonner";
+import { DiscoveredModel, PaginatedResult } from "../../types/api";
 
-/* ------------------------------------------------------------------ */
-/*  Settings nav tabs                                                   */
-/* ------------------------------------------------------------------ */
-type SettingsTab = "profile" | "providers" | "models";
+type SettingsTab = "profile" | "providers";
 
 const NAV_ITEMS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: "profile", label: "Profile", icon: <User className="w-4 h-4" /> },
   { id: "providers", label: "Providers", icon: <Blocks className="w-4 h-4" /> },
-  { id: "models", label: "Models", icon: <Cpu className="w-4 h-4" /> },
 ];
 
-/* ================================================================== */
-/*  Root Component                                                      */
-/* ================================================================== */
 export const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
 
   return (
     <MainLayout>
-      <div className="flex min-h-full" style={{ height: "calc(100vh - 0px)" }}>
-        {/* ---- Settings Sidebar ---- */}
-        <nav className="w-56 shrink-0 border-r border-surface-border bg-surface/40 p-4 space-y-6">
-          <div className="space-y-1">
+      <div className="relative flex-1 overflow-y-auto h-full">
+        {/* ---- Floating Tab Switcher ---- */}
+        <div className="sticky top-6 z-20 flex justify-center pointer-events-none">
+          <nav className="pointer-events-auto inline-flex items-center gap-1 p-1 rounded-full bg-zinc-900/80 border border-zinc-700/50 shadow-xl backdrop-blur-md">
             {NAV_ITEMS.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                   activeTab === item.id
-                    ? "bg-zinc-800 text-white"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40"
+                    ? "bg-zinc-700 text-white shadow-sm"
+                    : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60"
                 }`}
               >
                 {item.icon}
                 {item.label}
               </button>
             ))}
-          </div>
-        </nav>
+          </nav>
+        </div>
 
         {/* ---- Content Area ---- */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-3xl mx-auto p-8">
-            {activeTab === "profile" && <ProfileTab />}
-            {activeTab === "providers" && <ProvidersTab />}
-            {activeTab === "models" && <ModelsTab />}
-          </div>
+        <div className="max-w-3xl mx-auto px-8 pt-6 pb-12">
+          {activeTab === "profile" && <ProfileTab />}
+          {activeTab === "providers" && <ProvidersTab />}
         </div>
       </div>
     </MainLayout>
@@ -92,12 +79,8 @@ const ProfileTab: React.FC = () => {
   const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
 
-  // Email verification state
-  const [showVerifyInput, setShowVerifyInput] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [verifyCooldown, setVerifyCooldown] = useState(0);
-
-  // Change password state
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -116,27 +99,11 @@ const ProfileTab: React.FC = () => {
     navigate({ to: "/auth/login" });
   };
 
-  const sendVerificationMutation = useMutation({
-    mutationFn: async () => {
-      return await authApi.sendVerificationEmail();
-    },
-    onSuccess: () => {
-      toast.success("6-digit verification code sent to your email!");
-      setShowVerifyInput(true);
-      setVerifyCooldown(60);
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || "Failed to send verification email");
-    },
-  });
-
   const confirmVerificationMutation = useMutation({
-    mutationFn: async (code: string) => {
-      return await authApi.verifyEmail({ code, email: user?.email ?? "" });
-    },
+    mutationFn: async (code: string) =>
+      await authApi.verifyEmail({ code, email: user?.email ?? "" }),
     onSuccess: async () => {
       toast.success("Email verified successfully!");
-      setShowVerifyInput(false);
       setVerificationCode("");
       await refreshUser();
     },
@@ -146,9 +113,8 @@ const ProfileTab: React.FC = () => {
   });
 
   const changePasswordMutation = useMutation({
-    mutationFn: async ({ currentPass, newPass }: { currentPass: string; newPass: string }) => {
-      return await authApi.changePassword(currentPass, newPass);
-    },
+    mutationFn: async ({ currentPass, newPass }: { currentPass: string; newPass: string }) =>
+      await authApi.changePassword(currentPass, newPass),
     onSuccess: () => {
       toast.success("Password changed successfully!");
       setCurrentPassword("");
@@ -162,20 +128,6 @@ const ProfileTab: React.FC = () => {
       );
     },
   });
-
-  const handleSendVerificationEmail = () => {
-    if (verifyCooldown > 0 || sendVerificationMutation.isPending) return;
-    sendVerificationMutation.mutate();
-  };
-
-  const handleConfirmVerification = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (verificationCode.length !== 6 || confirmVerificationMutation.isPending) {
-      toast.error("Please enter a valid 6-digit code");
-      return;
-    }
-    confirmVerificationMutation.mutate(verificationCode.trim());
-  };
 
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,7 +152,6 @@ const ProfileTab: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      {/* Avatar + Name */}
       <div className="flex flex-col items-center text-center space-y-3 pt-4">
         <div className="w-20 h-20 rounded-full bg-[#27AF61] flex items-center justify-center text-zinc-100 text-3xl">
           {initials}
@@ -209,23 +160,34 @@ const ProfileTab: React.FC = () => {
           <h2 className="text-lg font-bold text-white">
             {user?.first_name + " " + user?.last_name || "Aegis User"}
           </h2>
-          <p className="text-xs text-zinc-400 flex items-center justify-center gap-1.5 mt-0.5">
-            {user?.email || "user@aegis.dev"}
-          </p>
+          <p className="text-xs text-zinc-400 mt-0.5">{user?.email || "user@aegis.dev"}</p>
         </div>
       </div>
 
-      {/* Change Password Card */}
-      <Card hover={false} className="p-5 space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { value: "0", label: "Lifetime tokens" },
+          { value: "0", label: "Active days" },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="p-4 bg-zinc-900/60 rounded-xl border border-zinc-800 text-center space-y-1"
+          >
+            <p className="text-lg font-semibold text-zinc-100">{stat.value}</p>
+            <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+              {stat.label}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <Card hover={false} className="p-5 space-y-4 !bg-sidebar">
         <div className="space-y-0.5">
-          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-            Security & Password
-          </h3>
+          <h3 className="text-sm font-semibold text-white">Security & Password</h3>
           <p className="text-xs text-zinc-400">
             Update your account password. Choose a strong password with at least 8 characters.
           </p>
         </div>
-
         <form onSubmit={handleChangePassword} className="space-y-3 pt-2">
           <Input
             label="Current Password"
@@ -237,7 +199,6 @@ const ProfileTab: React.FC = () => {
             onChange={(e) => setCurrentPassword(e.target.value)}
             required
           />
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="New Password"
@@ -260,7 +221,6 @@ const ProfileTab: React.FC = () => {
               required
             />
           </div>
-
           <div className="flex justify-end pt-1">
             <Button
               type="submit"
@@ -278,89 +238,194 @@ const ProfileTab: React.FC = () => {
         </form>
       </Card>
 
-      {/* Usage Limits */}
-      <Card hover={false} className="p-5 space-y-3">
-        <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Usage limits</h3>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-white">Weekly usage limit</p>
-            <p className="text-[11px] text-zinc-500">Resets every Monday at 00:00 UTC</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-32 h-2 rounded-full bg-zinc-800 overflow-hidden">
-              <div className="h-full bg-zinc-300 rounded-full" style={{ width: "100%" }} />
-            </div>
-            <span className="text-xs font-medium text-zinc-300 whitespace-nowrap">100% left</span>
-          </div>
-        </div>
-      </Card>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { value: "0", label: "Lifetime tokens" },
-          { value: "0", label: "Active days" },
-          { value: "BYOK", label: "Auth mode" },
-          { value: "JWT", label: "Session type" },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="p-4 bg-zinc-900/60 rounded-xl border border-zinc-800 text-center space-y-1"
-          >
-            <p className="text-lg font-bold text-zinc-100">{stat.value}</p>
-            <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-              {stat.label}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* Account Details */}
-      <Card hover={false} className="p-5 space-y-4">
-        <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Account</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 bg-zinc-900/60 rounded-xl border border-zinc-800 space-y-1">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-              Role
-            </span>
-            <p className="text-sm font-semibold text-amber-400 flex items-center gap-1.5">
-              <Shield className="w-4 h-4 text-amber-400" /> Developer
-            </p>
-          </div>
-          <div className="p-4 bg-zinc-900/60 rounded-xl border border-zinc-800 space-y-1">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-              Member Since
-            </span>
-            <p className="text-sm font-semibold text-zinc-200 flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-zinc-400" /> September 2026
-            </p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Sign Out */}
-      <Card hover={false} className="p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-white">Sign out</p>
-            <p className="text-[11px] text-zinc-500">
-              Aegis keeps your encrypted BYOK keys safe in your account.
-            </p>
-          </div>
-          <Button variant="danger" onClick={handleLogout} className="flex items-center gap-2">
-            <LogOut className="w-4 h-4" /> Sign out
-          </Button>
-        </div>
-      </Card>
+      <Button
+        onClick={handleLogout}
+        className="bg-white rounded-full text-[13px] flex items-center gap-2 hover:bg-white/70"
+      >
+        <LogOut className="w-4 h-4" /> Sign out
+      </Button>
     </div>
   );
 };
 
+/* ================================================================== */
+/*  Provider Model Drawer (paginated, lazy-fetched)                     */
+/* ================================================================== */
+const MODELS_PER_PAGE = 10;
+
+const ProviderModelDrawer: React.FC<{ providerId: string; providerName: string }> = ({
+  providerId,
+  providerName,
+}) => {
+  const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const { data, isLoading, isFetching } = useQuery<PaginatedResult<DiscoveredModel>>({
+    queryKey: ["provider-models", providerId, page, debouncedSearch],
+    queryFn: () => credentialsApi.listModels(providerId, page, MODELS_PER_PAGE, debouncedSearch),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ modelId, currentActive }: { modelId: string; currentActive: boolean }) => {
+      setTogglingId(modelId);
+      return credentialsApi.toggleModel(providerId, modelId, !currentActive);
+    },
+    onSuccess: (updatedModel) => {
+      toast.success(
+        `${updatedModel.name || updatedModel.id} is now ${updatedModel.is_active ? "active" : "inactive"}`
+      );
+      queryClient.invalidateQueries({ queryKey: ["provider-models", providerId] });
+      queryClient.invalidateQueries({ queryKey: ["credentials", "models"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to toggle model status");
+    },
+    onSettled: () => {
+      setTogglingId(null);
+    },
+  });
+
+  const models = data?.items || [];
+  const total = data?.total || 0;
+  const totalPages = Math.max(1, data?.total_pages || 1);
+
+  return (
+    <div className="px-5 pb-4 pt-3 space-y-3">
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+        <input
+          type="text"
+          placeholder="Filter models…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-9 pr-8 py-1.5 text-xs bg-zinc-900 border border-zinc-700/60 text-zinc-200 rounded-lg placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-all"
+        />
+        {/* {(isFetching || isLoading) && (
+          <RefreshCw className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-500 animate-spin" /> 
+        )} */}
+      </div>
+
+      {/* Model rows */}
+      <>
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-zinc-500 text-xs py-4 px-5">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading models…
+          </div>
+        ) : total === 0 && !debouncedSearch ? (
+          <p className="text-xs text-zinc-500 italic px-5 py-4">
+            No models found for {providerName}.
+          </p>
+        ) : (
+          <div className="space-y-0.5">
+            {models.length === 0 ? (
+              <p className="text-xs text-zinc-500 italic py-2">No models match your search.</p>
+            ) : (
+              models.map((model) => (
+                <div
+                  key={model.id}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-zinc-800/40 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <span className="text-xs font-medium text-zinc-200 truncate block">
+                      {model.name}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 font-mono truncate block">
+                      {model.id}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 ml-3">
+                    {model.fast && <Badge variant="info">Fast</Badge>}
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={model.is_active}
+                      onClick={() =>
+                        toggleMutation.mutate({
+                          modelId: model.id,
+                          currentActive: !!model.is_active,
+                        })
+                      }
+                      disabled={togglingId === model.id}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 ${
+                        model.is_active
+                          ? "bg-emerald-500 shadow-sm shadow-emerald-500/30"
+                          : "bg-zinc-700/80 hover:bg-zinc-600/80"
+                      } ${togglingId === model.id ? "opacity-60 cursor-not-allowed" : ""}`}
+                      title={
+                        model.is_active
+                          ? "Model is active. Click to deactivate"
+                          : "Model is inactive. Click to activate"
+                      }
+                    >
+                      <span className="sr-only">Toggle model active status</span>
+                      <span
+                        className={`pointer-events-none flex items-center justify-center h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-200 ease-in-out ${
+                          model.is_active ? "translate-x-4" : "translate-x-0"
+                        }`}
+                      >
+                        {togglingId === model.id && (
+                          <RefreshCw className="w-2.5 h-2.5 text-zinc-600 animate-spin" />
+                        )}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-[10px] text-zinc-500">
+            {total} models · page {page}/{totalPages}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || isFetching}
+              className="p-1 rounded text-zinc-400 hover:text-zinc-100 disabled:opacity-30 hover:bg-zinc-800 transition-colors"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || isFetching}
+              className="p-1 rounded text-zinc-400 hover:text-zinc-100 disabled:opacity-30 hover:bg-zinc-800 transition-colors"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ================================================================== */
+/*  Providers & Models Tab                                              */
+/* ================================================================== */
 const ProvidersTab: React.FC = () => {
-  const { credentials, refreshCredentials, hasCredential, refreshModels, supportedProviders } =
-    useAegis();
+  const { supportedProviders, refreshCredentials } = useAegis();
   const providersList = Array.isArray(supportedProviders) ? supportedProviders : [];
+
   const [configuringProvider, setConfiguringProvider] = useState<string | null>(null);
+  const [expandedModels, setExpandedModels] = useState<string | null>(null);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [baseUrlInput, setBaseUrlInput] = useState("");
 
@@ -373,17 +438,14 @@ const ProvidersTab: React.FC = () => {
       providerId: string;
       apiKey: string;
       baseUrl?: string;
-    }) => {
-      return await credentialsApi.save(providerId, apiKey, baseUrl);
-    },
+    }) => credentialsApi.save(providerId, apiKey, baseUrl),
     onSuccess: async (_, { providerId }) => {
       const provider = providersList.find((p) => p.id === providerId);
-      toast.success(`${provider?.name || providerId} credential saved! Discovering models...`);
+      toast.success(`${provider?.name || providerId} credential saved! Discovering models…`);
       setApiKeyInput("");
       setBaseUrlInput("");
       setConfiguringProvider(null);
       await refreshCredentials();
-      await refreshModels();
     },
     onError: (err: any) => {
       toast.error(
@@ -393,14 +455,12 @@ const ProvidersTab: React.FC = () => {
   });
 
   const deleteCredentialMutation = useMutation({
-    mutationFn: async (providerId: string) => {
-      return await credentialsApi.delete(providerId);
-    },
+    mutationFn: async (providerId: string) => credentialsApi.delete(providerId),
     onSuccess: async (_, providerId) => {
       const provider = providersList.find((p) => p.id === providerId);
       toast.success(`${provider?.name || providerId} credential removed`);
+      setExpandedModels(null);
       await refreshCredentials();
-      await refreshModels();
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.error || "Failed to remove credential");
@@ -416,70 +476,74 @@ const ProvidersTab: React.FC = () => {
     });
   };
 
-  const handleDelete = (providerId: string) => {
-    if (deleteCredentialMutation.isPending) return;
-    deleteCredentialMutation.mutate(providerId);
-  };
-
-  const getCredentialForProvider = (providerId: string) =>
-    credentials.find((c) => c.provider.toLowerCase() === providerId.toLowerCase());
-
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white tracking-tight">Providers</h1>
-        <p className="text-sm text-zinc-400 mt-1">
-          Bring your own key. Connect any model provider with an API key.
+        <h1 className="text-xl font-semibold text-white tracking-tight">Providers</h1>
+        <p className="text-xs text-zinc-400 mt-1">
+          Bring your own key. Connect any model provider — then browse its available models.
         </p>
       </div>
 
       <Card hover={false} className="p-0 divide-y divide-surface-border/60 overflow-hidden">
         {providersList.map((provider) => {
-          const cred = getCredentialForProvider(provider.id);
-          const isConfigured = !!cred;
-          const isOpen = configuringProvider === provider.id;
+          const isConfigured = provider.is_configured;
+          const isConfigOpen = configuringProvider === provider.id;
+          const isModelsOpen = expandedModels === provider.id;
 
           return (
             <div key={provider.id}>
-              {/* Provider row */}
+              {/* ---- Provider row ---- */}
               <div className="flex items-center justify-between px-5 py-4 hover:bg-surface-hover/50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm ${
-                      provider.icon_style ||
-                      (provider as any).iconStyle ||
-                      "bg-zinc-800 text-zinc-300"
-                    }`}
-                  >
-                    {provider.icon}
-                  </div>
-                  <div>
-                    <span className="text-sm font-semibold text-zinc-100">{provider.name}</span>
-                    {isConfigured && (
-                      <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
-                        {cred?.masked_api_key || cred?.api_key_masked || "••••••••"}
-                      </p>
-                    )}
-                  </div>
+                <div className="min-w-0">
+                  <span className="text-sm font-semibold text-zinc-100">{provider.name}</span>
+                  {isConfigured && provider.masked_api_key && (
+                    <p className="text-[11px] text-zinc-500 font-mono mt-0.5 flex items-center gap-1">
+                      <Lock className="w-2.5 h-2.5" />
+                      {provider.masked_api_key}
+                    </p>
+                  )}
+                  <p className="text-[11px] text-zinc-600 mt-0.5">{provider.desc}</p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0 ml-4">
+                  {/* Models toggle — only when configured */}
+                  {isConfigured && (
+                    <button
+                      onClick={() =>
+                        setExpandedModels((prev) => (prev === provider.id ? null : provider.id))
+                      }
+                      className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-100 px-2.5 py-1.5 rounded-lg hover:bg-zinc-800/60 transition-all"
+                    >
+                      <Cpu className="w-3.5 h-3.5" />
+                      Models
+                      {isModelsOpen ? (
+                        <ChevronUp className="w-3 h-3" />
+                      ) : (
+                        <ChevronDown className="w-3 h-3" />
+                      )}
+                    </button>
+                  )}
+
+                  {/* Delete */}
                   {isConfigured && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(provider.id)}
+                      onClick={() => deleteCredentialMutation.mutate(provider.id)}
                       disabled={deleteCredentialMutation.isPending}
                       className="text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   )}
+
+                  {/* Configure toggle */}
                   <Button
                     variant={isConfigured ? "ghost" : "secondary"}
                     size="sm"
                     onClick={() => {
-                      if (isOpen) {
+                      if (isConfigOpen) {
                         setConfiguringProvider(null);
                         setApiKeyInput("");
                         setBaseUrlInput("");
@@ -504,26 +568,10 @@ const ProvidersTab: React.FC = () => {
                 </div>
               </div>
 
-              {/* Inline configure panel */}
-              {isOpen && (
-                <div className="px-5 pb-5 pt-1 bg-zinc-900/40 border-t border-surface-border/40">
-                  <div className="max-w-md space-y-4">
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs ${
-                          provider.icon_style ||
-                          (provider as any).iconStyle ||
-                          "bg-zinc-800 text-zinc-300"
-                        }`}
-                      >
-                        {provider.icon}
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-zinc-100">{provider.name}</p>
-                        <p className="text-[11px] text-zinc-500">{provider.desc}</p>
-                      </div>
-                    </div>
-
+              {/* ---- Inline configure panel ---- */}
+              {isConfigOpen && (
+                <div className="px-5 pb-5 pt-3 bg-zinc-900/40 border-t border-surface-border/40">
+                  <div className="max-w-md space-y-3">
                     <Input
                       type="password"
                       placeholder={provider.placeholder}
@@ -531,16 +579,14 @@ const ProvidersTab: React.FC = () => {
                       onChange={(e) => setApiKeyInput(e.target.value)}
                       showToggle
                     />
-
                     <a
-                      href={provider.key_link || (provider as any).keyLink}
+                      href={provider.key_link}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
                     >
                       Get API key <ExternalLink className="w-3 h-3" />
                     </a>
-
                     <div className="flex items-center gap-3 pt-1">
                       <Button
                         variant="ghost"
@@ -558,179 +604,22 @@ const ProvidersTab: React.FC = () => {
                         onClick={() => handleSave(provider.id)}
                         disabled={saveCredentialMutation.isPending || !apiKeyInput.trim()}
                       >
-                        {saveCredentialMutation.isPending ? "Saving..." : "Save"}
+                        {saveCredentialMutation.isPending ? "Saving…" : "Save"}
                       </Button>
                     </div>
                   </div>
                 </div>
               )}
+
+              {/* ---- Model drawer ---- */}
+              {isModelsOpen && isConfigured && (
+                <div className="border-t border-surface-border/40 bg-zinc-900/20">
+                  <ProviderModelDrawer providerId={provider.id} providerName={provider.name} />
+                </div>
+              )}
             </div>
           );
         })}
-      </Card>
-    </div>
-  );
-};
-
-/* ================================================================== */
-/*  Models Tab                                                          */
-/* ================================================================== */
-const ModelsTab: React.FC = () => {
-  const { hasCredential, selectedModel, setSelectedModel, models, refreshModels, isLoadingModels } =
-    useAegis();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [enabledModels, setEnabledModels] = useState<Set<string>>(() => {
-    return new Set(models.map((m) => m.id));
-  });
-
-  // Keep enabled models synced as new models are discovered
-  useEffect(() => {
-    setEnabledModels((prev) => {
-      const next = new Set(prev);
-      models.forEach((m) => {
-        if (!prev.has(m.id)) {
-          next.add(m.id);
-        }
-      });
-      return next;
-    });
-  }, [models]);
-
-  const filteredModels = useMemo(() => {
-    if (!searchQuery.trim()) return models;
-    const q = searchQuery.toLowerCase();
-    return models.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        m.id.toLowerCase().includes(q) ||
-        m.provider.toLowerCase().includes(q) ||
-        (m.description && m.description.toLowerCase().includes(q))
-    );
-  }, [searchQuery, models]);
-
-  const toggleModel = (modelId: string) => {
-    setEnabledModels((prev) => {
-      const next = new Set(prev);
-      if (next.has(modelId)) {
-        next.delete(modelId);
-        if (selectedModel === modelId && next.size > 0) {
-          setSelectedModel(Array.from(next)[0]);
-        }
-      } else {
-        next.add(modelId);
-      }
-      return next;
-    });
-  };
-
-  const handleScan = async () => {
-    await refreshModels();
-    toast.success("Models scanned and updated from providers");
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Models</h1>
-          <p className="text-sm text-zinc-400 mt-1">
-            Dynamically discovered models from your configured upstream provider API keys.
-          </p>
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleScan}
-          disabled={isLoadingModels}
-          className="gap-2 shrink-0"
-        >
-          <RefreshCw
-            className={`w-3.5 h-3.5 ${isLoadingModels ? "animate-spin text-sky-400" : ""}`}
-          />
-          {isLoadingModels ? "Scanning..." : "Scan Providers"}
-        </Button>
-      </div>
-
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-        <input
-          type="text"
-          placeholder="Search discovered models by name, ID, or provider..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 text-sm bg-surface-card border border-surface-border text-zinc-100 rounded-xl placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all duration-150"
-        />
-      </div>
-
-      {/* Model list */}
-      <Card hover={false} className="p-0 divide-y divide-surface-border/60 overflow-hidden">
-        {filteredModels.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-sm text-zinc-500">No models match your search.</p>
-          </div>
-        ) : (
-          filteredModels.map((model) => {
-            const providerConfigured = hasCredential(model.provider);
-            const isEnabled = enabledModels.has(model.id);
-
-            return (
-              <div
-                key={model.id}
-                className="flex items-center justify-between px-5 py-4 hover:bg-surface-hover/50 transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-zinc-800 border border-zinc-700/60 flex items-center justify-center flex-shrink-0">
-                    <Cpu className="w-4 h-4 text-zinc-400" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-zinc-100 truncate">
-                        {model.name}
-                      </span>
-                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700/60 text-zinc-400">
-                        {model.provider}
-                      </span>
-                      {model.fast && <Badge variant="info">Fast</Badge>}
-                      {!providerConfigured && (
-                        <span className="text-[10px] text-amber-500/90 font-medium">
-                          Requires {model.provider} key
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-zinc-500 truncate mt-0.5">
-                      {model.id} {model.description ? `· ${model.description}` : ""}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Toggle switch */}
-                <button
-                  onClick={() => toggleModel(model.id)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 flex-shrink-0 ml-4 ${
-                    isEnabled && providerConfigured
-                      ? "bg-blue-500"
-                      : isEnabled && !providerConfigured
-                        ? "bg-zinc-600"
-                        : "bg-zinc-700"
-                  }`}
-                  aria-label={`Toggle ${model.name}`}
-                >
-                  <span
-                    className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                      isEnabled ? "translate-x-5.5" : "translate-x-1"
-                    }`}
-                    style={{
-                      width: "18px",
-                      height: "18px",
-                      transform: isEnabled ? "translateX(22px)" : "translateX(4px)",
-                    }}
-                  />
-                </button>
-              </div>
-            );
-          })
-        )}
       </Card>
     </div>
   );

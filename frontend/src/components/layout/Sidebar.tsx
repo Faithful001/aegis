@@ -15,6 +15,7 @@ import {
 import { useAegis } from "../../context/AegisContext";
 import { useAuth } from "../../context/AuthContext";
 import { AddCredentialModal } from "../modals/AddCredentialModal";
+import { router } from "@/router";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -38,7 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
   return (
     <aside
       className={`h-screen bg-sidebar border-r border-surface-border flex flex-col transition-all duration-300 z-30 select-none ${
-        collapsed ? "w-16" : "w-64"
+        collapsed ? "w-14" : "w-64"
       }`}
     >
       {/* Top Header Logo & Search Controls */}
@@ -77,12 +78,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
       <div className="p-2 space-y-1">
         <button
           onClick={() => {
-            createNewThread();
+            // createNewThread();
+            router.navigate({ to: "/" });
           }}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl font-medium text-sm transition-all hover:bg-zinc-800 ${
-            isChat
-              ? "bg-zinc-800 text-white font-semibold"
-              : "text-zinc-400 hover:text-zinc-200"
+          className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-xl font-medium text-sm transition-all hover:bg-zinc-800 ${
+            isChat ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
           }`}
         >
           <PlusIcon className="w-4 h-4 text-zinc-300 flex-shrink-0" />
@@ -91,32 +91,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
 
         <Link
           to="/analytics"
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl font-medium text-sm transition-all hover:bg-zinc-800/60 ${
+          className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-xl font-medium text-sm transition-all hover:bg-zinc-800/60 ${
             isAnalytics
               ? "bg-zinc-800 text-white font-semibold"
               : "text-zinc-400 hover:text-zinc-200"
           }`}
         >
           <BarChart2
-            className={`w-4 h-4 flex-shrink-0 ${
-              isAnalytics ? "text-white" : "text-zinc-400"
-            }`}
+            className={`w-4 h-4 flex-shrink-0 ${isAnalytics ? "text-white" : "text-zinc-400"}`}
           />
           {!collapsed && <span>Usage Analytics</span>}
         </Link>
 
         <Link
           to="/settings"
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl font-medium text-sm transition-all hover:bg-zinc-800/60 ${
+          className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-xl font-medium text-sm transition-all hover:bg-zinc-800/60 ${
             isSettings
               ? "bg-zinc-800 text-white font-semibold"
               : "text-zinc-400 hover:text-zinc-200"
           }`}
         >
           <Settings
-            className={`w-4 h-4 flex-shrink-0 ${
-              isSettings ? "text-white" : "text-zinc-400"
-            }`}
+            className={`w-4 h-4 flex-shrink-0 ${isSettings ? "text-white" : "text-zinc-400"}`}
           />
           {!collapsed && <span>Settings</span>}
         </Link>

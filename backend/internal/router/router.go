@@ -133,6 +133,8 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 				protected.DELETE("/credentials/:provider", cfg.ProviderController.DeleteCredential)
 				protected.GET("/credentials/:provider/models", cfg.ProviderController.ListProviderModels)
 				protected.GET("/models", cfg.ProviderController.ListAllModels)
+				protected.POST("/models/toggle", cfg.ProviderController.ToggleModel)
+				protected.PATCH("/models/toggle", cfg.ProviderController.ToggleModel)
 			}
 
 			// User Token Usage Metering

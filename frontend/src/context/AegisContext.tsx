@@ -1,18 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ProviderCredential,
-  ChatThread,
-  ChatMessage,
-  DiscoveredModel,
-  ProviderMeta,
-} from "../types/api";
+import { ChatThread, ChatMessage, DiscoveredModel, ProviderMeta } from "../types/api";
 import { credentialsApi } from "../api/credentials";
 import { useAuth } from "./AuthContext";
 
 interface AegisContextType {
   supportedProviders: ProviderMeta[];
-  credentials: ProviderCredential[];
+  refreshProviders: () => Promise<void>;
   refreshCredentials: () => Promise<void>;
   hasCredential: (provider: string) => boolean;
   models: DiscoveredModel[];
@@ -32,48 +26,35 @@ const AegisContext = createContext<AegisContextType | undefined>(undefined);
 
 export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
-  const queryClient = useQueryClient();
   const [selectedModel, setSelectedModel] = useState<string>("");
 
   const [chatThreads, setChatThreads] = useState<ChatThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>("default-thread-1");
 
-  // TanStack Query for supported providers metadata
-  const { data: rawSupportedProviders = [] } = useQuery<ProviderMeta[]>({
+  // TanStack Query for supported providers metadata (carries is_configured per user)
+  const { data: rawSupportedProviders = [], refetch: refetchProvidersQuery } = useQuery<
+    ProviderMeta[]
+  >({
     queryKey: ["providers", "supported"],
     queryFn: async () => {
       const list = await credentialsApi.getProviders();
       return Array.isArray(list) ? list : [];
     },
-    staleTime: 1000 * 60 * 30, // 30 minutes
+    enabled: isAuthenticated,
+    staleTime: 0, // always fresh after credential changes
   });
 
   const supportedProviders = Array.isArray(rawSupportedProviders) ? rawSupportedProviders : [];
 
-  // TanStack Query for credentials
-  const { data: rawCredentials = [], refetch: refetchCredentialsQuery } = useQuery<
-    ProviderCredential[]
-  >({
-    queryKey: ["credentials", "list"],
-    queryFn: async () => {
-      const list = await credentialsApi.list();
-      return Array.isArray(list) ? list : [];
-    },
-    enabled: isAuthenticated,
-    staleTime: 1000 * 60,
-  });
-
-  const credentials = Array.isArray(rawCredentials) ? rawCredentials : [];
-
-  // TanStack Query for models
+  // TanStack Query for models (retrieves active models from DB level)
   const {
     data: rawModels = [],
     isLoading: isLoadingModels,
     refetch: refetchModelsQuery,
   } = useQuery<DiscoveredModel[]>({
-    queryKey: ["credentials", "models"],
+    queryKey: ["credentials", "models", "active"],
     queryFn: async () => {
-      const fetched = await credentialsApi.listModels();
+      const fetched = await credentialsApi.listAllModels(true);
       return Array.isArray(fetched) ? fetched : [];
     },
     enabled: isAuthenticated,
@@ -96,8 +77,12 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [models, isAuthenticated]);
 
+  const refreshProviders = async () => {
+    await refetchProvidersQuery();
+  };
+
   const refreshCredentials = async () => {
-    await refetchCredentialsQuery();
+    await refetchProvidersQuery();
     await refetchModelsQuery();
   };
 
@@ -106,7 +91,9 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const hasCredential = (provider: string): boolean => {
-    return credentials.some((c) => c.provider.toLowerCase() === provider.toLowerCase());
+    return supportedProviders.some(
+      (p) => p.id.toLowerCase() === provider.toLowerCase() && p.is_configured
+    );
   };
 
   const createNewThread = (): string => {
@@ -169,7 +156,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <AegisContext.Provider
       value={{
         supportedProviders,
-        credentials,
+        refreshProviders,
         refreshCredentials,
         hasCredential,
         models,

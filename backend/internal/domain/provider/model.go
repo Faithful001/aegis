@@ -53,3 +53,29 @@ func (c *ProviderCredential) BeforeCreate(tx *gorm.DB) error {
 	c.Provider = strings.ToLower(strings.TrimSpace(c.Provider))
 	return nil
 }
+
+type UserModel struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	UserID      uuid.UUID `gorm:"type:uuid;not null;index:idx_user_provider_model,unique" json:"user_id"`
+	Provider    string    `gorm:"type:varchar(50);not null;index:idx_user_provider_model,unique" json:"provider"`
+	ModelID     string    `gorm:"type:varchar(255);not null;index:idx_user_provider_model,unique" json:"model_id"`
+	Name        string    `gorm:"type:varchar(255);not null" json:"name"`
+	Description string    `gorm:"type:text" json:"description,omitempty"`
+	Fast        bool      `gorm:"default:false" json:"fast"`
+	IsActive    bool      `gorm:"default:false;index" json:"is_active"`
+	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt   time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+func (UserModel) TableName() string {
+	return "user_models"
+}
+
+func (m *UserModel) BeforeCreate(tx *gorm.DB) error {
+	if m.ID == uuid.Nil {
+		m.ID = uuid.New()
+	}
+	m.Provider = strings.ToLower(strings.TrimSpace(m.Provider))
+	return nil
+}
+
