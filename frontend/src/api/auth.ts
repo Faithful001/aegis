@@ -1,4 +1,4 @@
-import { apiClient } from "./client";
+import { apiClient, getAccessToken, getRefreshToken, clearTokens } from "./client";
 import { User, AuthResponse } from "../types/api";
 import { BaseResponse } from ".";
 
@@ -22,11 +22,21 @@ export const authApi = {
     return res.data;
   },
 
+  refreshToken: async (refreshToken: string): Promise<BaseResponse<AuthResponse>> => {
+    const res = await apiClient.post("/auth/refresh", { refresh_token: refreshToken });
+    return res.data;
+  },
+
   logout: async (): Promise<void> => {
     try {
-      await apiClient.post("/auth/logout");
+      const accessToken = getAccessToken();
+      const refreshToken = getRefreshToken();
+      await apiClient.post("/auth/logout", {
+        access_token: accessToken || "",
+        refresh_token: refreshToken || "",
+      });
     } finally {
-      sessionStorage.removeItem("aegis_jwt_token");
+      clearTokens();
     }
   },
 

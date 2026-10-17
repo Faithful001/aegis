@@ -1,4 +1,6 @@
-import { ChatCompletionRequest, ChatCompletionChunk } from '../types/api';
+import { ChatCompletionRequest, ChatCompletionChunk } from "../types/api";
+import { getAccessToken, getRefreshToken, setTokens, clearTokens } from "./client";
+import { authApi } from "./auth";
 
 export const streamChatCompletion = async (
   request: ChatCompletionRequest,
@@ -7,15 +9,41 @@ export const streamChatCompletion = async (
   onError: (err: Error) => void
 ) => {
   try {
-    const token = sessionStorage.getItem('aegis_jwt_token');
-    const response = await fetch('/api/v1/chat/completions', {
-      method: 'POST',
+    let token = getAccessToken();
+    let response = await fetch("/api/v1/chat/completions", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({ ...request, stream: true }),
     });
+
+    if (response.status === 401) {
+      const refreshToken = getRefreshToken();
+      if (refreshToken) {
+        try {
+          const refreshRes = await authApi.refreshToken(refreshToken);
+          const newToken = refreshRes.data?.token?.access_token;
+          const newRefresh = refreshRes.data?.token?.refresh_token;
+          if (newToken) {
+            setTokens(newToken, newRefresh);
+            token = newToken;
+            response = await fetch("/api/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${newToken}`,
+              },
+              body: JSON.stringify({ ...request, stream: true }),
+            });
+          }
+        } catch {
+          clearTokens();
+          window.dispatchEvent(new Event("unauthorized"));
+        }
+      }
+    }
 
     if (!response.ok) {
       const errJson = await response.json().catch(() => ({}));
@@ -27,35 +55,33 @@ export const streamChatCompletion = async (
     }
 
     if (!response.body) {
-      throw new Error('ReadableStream not supported by this browser.');
+      throw new Error("ReadableStream not supported by this browser.");
     }
 
     const reader = response.body.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let buffer = '';
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
       for (const line of lines) {
         const trimmed = line.trim();
-        if (trimmed.startsWith('data: ')) {
+        if (trimmed.startsWith("data: ")) {
           const dataStr = trimmed.substring(6).trim();
-          if (dataStr === '[DONE]') {
+          if (dataStr === "[DONE]") {
             onComplete();
             return;
           }
           try {
             const parsed: ChatCompletionChunk = JSON.parse(dataStr);
             const content =
-              parsed.choices?.[0]?.delta?.content ||
-              parsed.choices?.[0]?.message?.content ||
-              '';
+              parsed.choices?.[0]?.delta?.content || parsed.choices?.[0]?.message?.content || "";
             if (content) {
               onChunk(content);
             }

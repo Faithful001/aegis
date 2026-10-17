@@ -2,6 +2,12 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { User } from "../types/api";
 import { authApi } from "../api/auth";
+import {
+  getAccessToken,
+  getRefreshToken,
+  setTokens,
+  clearTokens,
+} from "../api/client";
 import { router } from "../router";
 
 interface AuthContextType {
@@ -12,8 +18,9 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
-  setToken: (token: string) => void;
-  setAuthData: (token: string, user: any) => void;
+  setToken: (token: string, refreshToken?: string) => void;
+  setAuthData: (token: string, user: any, refreshToken?: string) => void;
+  refreshToken: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -21,17 +28,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const queryClient = useQueryClient();
-  const [token, setTokenState] = useState<string | null>(() =>
-    sessionStorage.getItem("aegis_jwt_token")
-  );
+  const [token, setTokenState] = useState<string | null>(() => getAccessToken());
 
-  const setToken = (newToken: string) => {
-    sessionStorage.setItem("aegis_jwt_token", newToken);
+  const setToken = (newToken: string, newRefreshToken?: string) => {
+    setTokens(newToken, newRefreshToken);
     setTokenState(newToken);
   };
 
   const logoutLocal = (redirectToHome = false) => {
-    sessionStorage.removeItem("aegis_jwt_token");
+    clearTokens();
     setTokenState(null);
     queryClient.setQueryData(["auth", "me"], null);
     if (redirectToHome && window.location.pathname !== "/") {
@@ -51,8 +56,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   };
 
-  const setAuthData = (newToken: string, rawUser: any) => {
-    setToken(newToken);
+  const setAuthData = (newToken: string, rawUser: any, newRefreshToken?: string) => {
+    setToken(newToken, newRefreshToken);
     const formatted = formatUser(rawUser);
     if (formatted) {
       queryClient.setQueryData(["auth", "me"], formatted);
@@ -80,12 +85,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
     onSuccess: (res) => {
       const jwt = res.data?.token.access_token;
+      const refreshToken = res.data?.token.refresh_token;
       if (jwt) {
         const userData = res.data?.user;
         if (userData) {
-          setAuthData(jwt, userData);
+          setAuthData(jwt, userData, refreshToken);
         } else {
-          setToken(jwt);
+          setToken(jwt, refreshToken);
           queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
         }
       }
@@ -126,7 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Listen for page changes / route navigations
     const unsubscribeRouter = router.history.subscribe(() => {
-      const currentToken = sessionStorage.getItem("aegis_jwt_token");
+      const currentToken = getAccessToken();
       if (!currentToken) {
         logoutLocal(false);
       } else {
@@ -134,16 +140,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    // Listen for 401 or 403 unauthorized events emitted by API client
+    // Listen for 401 unauthorized events emitted by API client when refresh fails
     const handleUnauthorized = () => {
       logoutLocal(true);
     };
 
+    // Listen for token refresh events emitted by Axios interceptor
+    const handleTokenRefreshed = (e: Event) => {
+      const customEvent = e as CustomEvent<{
+        accessToken: string;
+        refreshToken?: string;
+        user?: any;
+      }>;
+      if (customEvent.detail?.accessToken) {
+        setTokenState(customEvent.detail.accessToken);
+        if (customEvent.detail.user) {
+          const formatted = formatUser(customEvent.detail.user);
+          if (formatted) {
+            queryClient.setQueryData(["auth", "me"], formatted);
+          }
+        }
+      }
+    };
+
     window.addEventListener("unauthorized", handleUnauthorized);
+    window.addEventListener("aegis_token_refreshed", handleTokenRefreshed);
 
     return () => {
       unsubscribeRouter();
       window.removeEventListener("unauthorized", handleUnauthorized);
+      window.removeEventListener("aegis_token_refreshed", handleTokenRefreshed);
     };
   }, [queryClient]);
 
@@ -164,6 +190,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const refreshToken = async () => {
+    const currentRefresh = getRefreshToken();
+    if (!currentRefresh) throw new Error("No refresh token available");
+    const res = await authApi.refreshToken(currentRefresh);
+    const newToken = res.data?.token?.access_token;
+    const newRefresh = res.data?.token?.refresh_token;
+    if (newToken) {
+      setToken(newToken, newRefresh);
+      if (res.data?.user) {
+        const formatted = formatUser(res.data.user);
+        if (formatted) {
+          queryClient.setQueryData(["auth", "me"], formatted);
+        }
+      }
+    }
+  };
+
   const refreshUser = async () => {
     await refetchUserQuery();
   };
@@ -180,6 +223,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         setToken,
         setAuthData,
+        refreshToken,
         refreshUser,
       }}
     >

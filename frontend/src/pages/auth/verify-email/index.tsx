@@ -32,12 +32,13 @@ export const VerifyEmailPage: React.FC = () => {
     },
     onSuccess: async (res) => {
       const jwt = res.data?.token?.access_token || res.data?.token?.token;
+      const refreshToken = res.data?.token?.refresh_token;
       const userData = res.data?.user;
 
       if (jwt && userData) {
-        setAuthData(jwt, userData);
+        setAuthData(jwt, userData, refreshToken);
       } else if (jwt) {
-        setToken(jwt);
+        setToken(jwt, refreshToken);
       }
 
       sessionStorage.removeItem("aegis_verify_email");
@@ -94,8 +95,8 @@ export const VerifyEmailPage: React.FC = () => {
         <h2 className="text-2xl font-medium text-white tracking-tight">Verify your email</h2>
         <p className="text-xs text-zinc-400 mt-2 max-w-xs mx-auto leading-relaxed">
           We sent a 6-digit code to{" "}
-          <span className="text-white font-medium">{email || "your email address"}</span>.
-          Enter it below to activate your account.
+          <span className="text-white font-medium">{email || "your email address"}</span>. Enter it
+          below to activate your account.
         </p>
       </div>
 
