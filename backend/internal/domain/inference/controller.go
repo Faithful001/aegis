@@ -107,11 +107,16 @@ func (ctrl *InferenceController) handleStreamChatCompletion(
 			finishReason = &fr
 		}
 
+		modelName := req.Model
+		if job != nil && job.Model != "" {
+			modelName = job.Model
+		}
+
 		streamResp := dto.ChatCompletionChunk{
 			ID:      reqID,
 			Object:  "chat.completion.chunk",
 			Created: created,
-			Model:   job.Model,
+			Model:   modelName,
 			Choices: []dto.StreamChoiceDTO{
 				{
 					Index: 0,

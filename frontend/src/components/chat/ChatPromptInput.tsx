@@ -52,7 +52,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type @ to search your apps"
+          placeholder="Write a message..."
           disabled={disabled}
           className="w-full bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none resize-none px-2 py-1 min-h-[48px]"
         />

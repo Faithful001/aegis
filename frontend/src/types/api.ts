@@ -57,15 +57,19 @@ export interface UsageMetric {
 
 export interface ChatMessage {
   id: string;
+  thread_id?: string;
   role: "system" | "user" | "assistant";
   content: string;
-  timestamp: Date;
+  timestamp?: Date | string;
+  created_at?: string;
   model?: string;
 }
 
 export interface ChatThread {
   id: string;
+  user_id?: string;
   title: string;
+  model?: string;
   created_at: string;
   updated_at: string;
   messages: ChatMessage[];

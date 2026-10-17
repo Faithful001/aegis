@@ -24,6 +24,7 @@ type IProviderCredentialRepository interface {
 	ListUserModels(ctx context.Context, userID uuid.UUID, provider string, activeOnly bool) ([]*UserModel, error)
 	ListAllUserModels(ctx context.Context, userID uuid.UUID, activeOnly bool) ([]*UserModel, error)
 	ToggleUserModel(ctx context.Context, userID uuid.UUID, provider, modelID string, isActive *bool) (*UserModel, error)
+	GetProviderForModel(ctx context.Context, userID uuid.UUID, modelID string) (string, error)
 }
 
 type ProviderCredentialRepository struct {
@@ -201,4 +202,19 @@ func (r *ProviderCredentialRepository) ToggleUserModel(ctx context.Context, user
 		return nil, err
 	}
 	return &existing, nil
+}
+
+func (r *ProviderCredentialRepository) GetProviderForModel(ctx context.Context, userID uuid.UUID, modelID string) (string, error) {
+	if r.db == nil {
+		return "", errors.New("database connection is nil")
+	}
+
+	var m UserModel
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND model_id = ?", userID, strings.TrimSpace(modelID)).
+		First(&m).Error
+	if err != nil {
+		return "", err
+	}
+	return m.Provider, nil
 }

@@ -21,6 +21,7 @@ export const HomePage: React.FC = () => {
     addMessageToThread,
     updateLastMessageInThread,
     createNewThread,
+    persistMessage,
   } = useAegis();
 
   const [isStreaming, setIsStreaming] = useState(false);
@@ -42,8 +43,8 @@ export const HomePage: React.FC = () => {
     }
 
     let currentThreadId = activeThreadId;
-    if (!currentThreadId || messages.length === 0) {
-      currentThreadId = createNewThread();
+    if (!currentThreadId) {
+      currentThreadId = await createNewThread(promptText, selectedModel);
     }
 
     const userMsg = {
@@ -54,6 +55,9 @@ export const HomePage: React.FC = () => {
     };
 
     addMessageToThread(currentThreadId, userMsg);
+    console.log("currentThreadId", currentThreadId);
+    // Persist user prompt to backend thread
+    persistMessage(currentThreadId, "user", promptText);
 
     const assistantMsgId = "msg-" + (Date.now() + 1);
     const initialAssistantMsg = {
@@ -67,25 +71,33 @@ export const HomePage: React.FC = () => {
     addMessageToThread(currentThreadId, initialAssistantMsg);
     setIsStreaming(true);
 
+    let fullAssistantResponse = "";
+
     await streamChatCompletion(
       {
         model: selectedModel,
         messages: [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })),
       },
       (chunk) => {
+        fullAssistantResponse += chunk;
         updateLastMessageInThread(currentThreadId!, chunk);
       },
-      () => {
+      async () => {
         setIsStreaming(false);
+        if (fullAssistantResponse.trim()) {
+          await persistMessage(currentThreadId!, "assistant", fullAssistantResponse, selectedModel);
+        }
       },
       (err) => {
         setIsStreaming(false);
         const errMsg = err.message || "Inference failed";
         toast.error(`Inference Error: ${errMsg}`);
-        updateLastMessageInThread(
-          currentThreadId!,
-          `\n\n*[Aegis Error: ${errMsg}. If you are using a BYOK model, ensure your provider key is saved in your Vault.]*`
-        );
+        const errorContent = `\n\n*[Aegis Error: ${errMsg}. If you are using a BYOK model, ensure your provider key is saved in your Vault.]*`;
+        updateLastMessageInThread(currentThreadId!, errorContent);
+        fullAssistantResponse += errorContent;
+        if (fullAssistantResponse.trim()) {
+          persistMessage(currentThreadId!, "assistant", fullAssistantResponse, selectedModel);
+        }
       }
     );
   };

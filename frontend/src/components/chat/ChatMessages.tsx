@@ -1,7 +1,9 @@
-import React, { useRef, useEffect } from 'react';
-import { ChatMessage } from '../../types/api';
-import { Bot, User, Copy, Check } from 'lucide-react';
-import { toast } from 'sonner';
+import React, { useRef, useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { ChatMessage } from "../../types/api";
+import { Copy, Check } from "lucide-react";
+import { toast } from "sonner";
 
 interface ChatMessagesProps {
   messages: ChatMessage[];
@@ -10,59 +12,124 @@ interface ChatMessagesProps {
 
 export const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isStreaming }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isStreaming]);
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success('Copied to clipboard');
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 py-6 space-y-6">
-      {messages.map((msg) => (
-        <div key={msg.id} className="flex gap-4 items-start group">
-          {msg.role === 'user' ? (
-            <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 text-xs font-semibold flex-shrink-0">
-              <User className="w-4 h-4" />
+    <div className="w-full max-w-3xl mx-auto px-4 py-8 space-y-8">
+      {messages.map((msg) => {
+        if (msg.role === "user") {
+          return (
+            <div key={msg.id} className="flex justify-end w-full">
+              <div className="bg-[#1c1c1f] text-zinc-100 text-[15px] px-4 py-2.5 rounded-[18px] max-w-[80%] leading-relaxed border border-zinc-800/80 shadow-sm select-text font-sans">
+                {msg.content}
+              </div>
             </div>
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center text-amber-400 text-xs font-semibold flex-shrink-0 shadow-sm">
-              <Bot className="w-4 h-4" />
-            </div>
-          )}
+          );
+        }
 
-          <div className="flex-1 space-y-1 overflow-hidden">
-            <div className="flex items-center justify-between text-xs text-zinc-500">
-              <span className="font-semibold text-zinc-300">
-                {msg.role === 'user' ? 'You' : 'Aegis Engine'}
-              </span>
-              <button
-                onClick={() => copyToClipboard(msg.content)}
-                className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-white transition-opacity"
+        // Assistant response
+        return (
+          <div key={msg.id} className="w-full space-y-2 group">
+            <div className="text-[#e4e4e7] leading-[1.75] font-normal tracking-normal select-text">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code({ node, className, children, ...props }: any) {
+                    const match = /language-(\w+)/.exec(className || "");
+                    const isInline = !match && !String(children).includes("\n");
+
+                    if (isInline) {
+                      return (
+                        <code
+                          className="bg-[#1c1c20] text-[#f87171] border border-zinc-700/60 px-1.5 py-0.5 rounded-[6px] font-mono text-[13.5px] mx-0.5 align-baseline"
+                          {...props}
+                        >
+                          {children}
+                        </code>
+                      );
+                    }
+
+                    return (
+                      <pre className="bg-[#161618] border border-zinc-800/80 rounded-xl p-4 overflow-x-auto my-3 text-zinc-200 font-mono text-[13.5px] leading-relaxed">
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      </pre>
+                    );
+                  },
+                  p({ children }: any) {
+                    return <p className="mb-3 last:mb-0 leading-[1.75]">{children}</p>;
+                  },
+                  ul({ children }: any) {
+                    return <ul className="list-disc pl-5 my-2 space-y-1.5">{children}</ul>;
+                  },
+                  ol({ children }: any) {
+                    return <ol className="list-decimal pl-5 my-2 space-y-1.5">{children}</ol>;
+                  },
+                  li({ children }: any) {
+                    return <li className="leading-[1.75]">{children}</li>;
+                  },
+                  strong({ children }: any) {
+                    return <strong className="font-semibold text-zinc-100">{children}</strong>;
+                  },
+                  a({ href, children }: any) {
+                    return (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-amber-400 hover:underline underline-offset-2"
+                      >
+                        {children}
+                      </a>
+                    );
+                  },
+                }}
               >
-                <Copy className="w-3.5 h-3.5" />
-              </button>
+                {msg.content}
+              </ReactMarkdown>
             </div>
 
-            <div className="text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap font-sans">
-              {msg.content}
-            </div>
+            {/* Action buttons below assistant message */}
+            {msg.content && (
+              <div className="flex items-center gap-1.5 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => copyToClipboard(msg.id, msg.content)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-800/80 hover:border-zinc-700 bg-[#161618]/60 hover:bg-zinc-800/50 transition-colors"
+                  title="Copy response"
+                >
+                  {copiedId === msg.id ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span className="">Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {isStreaming && (
-        <div className="flex gap-4 items-center">
-          <div className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center text-amber-400">
-            <Bot className="w-4 h-4 animate-spin" />
-          </div>
-          <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-            <span>Streaming tokens from Go worker pool...</span>
-          </div>
+        <div className="flex items-center gap-2 text-xs text-zinc-400 font-mono py-1">
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          <span>Thinking...</span>
         </div>
       )}
 

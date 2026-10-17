@@ -294,6 +294,17 @@ func (s *ProviderCredentialService) ToggleModelActive(
 	}, nil
 }
 
+func (s *ProviderCredentialService) GetProviderForModel(ctx context.Context, userID uuid.UUID, modelID string) string {
+	if s.repo == nil {
+		return ""
+	}
+	provider, err := s.repo.GetProviderForModel(ctx, userID, modelID)
+	if err != nil {
+		return ""
+	}
+	return provider
+}
+
 // staticProviders returns the immutable provider catalogue.
 func staticProviders() []dto.ProviderDescriptor {
 	return []dto.ProviderDescriptor{

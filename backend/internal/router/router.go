@@ -9,6 +9,7 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/auth"
 	"github.com/Faithful001/aegis/internal/domain/inference"
 	"github.com/Faithful001/aegis/internal/domain/provider"
+	"github.com/Faithful001/aegis/internal/domain/thread"
 	"github.com/Faithful001/aegis/internal/domain/usage"
 	"github.com/Faithful001/aegis/internal/domain/user"
 	"github.com/Faithful001/aegis/internal/infra/db"
@@ -26,6 +27,7 @@ type RouterConfig struct {
 	InferenceController *inference.InferenceController
 	UsageController     *usage.UsageController
 	ProviderController  *provider.ProviderController
+	ThreadController    *thread.ThreadController
 	RateLimiter         ratelimiter.RateLimiter
 	AdmissionService    *admission.AdmissionService
 }
@@ -135,6 +137,17 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 				protected.GET("/models", cfg.ProviderController.ListAllModels)
 				protected.POST("/models/toggle", cfg.ProviderController.ToggleModel)
 				protected.PATCH("/models/toggle", cfg.ProviderController.ToggleModel)
+			}
+
+			// Chat Threads & Message Persistence
+			if cfg.ThreadController != nil {
+				protected.GET("/threads", cfg.ThreadController.ListThreads)
+				protected.POST("/threads", cfg.ThreadController.CreateThread)
+				protected.GET("/threads/:id", cfg.ThreadController.GetThread)
+				protected.PATCH("/threads/:id", cfg.ThreadController.UpdateThread)
+				protected.DELETE("/threads/:id", cfg.ThreadController.DeleteThread)
+				protected.GET("/threads/:id/messages", cfg.ThreadController.ListMessages)
+				protected.POST("/threads/:id/messages", cfg.ThreadController.AddMessage)
 			}
 
 			// User Token Usage Metering

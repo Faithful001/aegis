@@ -11,6 +11,7 @@ import {
   Shield,
   Settings,
   PlusIcon,
+  Trash2,
 } from "lucide-react";
 import { useAegis } from "../../context/AegisContext";
 import { useAuth } from "../../context/AuthContext";
@@ -25,8 +26,13 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => {
   const { user } = useAuth();
-  const { credentials, chatThreads, activeThreadId, setActiveThreadId, createNewThread } =
-    useAegis();
+  const {
+    chatThreads,
+    activeThreadId,
+    setActiveThreadId,
+    createNewThread,
+    deleteThread,
+  } = useAegis();
 
   const { pathname } = useLocation();
 
@@ -77,8 +83,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
       {/* Main Action Links */}
       <div className="p-2 space-y-1">
         <button
-          onClick={() => {
-            // createNewThread();
+          onClick={async () => {
+            await createNewThread();
             router.navigate({ to: "/" });
           }}
           className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-xl font-medium text-sm transition-all hover:bg-zinc-800 ${
@@ -126,7 +132,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
           <div className="flex items-center justify-between text-xs text-zinc-400 font-medium">
             <span>Recent Chats</span>
             <button
-              onClick={createNewThread}
+              onClick={async () => {
+                await createNewThread();
+                router.navigate({ to: "/" });
+              }}
               className="p-1 text-zinc-400 hover:text-white rounded hover:bg-zinc-800/60"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -138,17 +147,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
               <p className="text-xs text-zinc-500 italic px-2 py-1">No chats yet</p>
             ) : (
               chatThreads.map((thread) => (
-                <button
+                <div
                   key={thread.id}
-                  onClick={() => setActiveThreadId(thread.id)}
-                  className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs truncate transition-all ${
+                  className={`group flex items-center justify-between w-full px-2.5 py-1.5 rounded-xl text-xs transition-all ${
                     activeThreadId === thread.id
                       ? "bg-zinc-800 text-white font-medium"
                       : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40"
                   }`}
                 >
-                  {thread.title}
-                </button>
+                  <button
+                    onClick={() => {
+                      setActiveThreadId(thread.id);
+                      router.navigate({ to: "/" });
+                    }}
+                    className="flex-1 text-left truncate mr-1.5"
+                    title={thread.title}
+                  >
+                    {thread.title}
+                  </button>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      await deleteThread(thread.id);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-red-400 rounded transition-opacity"
+                    title="Delete chat"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
               ))
             )}
           </div>

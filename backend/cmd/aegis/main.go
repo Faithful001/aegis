@@ -15,6 +15,7 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/otp"
 	"github.com/Faithful001/aegis/internal/domain/provider"
 	"github.com/Faithful001/aegis/internal/domain/scheduler"
+	"github.com/Faithful001/aegis/internal/domain/thread"
 	"github.com/Faithful001/aegis/internal/domain/usage"
 	"github.com/Faithful001/aegis/internal/domain/user"
 	"github.com/Faithful001/aegis/internal/domain/worker"
@@ -53,6 +54,8 @@ func main() {
 			&usage.UsageRecord{},
 			&provider.ProviderCredential{},
 			&provider.UserModel{},
+			&thread.Thread{},
+			&thread.Message{},
 		}
 		if err := db.AutoMigrate(migrationModels...); err != nil {
 			logger.Error("Failed to run database migrations", "error", err)
@@ -92,6 +95,7 @@ func main() {
 	usageRepo := usage.NewUsageRepository(database)
 	providerRepo := provider.NewProviderCredentialRepository(database)
 	otpRepo := otp.NewOTPRepository(database)
+	threadRepo := thread.NewThreadRepository(database)
 
 	// initialize domain hasher, generators and services
 	hasher := infraAuth.NewBcryptHasher(0)
@@ -166,12 +170,15 @@ func main() {
 	inferenceService.SetProviderGateway(providerService, providerRouter)
 	logger.Info("BYOK Frontier Provider Gateway initialized (OpenAI, Anthropic, Gemini, Mistral AI, OpenRouter)")
 
+	threadService := thread.NewThreadService(threadRepo)
+
 	// initialize domain controllers
 	authController := auth.NewAuthController(authService)
 	inferenceController := inference.NewInferenceController(inferenceService)
 	usageController := usage.NewUsageController(usageService)
 	providerController := provider.NewProviderController(providerService)
 	userController := user.NewUserController(userService)
+	threadController := thread.NewThreadController(threadService)
 
 	// setup http engine
 	engine := router.SetupRouter(router.RouterConfig{
@@ -181,6 +188,7 @@ func main() {
 		UsageController:     usageController,
 		ProviderController:  providerController,
 		UserController:      userController,
+		ThreadController:    threadController,
 	})
 
 	srv := &http.Server{

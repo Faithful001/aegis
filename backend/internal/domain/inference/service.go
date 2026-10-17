@@ -99,7 +99,11 @@ func (s *InferenceService) ExecuteChatCompletion(
 	}
 
 	if s.providerGateway != nil && s.providerSvc != nil {
-		if providerName := s.providerGateway.GetProviderForModel(req.Model); providerName != "" {
+		providerName := s.providerGateway.GetProviderForModel(req.Model)
+		if providerName == "" {
+			providerName = s.providerSvc.GetProviderForModel(ctx, userID, req.Model)
+		}
+		if providerName != "" {
 			log.Printf("Provider name: %s", providerName)
 			apiKey, baseURL, err := s.providerSvc.GetDecryptedKey(ctx, userID, providerName)
 			if err != nil {
@@ -215,7 +219,11 @@ func (s *InferenceService) ExecuteStreamChatCompletion(
 
 	// 1. Check if model routes to a BYOK frontier provider
 	if s.providerGateway != nil && s.providerSvc != nil {
-		if providerName := s.providerGateway.GetProviderForModel(req.Model); providerName != "" {
+		providerName := s.providerGateway.GetProviderForModel(req.Model)
+		if providerName == "" {
+			providerName = s.providerSvc.GetProviderForModel(ctx, userID, req.Model)
+		}
+		if providerName != "" {
 			apiKey, baseURL, err := s.providerSvc.GetDecryptedKey(ctx, userID, providerName)
 			if err != nil {
 				return nil, nil, fmt.Errorf("BYOK key for provider '%s' not configured: %w", providerName, err)
@@ -226,7 +234,17 @@ func (s *InferenceService) ExecuteStreamChatCompletion(
 				return nil, nil, err
 			}
 
-			job, _ := NewInferenceJob(reqID, userID, req.Model, nil, req.MaxTokens, req.Temperature, true)
+			job := &InferenceJob{
+				JobID:          fmt.Sprintf("job_%s", uuid.New().String()),
+				RequestID:      reqID,
+				UserID:         userID,
+				OrganizationID: userID,
+				ProjectID:      userID,
+				Model:          req.Model,
+				MaxTokens:      req.MaxTokens,
+				Temperature:    req.Temperature,
+				Stream:         true,
+			}
 
 			outChan := make(chan StreamChunk)
 			go func() {
