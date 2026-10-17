@@ -12,6 +12,8 @@ type UsageSummaryResponse struct {
 	InputTokens    int        `json:"input_tokens"`
 	OutputTokens   int        `json:"output_tokens"`
 	TotalTokens    int        `json:"total_tokens"`
+	TotalRequests  int        `json:"total_requests"`
+	TotalCostUSD   float64    `json:"total_cost_usd"`
 	StartTime      *time.Time `json:"start_time,omitempty"`
 	EndTime        *time.Time `json:"end_time,omitempty"`
 }
@@ -37,4 +39,18 @@ type UsageListResponse struct {
 	Items  []UsageRecordResponse `json:"items"`
 	Limit  int                   `json:"limit"`
 	Offset int                   `json:"offset"`
+}
+
+// TokenActivityBucket represents the aggregated token count for a single time bucket.
+type TokenActivityBucket struct {
+	Date     string `json:"date"`
+	Tokens   int    `json:"tokens"`
+	Requests int    `json:"requests"`
+}
+
+// TokenActivityResponse wraps the heatmap data for a requested granularity.
+type TokenActivityResponse struct {
+	Granularity string               `json:"granularity"` // "daily" | "weekly" | "cumulative"
+	Buckets     []TokenActivityBucket `json:"buckets"`
+	MaxTokens   int                  `json:"max_tokens"` // largest bucket value; useful for normalising the UI
 }

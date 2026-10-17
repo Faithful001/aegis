@@ -154,6 +154,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			if cfg.UsageController != nil {
 				protected.GET("/usage", cfg.UsageController.GetUserUsage)
 				protected.GET("/user/usage", cfg.UsageController.GetUserUsage)
+				protected.GET("/usage/activity", cfg.UsageController.GetTokenActivity)
 			}
 
 			// Chat Completions API (JWT Authenticated)

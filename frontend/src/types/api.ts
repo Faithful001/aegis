@@ -117,3 +117,15 @@ export interface PaginatedResult<T> {
   limit: number;
   total_pages: number;
 }
+
+export interface TokenActivityBucket {
+  date: string;     // "YYYY-MM-DD" for daily/cumulative, "IYYY-WIW" for weekly
+  tokens: number;
+  requests: number;
+}
+
+export interface TokenActivityResponse {
+  granularity: 'daily' | 'weekly' | 'cumulative';
+  buckets: TokenActivityBucket[];
+  max_tokens: number;
+}

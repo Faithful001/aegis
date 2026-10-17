@@ -162,7 +162,7 @@ const ProfileTab: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { value: "0", label: "Lifetime tokens" },
           { value: "0", label: "Active days" },
@@ -177,7 +177,7 @@ const ProfileTab: React.FC = () => {
             </p>
           </div>
         ))}
-      </div>
+      </div> */}
 
       <Card hover={false} className="p-5 space-y-4 !bg-sidebar">
         <div className="space-y-0.5">

@@ -41,7 +41,7 @@ func (h *UsageController) GetUserUsage(c *gin.Context) {
 	}
 
 	if summaryMode {
-		inTokens, outTokens, totTokens, err := h.service.GetTotalUsage(c.Request.Context(), userID, startTime, endTime)
+		summary, err := h.service.GetTotalUsage(c.Request.Context(), userID, startTime, endTime)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
@@ -49,9 +49,11 @@ func (h *UsageController) GetUserUsage(c *gin.Context) {
 
 		res := dto.UsageSummaryResponse{
 			OrganizationID: userID,
-			InputTokens:    inTokens,
-			OutputTokens:   outTokens,
-			TotalTokens:    totTokens,
+			InputTokens:    summary.InputTokens,
+			OutputTokens:   summary.OutputTokens,
+			TotalTokens:    summary.TotalTokens,
+			TotalRequests:  summary.TotalRequests,
+			TotalCostUSD:   summary.TotalCostUSD,
 		}
 		if !startTime.IsZero() {
 			res.StartTime = &startTime
@@ -110,7 +112,7 @@ func (h *UsageController) GetOrganizationUsage(c *gin.Context) {
 	}
 
 	if summaryMode {
-		inTokens, outTokens, totTokens, err := h.service.GetTotalUsage(c.Request.Context(), orgID, startTime, endTime)
+		summary, err := h.service.GetTotalUsage(c.Request.Context(), orgID, startTime, endTime)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
 			return
@@ -118,9 +120,11 @@ func (h *UsageController) GetOrganizationUsage(c *gin.Context) {
 
 		res := dto.UsageSummaryResponse{
 			OrganizationID: orgID,
-			InputTokens:    inTokens,
-			OutputTokens:   outTokens,
-			TotalTokens:    totTokens,
+			InputTokens:    summary.InputTokens,
+			OutputTokens:   summary.OutputTokens,
+			TotalTokens:    summary.TotalTokens,
+			TotalRequests:  summary.TotalRequests,
+			TotalCostUSD:   summary.TotalCostUSD,
 		}
 		if !startTime.IsZero() {
 			res.StartTime = &startTime
@@ -203,4 +207,47 @@ func mapRecordToResponse(r *UsageRecord) dto.UsageRecordResponse {
 		Status:         r.Status,
 		CreatedAt:      r.CreatedAt,
 	}
+}
+
+// GetTokenActivity returns a GitHub-style heatmap payload.
+// Query params:
+//   - granularity: "daily" (default) | "weekly" | "cumulative"
+//   - since: RFC3339 timestamp (default: 12 months ago)
+func (h *UsageController) GetTokenActivity(c *gin.Context) {
+	val, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized", "data": nil})
+		return
+	}
+	userID := val.(uuid.UUID)
+
+	granularity := c.DefaultQuery("granularity", "daily")
+
+	var since time.Time
+	if sinceStr := c.Query("since"); sinceStr != "" {
+		if t, err := time.Parse(time.RFC3339, sinceStr); err == nil {
+			since = t
+		}
+	}
+
+	result, err := h.service.GetTokenActivity(c.Request.Context(), userID, granularity, since)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "data": nil})
+		return
+	}
+
+	// Map service result → DTO
+	buckets := make([]dto.TokenActivityBucket, len(result.Buckets))
+	for i, b := range result.Buckets {
+		buckets[i] = dto.TokenActivityBucket{Date: b.Date, Tokens: b.Tokens, Requests: b.Requests}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": dto.TokenActivityResponse{
+			Granularity: result.Granularity,
+			Buckets:     buckets,
+			MaxTokens:   result.MaxTokens,
+		},
+	})
 }
