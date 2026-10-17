@@ -26,13 +26,8 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => {
   const { user } = useAuth();
-  const {
-    chatThreads,
-    activeThreadId,
-    setActiveThreadId,
-    createNewThread,
-    deleteThread,
-  } = useAegis();
+  const { chatThreads, activeThreadId, setActiveThreadId, createNewThread, deleteThread } =
+    useAegis();
 
   const { pathname } = useLocation();
 
@@ -63,7 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
           <div className="flex items-center gap-1">
             <button
               onClick={() => setCollapsed(true)}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 transition-colors"
+              className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 transition-colors"
             >
               <SidebarIcon className="w-4 h-4" />
             </button>
@@ -73,7 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
         {collapsed && (
           <button
             onClick={() => setCollapsed(false)}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 transition-colors mx-auto"
+            className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 transition-colors mx-auto"
           >
             <SidebarIcon className="w-4 h-4" />
           </button>
@@ -87,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
             setActiveThreadId(null);
             router.navigate({ to: "/" });
           }}
-          className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-xl font-medium text-sm transition-all hover:bg-zinc-800 ${
+          className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all hover:bg-zinc-800 ${
             isChat && !activeThreadId
               ? "bg-zinc-800 text-white font-semibold"
               : "text-zinc-400 hover:text-zinc-200"
@@ -99,7 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
 
         <Link
           to="/analytics"
-          className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-xl font-medium text-sm transition-all hover:bg-zinc-800/60 ${
+          className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all hover:bg-zinc-800/60 ${
             isAnalytics
               ? "bg-zinc-800 text-white font-semibold"
               : "text-zinc-400 hover:text-zinc-200"
@@ -113,7 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
 
         <Link
           to="/settings"
-          className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-xl font-medium text-sm transition-all hover:bg-zinc-800/60 ${
+          className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all hover:bg-zinc-800/60 ${
             isSettings
               ? "bg-zinc-800 text-white font-semibold"
               : "text-zinc-400 hover:text-zinc-200"
@@ -152,7 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
               chatThreads.map((thread) => (
                 <div
                   key={thread.id}
-                  className={`group flex items-center justify-between w-full px-2.5 py-1.5 rounded-xl text-xs transition-all ${
+                  className={`group flex items-center justify-between w-full px-2.5 py-1.5 rounded-md text-xs transition-all ${
                     activeThreadId === thread.id
                       ? "bg-zinc-800 text-white font-medium"
                       : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40"
@@ -194,13 +189,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
       <div className="p-2.5 border-t border-surface-border/60 space-y-1">
         <Link
           to="/settings"
-          className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-300 text-xs font-medium hover:bg-zinc-800/50 transition-all cursor-pointer"
+          className="flex items-center gap-3 px-3 py-2 rounded-md text-zinc-300 text-xs font-medium hover:bg-zinc-800/50 transition-all cursor-pointer"
         >
           <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 text-xs font-semibold flex-shrink-0">
-            {user?.name
-              ? user.name.slice(0, 2).toUpperCase()
+            {user?.first_name && user?.last_name
+              ? user.first_name.charAt(0).toUpperCase() + user.last_name.charAt(0).toUpperCase()
               : user?.email
-                ? user.email.slice(0, 2).toUpperCase()
+                ? user.email.charAt(0).toUpperCase() + user.email.charAt(0).toUpperCase()
                 : "FE"}
           </div>
           {!collapsed && (

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Plus, ChevronDown, Mic, Send, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAegis } from "../../context/AegisContext";
+import { useLocation } from "@tanstack/react-router";
 
 interface ChatPromptInputProps {
   onSendMessage: (prompt: string) => void;
@@ -13,6 +14,8 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { selectedModel, setSelectedModel, models } = useAegis();
+
+  const { pathname } = useLocation();
 
   const modelList = Array.isArray(models) ? models : [];
   const currentModelObj =
@@ -52,7 +55,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Write a message..."
+          placeholder={pathname === "/" ? "How can I help you today?" : "Write a message..."}
           disabled={disabled}
           className="w-full bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none resize-none px-2 py-1 min-h-[48px]"
         />
