@@ -1,6 +1,6 @@
 import React from "react";
 import { useLocation } from "@tanstack/react-router";
-import { Sidebar as SidebarIcon } from "lucide-react";
+import { SidebarSimple as SidebarIcon } from "@phosphor-icons/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SidebarMainContent } from "./SidebarMainContent";
 import SettingsMainContent from "./SettingsMainContent";

@@ -3,7 +3,7 @@ import { DiscoveredModel, PaginatedResult } from "@/types/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
+import { ArrowsClockwise, CaretLeft, CaretRight, MagnifyingGlass } from "@phosphor-icons/react";
 import { Badge } from "../ui/Badge";
 
 const MODELS_PER_PAGE = 10;
@@ -60,7 +60,7 @@ export const ProviderModelDrawer: React.FC<{ providerId: string; providerName: s
     <div className="px-5 pb-4 pt-3 space-y-3">
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+        <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
         <input
           type="text"
           placeholder="Filter models…"
@@ -77,7 +77,7 @@ export const ProviderModelDrawer: React.FC<{ providerId: string; providerName: s
       <>
         {isLoading ? (
           <div className="flex items-center gap-2 text-zinc-500 text-xs py-4 px-5">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading models…
+            <ArrowsClockwise className="w-3.5 h-3.5 animate-spin" /> Loading models…
           </div>
         ) : total === 0 && !debouncedSearch ? (
           <p className="text-xs text-zinc-500 italic px-5 py-4">
@@ -132,7 +132,7 @@ export const ProviderModelDrawer: React.FC<{ providerId: string; providerName: s
                         }`}
                       >
                         {togglingId === model.id && (
-                          <RefreshCw className="w-2.5 h-2.5 text-zinc-600 animate-spin" />
+                          <ArrowsClockwise className="w-2.5 h-2.5 text-zinc-600 animate-spin" />
                         )}
                       </span>
                     </button>
@@ -156,14 +156,14 @@ export const ProviderModelDrawer: React.FC<{ providerId: string; providerName: s
               disabled={page <= 1 || isFetching}
               className="p-1 rounded text-zinc-400 hover:text-zinc-100 disabled:opacity-30 hover:bg-zinc-800 transition-colors"
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
+              <CaretLeft className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages || isFetching}
               className="p-1 rounded text-zinc-400 hover:text-zinc-100 disabled:opacity-30 hover:bg-zinc-800 transition-colors"
             >
-              <ChevronRight className="w-3.5 h-3.5" />
+              <CaretRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { MailCheck } from "lucide-react";
+import { EnvelopeOpen } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { authApi } from "../../../api/auth";
 import { Input } from "../../../components/ui/Input";
@@ -90,7 +90,7 @@ export const VerifyEmailPage: React.FC = () => {
     <div className="w-full h-screen bg-background flex flex-col items-center justify-center max-w-md mx-auto px-4 relative">
       <div className="text-center mb-8">
         <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-4">
-          <MailCheck className="w-5 h-5 text-white" />
+          <EnvelopeOpen className="w-5 h-5 text-white" />
         </div>
         <h2 className="text-2xl font-medium text-white tracking-tight">Verify your email</h2>
         <p className="text-xs text-zinc-400 mt-2 max-w-xs mx-auto leading-relaxed">

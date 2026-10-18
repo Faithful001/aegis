@@ -4,7 +4,7 @@ import { MainLayout } from "../../components/layout/MainLayout";
 import { useAuth } from "../../context/AuthContext";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
-import { User, Mail, Shield, Calendar, LogOut } from "lucide-react";
+import { Calendar, Envelope, Shield, SignOut } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
 export const ProfilePage: React.FC = () => {
@@ -35,7 +35,7 @@ export const ProfilePage: React.FC = () => {
               <h3 className="text-lg font-bold text-white">{user?.name}</h3>
               <div className="flex items-center gap-2 mt-0.5">
                 <p className="text-xs text-zinc-400 flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-zinc-500" /> {user?.email}
+                  <Envelope className="w-3.5 h-3.5 text-zinc-500" /> {user?.email}
                 </p>
                 {user?.is_verified ? (
                   <span className="inline-flex items-center text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
@@ -75,7 +75,7 @@ export const ProfilePage: React.FC = () => {
 
           <div className="pt-4 flex justify-end">
             <Button variant="danger" onClick={handleLogout} className="flex items-center gap-2">
-              <LogOut className="w-4 h-4" /> Log Out
+              <SignOut className="w-4 h-4" /> Log Out
             </Button>
           </div>
         </Card>

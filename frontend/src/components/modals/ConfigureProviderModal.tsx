@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Dialog } from "../ui/Dialog";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
-import { ExternalLink, RefreshCw } from "lucide-react";
+import { ArrowSquareOut, ArrowsClockwise } from "@phosphor-icons/react";
 import { useAegis } from "../../context/AegisContext";
 import { credentialsApi } from "../../api/credentials";
 import { ProviderMeta } from "../../types/api";
@@ -165,7 +165,7 @@ export const ConfigureProviderModal: React.FC<ConfigureProviderModalProps> = ({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 transition-colors"
               >
-                Get {provider.name} key <ExternalLink className="w-3 h-3" />
+                Get {provider.name} key <ArrowSquareOut className="w-3 h-3" />
               </a>
             </div>
           )}
@@ -204,7 +204,7 @@ export const ConfigureProviderModal: React.FC<ConfigureProviderModalProps> = ({
           >
             {saveMutation.isPending ? (
               <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Saving…
+                <ArrowsClockwise className="w-3.5 h-3.5 animate-spin" /> Saving…
               </>
             ) : (
               <>Save</>

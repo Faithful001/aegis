@@ -179,7 +179,7 @@ const NotificationsTab: React.FC = () => {
           <Button
             onClick={() => updateAlertsMutation.mutate()}
             disabled={updateAlertsMutation.isPending}
-            className="rounded-lg px-6 py-2 text-xs font-semibold bg-white text-zinc-950 hover:bg-zinc-200 transition-all shadow-sm"
+            className="rounded-lg px-4 py-2 text-sm font-semibold bg-white text-zinc-950 hover:bg-zinc-200 transition-all shadow-sm"
           >
             {updateAlertsMutation.isPending ? "Saving changes..." : "Save changes"}
           </Button>

@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Settings, Sparkles } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { AuthModal } from "../modals/AuthModal";
 

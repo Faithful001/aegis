@@ -1,24 +1,11 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import {
-  MessageSquare,
-  Key,
-  BarChart2,
-  Plus,
-  Search,
-  Sidebar as SidebarIcon,
-  Grid,
-  Shield,
-  Settings,
-  PlusIcon,
-  Trash2,
-} from "lucide-react";
 import { useAegis } from "../../context/AegisContext";
 import { useAuth } from "../../context/AuthContext";
 import { AddCredentialModal } from "../modals/AddCredentialModal";
 import { router } from "@/router";
-import { MdOutlineKeyboardArrowRight } from "react-icons/md";
 import { SidebarProps } from "./Sidebar";
+import { CaretRight, ChartBarIcon, GearSixIcon, PlusIcon, Trash } from "@phosphor-icons/react";
 
 export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = ({ collapsed }) => {
   const { user } = useAuth();
@@ -59,7 +46,8 @@ export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = 
               : "text-zinc-400 hover:text-zinc-200"
           }`}
         >
-          <BarChart2
+          <ChartBarIcon
+            size={32}
             className={`w-4 h-4 flex-shrink-0 ${isAnalytics ? "text-white" : "text-zinc-400"}`}
           />
           {!collapsed && <span>Usage Analytics</span>}
@@ -75,12 +63,13 @@ export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = 
           }`}
         >
           <div className="flex items-center gap-3">
-            <Settings
+            <GearSixIcon
+              size={32}
               className={`w-4 h-4 flex-shrink-0 ${isSettings ? "text-white" : "text-zinc-400"}`}
             />
             {!collapsed && <span>Settings</span>}
           </div>
-          {!collapsed && <MdOutlineKeyboardArrowRight />}
+          {!collapsed && <CaretRight className="w-4 h-4 text-zinc-400" />}
         </Link>
       </div>
 
@@ -99,7 +88,7 @@ export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = 
               className="p-1 text-zinc-400 hover:text-white rounded hover:bg-zinc-800/60"
               title="New Chat"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <PlusIcon className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -137,7 +126,7 @@ export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = 
                     className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-red-400 rounded transition-opacity"
                     title="Delete chat"
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <Trash className="w-3 h-3" />
                   </button>
                 </div>
               ))

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Lock, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Lock } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { authApi } from "../../../api/auth";
 import { Input } from "../../../components/ui/Input";

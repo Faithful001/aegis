@@ -1,19 +1,19 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-  ChevronLeft,
-  Search,
-  User,
-  Shield,
-  Link2,
-  Lock,
-  Bell,
-  Palette,
-  ArrowLeftRight,
-  Blocks,
-} from "lucide-react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { SettingsTab } from "@/pages/settings";
 import { SidebarProps } from "./Sidebar";
+import {
+  ArrowLeftIcon,
+  ArrowsLeftRightIcon,
+  BellSimpleIcon,
+  CubeIcon,
+  LinkSimpleHorizontalIcon,
+  LockSimpleIcon,
+  MagnifyingGlassIcon,
+  PaletteIcon,
+  ShieldCheckIcon,
+  UserIcon,
+} from "@phosphor-icons/react";
 
 export interface SettingsNavItem {
   id: string;
@@ -22,14 +22,14 @@ export interface SettingsNavItem {
 }
 
 export const DEFAULT_SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
-  { id: "profile", label: "Profile", icon: User },
-  { id: "providers", label: "Providers", icon: Blocks },
-  { id: "security", label: "Security & sign-in", icon: Shield },
-  { id: "connected-accounts", label: "Connected accounts", icon: Link2 },
-  { id: "authorized-apps", label: "Authorized apps", icon: Lock },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "appearance", label: "Appearance", icon: Palette },
-  { id: "project-transfers", label: "Project transfers", icon: ArrowLeftRight },
+  { id: "profile", label: "Profile", icon: UserIcon },
+  { id: "providers", label: "Providers", icon: CubeIcon },
+  { id: "security", label: "Security & sign-in", icon: ShieldCheckIcon },
+  { id: "connected-accounts", label: "Connected accounts", icon: LinkSimpleHorizontalIcon },
+  { id: "authorized-apps", label: "Authorized apps", icon: LockSimpleIcon },
+  { id: "notifications", label: "Notifications", icon: BellSimpleIcon },
+  { id: "appearance", label: "Appearance", icon: PaletteIcon },
+  { id: "project-transfers", label: "Project transfers", icon: ArrowsLeftRightIcon },
 ];
 
 export const SettingsMainContent: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => {
@@ -82,7 +82,7 @@ export const SettingsMainContent: React.FC<SidebarProps> = ({ collapsed, setColl
             onClick={handleBack}
             className="group inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-medium focus:outline-none"
           >
-            <ChevronLeft className="w-4 h-4 text-zinc-400 group-hover:text-white transition-transform group-hover:-translate-x-0.5" />
+            <ArrowLeftIcon className="w-4 h-4 text-zinc-400 group-hover:text-white transition-transform group-hover:-translate-x-0.5" />
             <span>Back to app</span>
           </button>
         </div>
@@ -98,7 +98,7 @@ export const SettingsMainContent: React.FC<SidebarProps> = ({ collapsed, setColl
         className="px-[10px] pt-2 pb-3 cursor-pointer"
       >
         <div className="relative flex items-center bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 focus-within:border-zinc-700 rounded-lg px-2.5 py-1.5 transition-colors">
-          <Search className="w-3.5 h-3.5 text-zinc-500 mr-2 flex-shrink-0" />
+          <MagnifyingGlassIcon className="w-3.5 h-3.5 text-zinc-500 mr-2 flex-shrink-0" />
           <input
             ref={searchInputRef}
             type="text"

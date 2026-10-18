@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, KeyRound, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Key } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { authApi } from "../../../api/auth";
 import { Input } from "../../../components/ui/Input";
@@ -91,7 +91,7 @@ export const VerifyOTPPage: React.FC = () => {
 
       <div className="text-center mb-6">
         <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white text-xl font-bold mx-auto mb-3">
-          <KeyRound className="w-5 h-5" />
+          <Key className="w-5 h-5" />
         </div>
         <h2 className="text-2xl font-medium text-white tracking-tight">Verify Reset Code</h2>
         <p className="text-xs text-zinc-400 mt-2 max-w-xs mx-auto leading-relaxed">

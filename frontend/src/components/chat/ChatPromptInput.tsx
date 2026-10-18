@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Plus, ChevronDown, Mic, Send, Check } from "lucide-react";
+import { CaretDown, Check, Microphone, PaperPlaneRight, Plus } from "@phosphor-icons/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAegis } from "../../context/AegisContext";
 import { useLocation } from "@tanstack/react-router";
@@ -82,7 +82,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
                 <span className="truncate">
                   {currentModelObj ? currentModelObj.name : "Select Model"}
                 </span>
-                <ChevronDown
+                <CaretDown
                   className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 shrink-0 ${
                     modelDropdownOpen ? "rotate-180" : ""
                   }`}
@@ -156,7 +156,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
               type="button"
               className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
             >
-              <Mic className="w-4 h-4" />
+              <Microphone className="w-4 h-4" />
             </button>
 
             <button
@@ -165,7 +165,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
               disabled={disabled || !input.trim()}
               className="w-8 h-8 rounded-full bg-white hover:bg-white text-black flex items-center justify-center transition-all disabled:opacity-40 disabled:hover:bg-white"
             >
-              <Send className="w-3.5 h-3.5" />
+              <PaperPlaneRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>

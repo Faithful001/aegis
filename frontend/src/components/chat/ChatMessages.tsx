@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ChatMessage } from "../../types/api";
-import { Copy, Check } from "lucide-react";
+import { Check, Copy } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
 interface ChatMessagesProps {

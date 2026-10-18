@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Landmark, Key, Cpu, Sparkles, X } from 'lucide-react';
+import { Bank, Cpu, Key } from "@phosphor-icons/react";
 import { Button } from '../ui/Button';
 
 interface AppCardProps {
@@ -20,7 +20,7 @@ export const AppExploreCards: React.FC<{ onAddCredential?: () => void; onGenerat
   const cards: AppCardProps[] = [
     {
       id: 'finance',
-      icon: <Landmark className="w-5 h-5 text-emerald-400" />,
+      icon: <Bank className="w-5 h-5 text-emerald-400" />,
       title: 'Finance',
       description: 'Connect accounts to manage your finances in chat',
       actionText: 'Add',

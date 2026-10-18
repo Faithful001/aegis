@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Card } from "../../components/ui/Card";
-import { ChevronDown, ChevronUp, Lock, Trash2 } from "lucide-react";
+import { CaretDown, CaretUp, Lock, Trash } from "@phosphor-icons/react";
 import { Button } from "../../components/ui/Button";
 import { useAegis } from "@/context/AegisContext";
 import { ProviderModelDrawer } from "../../components/settings/ProviderModelDrawer";
@@ -65,7 +65,7 @@ export const ProvidersTab: React.FC = () => {
                       disabled={deleteCredentialMutation.isPending}
                       className="text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash className="w-3.5 h-3.5" />
                     </Button>
                   )}
 
@@ -91,9 +91,9 @@ export const ProvidersTab: React.FC = () => {
                     >
                       Models
                       {isModelsOpen ? (
-                        <ChevronUp className="w-3 h-3" />
+                        <CaretUp className="w-3 h-3" />
                       ) : (
-                        <ChevronDown className="w-3 h-3" />
+                        <CaretDown className="w-3 h-3" />
                       )}
                     </button>
                   )}

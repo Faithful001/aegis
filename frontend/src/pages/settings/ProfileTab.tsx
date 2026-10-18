@@ -9,15 +9,15 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Card } from "../../components/ui/Card";
 import {
-  AlertTriangle,
-  Download,
+  DeviceMobile,
+  DownloadSimple,
   Laptop,
   Lock,
-  LogOut,
   Monitor,
   Shield,
-  Smartphone,
-} from "lucide-react";
+  SignOut,
+  Warning,
+} from "@phosphor-icons/react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Dialog } from "../../components/ui/Dialog";
@@ -363,7 +363,7 @@ export const ProfileTab = () => {
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-300">
                       {isMobile ? (
-                        <Smartphone className="w-4 h-4" />
+                        <DeviceMobile className="w-4 h-4" />
                       ) : isDesktop ? (
                         <Laptop className="w-4 h-4" />
                       ) : (
@@ -416,7 +416,7 @@ export const ProfileTab = () => {
       <Card hover={false} className="p-5 space-y-4 !bg-sidebar border-red-950/40">
         <div className="space-y-0.5">
           <h3 className="text-sm font-semibold text-red-400 flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-red-400" />
+            <Warning className="w-4 h-4 text-red-400" />
             Danger Zone
           </h3>
           <p className="text-xs text-zinc-400">
@@ -438,7 +438,7 @@ export const ProfileTab = () => {
             disabled={exportDataMutation.isPending}
             className="rounded-full text-xs flex items-center gap-1.5 border-zinc-700 hover:bg-zinc-800 self-start sm:self-auto shrink-0"
           >
-            <Download className="w-3.5 h-3.5" />
+            <DownloadSimple className="w-3.5 h-3.5" />
             {exportDataMutation.isPending ? "Exporting..." : "Export Data"}
           </Button>
         </div>
@@ -467,7 +467,7 @@ export const ProfileTab = () => {
           onClick={handleLogout}
           className="bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-full text-[13px] flex items-center gap-2 hover:bg-zinc-700 hover:text-white transition-colors"
         >
-          <LogOut className="w-4 h-4" /> Sign out
+          <SignOut className="w-4 h-4" /> Sign out
         </Button>
       </div>
 
