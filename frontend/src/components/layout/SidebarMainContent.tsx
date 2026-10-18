@@ -143,7 +143,6 @@ export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = 
 
       {collapsed && <div className="flex-1"></div>}
 
-      {/* Bottom Footer User Info */}
       <div
         className={`p-2.5 ${collapsed ? "flex items-center justify-center" : "flex items-center justify-start"} w-full border-t border-surface-border/60 space-y-1`}
       >
