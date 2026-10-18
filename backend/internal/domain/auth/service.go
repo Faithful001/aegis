@@ -25,6 +25,7 @@ type AuthService struct {
 	hasher        IBcryptPasswordHasher
 	blacklistRepo ITokenBlacklistRepository
 	eventProducer kafka.EventProducer
+	sessionRepo   ISessionRepository
 }
 
 func NewAuthService(
@@ -55,6 +56,10 @@ func NewAuthService(
 
 func (s *AuthService) SetEventProducer(ep kafka.EventProducer) {
 	s.eventProducer = ep
+}
+
+func (s *AuthService) SetSessionRepo(repo ISessionRepository) {
+	s.sessionRepo = repo
 }
 
 // func (s *AuthService) SetEmailService(emailService *email.EmailService) {
@@ -93,7 +98,7 @@ func (s *AuthService) Register(ctx context.Context, req dto.RegisterRequest) (bo
 	return true, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*dto.AuthResponse, error) {
+func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest, ipAddress, userAgent string) (*dto.AuthResponse, error) {
 	email := strings.TrimSpace(strings.ToLower(req.Email))
 
 	userEntity, err := s.userRepo.GetByEmail(ctx, email)
@@ -109,9 +114,24 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*dto.Aut
 		return nil, ErrInvalidCredentials
 	}
 
-	tokenPair, _, _, err := s.tokenService.GenerateTokenPair(userEntity.ID, userEntity.Email)
+	tokenPair, accessClaims, refreshClaims, err := s.tokenService.GenerateTokenPair(userEntity.ID, userEntity.Email)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token pair: %w", err)
+	}
+
+	if s.sessionRepo != nil && accessClaims != nil {
+		sess := &UserSession{
+			UserID:       userEntity.ID,
+			AccessJTI:    accessClaims.JTI,
+			RefreshJTI:   refreshClaims.JTI,
+			IPAddress:    ipAddress,
+			UserAgent:    userAgent,
+			DeviceName:   ParseDeviceName(userAgent),
+			LastActiveAt: time.Now().UTC(),
+			ExpiresAt:    refreshClaims.ExpiresAt,
+			IsRevoked:    false,
+		}
+		_ = s.sessionRepo.Create(ctx, sess)
 	}
 
 	return &dto.AuthResponse{
@@ -546,3 +566,96 @@ func (s *APIKeyService) AuthenticateAPIKey(ctx context.Context, plaintextKey str
 		KeyPrefix:      key.KeyPrefix,
 	}, nil
 }
+
+func (s *AuthService) ListSessions(ctx context.Context, userID uuid.UUID, currentJTI string, currentIP string, currentUA string) ([]SessionResponse, error) {
+	if s.sessionRepo == nil {
+		return []SessionResponse{}, nil
+	}
+	sessions, err := s.sessionRepo.ListActiveByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []SessionResponse
+	hasCurrent := false
+	for _, sess := range sessions {
+		isCurr := (currentJTI != "" && (sess.AccessJTI == currentJTI || sess.RefreshJTI == currentJTI))
+		if isCurr {
+			hasCurrent = true
+		}
+		result = append(result, SessionResponse{
+			ID:           sess.ID,
+			DeviceName:   sess.DeviceName,
+			IPAddress:    sess.IPAddress,
+			LastActiveAt: sess.LastActiveAt,
+			CreatedAt:    sess.CreatedAt,
+			IsCurrent:    isCurr,
+		})
+	}
+
+	if !hasCurrent && currentJTI != "" {
+		newSess := &UserSession{
+			UserID:       userID,
+			AccessJTI:    currentJTI,
+			IPAddress:    currentIP,
+			UserAgent:    currentUA,
+			DeviceName:   ParseDeviceName(currentUA),
+			LastActiveAt: time.Now().UTC(),
+			ExpiresAt:    time.Now().UTC().Add(30 * 24 * time.Hour),
+			IsRevoked:    false,
+		}
+		_ = s.sessionRepo.Create(ctx, newSess)
+		result = append([]SessionResponse{{
+			ID:           newSess.ID,
+			DeviceName:   newSess.DeviceName,
+			IPAddress:    newSess.IPAddress,
+			LastActiveAt: newSess.LastActiveAt,
+			CreatedAt:    newSess.CreatedAt,
+			IsCurrent:    true,
+		}}, result...)
+	}
+
+	return result, nil
+}
+
+func (s *AuthService) RevokeOtherSessions(ctx context.Context, userID uuid.UUID, currentJTI string) error {
+	if s.sessionRepo == nil {
+		return nil
+	}
+	revoked, err := s.sessionRepo.RevokeOthers(ctx, userID, currentJTI)
+	if err != nil {
+		return err
+	}
+
+	if s.blacklistRepo != nil {
+		for _, sess := range revoked {
+			if sess.AccessJTI != "" {
+				_ = s.blacklistRepo.BlacklistToken(ctx, sess.AccessJTI, userID, TokenTypeAccess, sess.ExpiresAt, "revoked_others")
+			}
+			if sess.RefreshJTI != "" {
+				_ = s.blacklistRepo.BlacklistToken(ctx, sess.RefreshJTI, userID, TokenTypeRefresh, sess.ExpiresAt, "revoked_others")
+			}
+		}
+	}
+	return nil
+}
+
+func (s *AuthService) RevokeSession(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) error {
+	if s.sessionRepo == nil {
+		return nil
+	}
+	sess, err := s.sessionRepo.RevokeByID(ctx, userID, sessionID)
+	if err != nil {
+		return err
+	}
+	if sess != nil && s.blacklistRepo != nil {
+		if sess.AccessJTI != "" {
+			_ = s.blacklistRepo.BlacklistToken(ctx, sess.AccessJTI, userID, TokenTypeAccess, sess.ExpiresAt, "revoked")
+		}
+		if sess.RefreshJTI != "" {
+			_ = s.blacklistRepo.BlacklistToken(ctx, sess.RefreshJTI, userID, TokenTypeRefresh, sess.ExpiresAt, "revoked")
+		}
+	}
+	return nil
+}
+

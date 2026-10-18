@@ -124,7 +124,7 @@ export const AnalyticsPage: React.FC = () => {
           <div>
             <h1 className="text-xl font-bold text-white tracking-tight">Usage &amp; Metering</h1>
             <p className="text-xs text-zinc-400 mt-1">
-              Durable token consumption, prompt analytics, and inference request throughput.
+              Token usage, request volume, and cost estimates.
             </p>
           </div>
 

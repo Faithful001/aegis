@@ -1,5 +1,5 @@
 import { apiClient, getAccessToken, getRefreshToken, clearTokens } from "./client";
-import { User, AuthResponse } from "../types/api";
+import { User, AuthResponse, UserSession } from "../types/api";
 import { BaseResponse } from ".";
 
 export const authApi = {
@@ -87,6 +87,21 @@ export const authApi = {
       current_password: currentPassword,
       new_password: newPassword,
     });
+    return res.data;
+  },
+
+  listSessions: async (): Promise<UserSession[]> => {
+    const res = await apiClient.get<{ success: boolean; data: UserSession[] }>("/auth/sessions");
+    return res.data.data;
+  },
+
+  revokeOtherSessions: async (): Promise<{ success: boolean; message: string }> => {
+    const res = await apiClient.post<{ success: boolean; message: string }>("/auth/sessions/revoke-others");
+    return res.data;
+  },
+
+  revokeSession: async (id: string): Promise<{ success: boolean; message: string }> => {
+    const res = await apiClient.delete<{ success: boolean; message: string }>(`/auth/sessions/${id}`);
     return res.data;
   },
 };

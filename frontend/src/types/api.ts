@@ -129,3 +129,22 @@ export interface TokenActivityResponse {
   buckets: TokenActivityBucket[];
   max_tokens: number;
 }
+
+export interface UserSession {
+  id: string;
+  device_name: string;
+  ip_address: string;
+  last_active_at: string;
+  created_at: string;
+  is_current: boolean;
+}
+
+export interface UserAlertSettings {
+  id?: string;
+  user_id?: string;
+  budget_alert_enabled: boolean;
+  monthly_budget_usd: number;
+  threshold_percentage: number;
+  alert_email: string;
+}
+

@@ -53,7 +53,7 @@ export const HomePage: React.FC = () => {
         <div className="flex-1 flex flex-col items-center justify-center text-center px-4 pt-12">
           <div className="relative inline-block mb-8 select-none">
             <div className="ambient-mesh-glow absolute -inset-6 bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-            <h1 className="relative flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 text-3xl md:text-4xl tracking-tight font-medium text-white">
+            <h1 className="relative flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 text-3xl tracking-tight font-medium text-white">
               <span>
                 {isAuthenticated && user?.first_name
                   ? `Hey ${user?.first_name || "there"}, what should we`

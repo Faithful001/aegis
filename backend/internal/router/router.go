@@ -119,12 +119,19 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware(cfg.AuthService))
 		{
-			// User Profile
+			// User Profile & Preferences
 			protected.GET("/user/me", cfg.UserController.GetMe)
+			protected.GET("/user/budget-alerts", cfg.UserController.GetAlertSettings)
+			protected.PUT("/user/budget-alerts", cfg.UserController.UpdateAlertSettings)
+			protected.POST("/user/export-data", cfg.UserController.ExportData)
+			protected.DELETE("/user/me", cfg.UserController.DeleteAccount)
 
-			// Protected OTP routes (JWT required)
+			// Protected OTP & Session routes (JWT required)
 			if cfg.AuthController != nil {
 				protected.POST("/auth/change-password", cfg.AuthController.ChangePassword)
+				protected.GET("/auth/sessions", cfg.AuthController.ListSessions)
+				protected.POST("/auth/sessions/revoke-others", cfg.AuthController.RevokeOtherSessions)
+				protected.DELETE("/auth/sessions/:id", cfg.AuthController.RevokeSession)
 			}
 
 			// User BYOK Provider Credentials Management & Dynamic Models Discovery

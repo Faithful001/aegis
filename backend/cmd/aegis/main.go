@@ -56,6 +56,8 @@ func main() {
 			&provider.UserModel{},
 			&thread.Thread{},
 			&thread.Message{},
+			&auth.UserSession{},
+			&user.UserAlertSettings{},
 		}
 		if err := db.AutoMigrate(migrationModels...); err != nil {
 			logger.Error("Failed to run database migrations", "error", err)
@@ -96,6 +98,8 @@ func main() {
 	providerRepo := provider.NewProviderCredentialRepository(database)
 	otpRepo := otp.NewOTPRepository(database)
 	threadRepo := thread.NewThreadRepository(database)
+	sessionRepo := auth.NewSessionRepository(database)
+	alertRepo := user.NewAlertSettingsRepository(database)
 
 	// initialize domain hasher, generators and services
 	hasher := infraAuth.NewBcryptHasher(0)
@@ -120,8 +124,10 @@ func main() {
 		blacklistRepo,
 		eventProducer,
 	)
+	authService.SetSessionRepo(sessionRepo)
 
-	userService := user.NewUserService(userRepo)
+	userService := user.NewUserService(userRepo, alertRepo)
+	userService.SetDB(database)
 	usageService := usage.NewUsageService(usageRepo, logger)
 	providerService := provider.NewProviderCredentialService(providerRepo, cfg.JWT.Secret)
 

@@ -55,7 +55,7 @@ func (h *AuthController) Login(c *gin.Context) {
 		return
 	}
 
-	result, err := h.authService.Login(c.Request.Context(), req)
+	result, err := h.authService.Login(c.Request.Context(), req, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) || errors.Is(err, user.ErrUserNotFound) {
 			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "invalid email or password", "data": nil})
@@ -256,6 +256,75 @@ func (h *AuthController) Logout(c *gin.Context) {
 		"success": true,
 		"message": "logged out successfully",
 	})
+}
+
+func (h *AuthController) ListSessions(c *gin.Context) {
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized"})
+		return
+	}
+	userID := userIDVal.(uuid.UUID)
+
+	currentJTI := ""
+	if claimsVal, exists := c.Get("userClaims"); exists && claimsVal != nil {
+		if claims, ok := claimsVal.(*TokenClaims); ok {
+			currentJTI = claims.JTI
+		}
+	}
+
+	sessions, err := h.authService.ListSessions(c.Request.Context(), userID, currentJTI, c.ClientIP(), c.Request.UserAgent())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": sessions})
+}
+
+func (h *AuthController) RevokeOtherSessions(c *gin.Context) {
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized"})
+		return
+	}
+	userID := userIDVal.(uuid.UUID)
+
+	currentJTI := ""
+	if claimsVal, exists := c.Get("userClaims"); exists && claimsVal != nil {
+		if claims, ok := claimsVal.(*TokenClaims); ok {
+			currentJTI = claims.JTI
+		}
+	}
+
+	if err := h.authService.RevokeOtherSessions(c.Request.Context(), userID, currentJTI); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "All other sessions have been signed out."})
+}
+
+func (h *AuthController) RevokeSession(c *gin.Context) {
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized"})
+		return
+	}
+	userID := userIDVal.(uuid.UUID)
+
+	sessionID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid session id"})
+		return
+	}
+
+	if err := h.authService.RevokeSession(c.Request.Context(), userID, sessionID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Session revoked successfully."})
 }
 
 type APIKeyController struct {

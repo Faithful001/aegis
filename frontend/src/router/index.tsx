@@ -20,7 +20,7 @@ import ChatPage from "../pages/chat/index";
 import DynamicChatThreadPage from "../pages/chat/[id]/index";
 import ProfilePage from "../pages/profile/index";
 import AnalyticsPage from "../pages/analytics/index";
-import SettingsPage from "../pages/settings/index";
+import SettingsPage, { SettingsTab } from "../pages/settings/index";
 
 // Root Route
 const rootRoute = createRootRoute({
@@ -111,10 +111,19 @@ const analyticsRoute = createRoute({
   component: AnalyticsPage,
 });
 
+export type SettingsSearch = {
+  tab?: SettingsTab;
+};
+
 // Settings & Vault Route
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings",
+  validateSearch: (search: Record<string, unknown>): SettingsSearch => {
+    return {
+      tab: (search.tab as SettingsTab) || "profile",
+    };
+  },
   component: SettingsPage,
 });
 
