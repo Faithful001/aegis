@@ -29,7 +29,6 @@ export const DEFAULT_SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   { id: "authorized-apps", label: "Authorized apps", icon: LockSimpleIcon },
   { id: "notifications", label: "Notifications", icon: BellSimpleIcon },
   { id: "appearance", label: "Appearance", icon: PaletteIcon },
-  { id: "project-transfers", label: "Project transfers", icon: ArrowsLeftRightIcon },
 ];
 
 export const SettingsMainContent: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => {
@@ -82,7 +81,7 @@ export const SettingsMainContent: React.FC<SidebarProps> = ({ collapsed, setColl
             onClick={handleBack}
             className="group inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-medium focus:outline-none"
           >
-            <ArrowLeftIcon className="w-4 h-4 text-zinc-400 group-hover:text-white transition-transform group-hover:-translate-x-0.5" />
+            <ArrowLeftIcon className="text-sm w-4 h-4 text-zinc-400 group-hover:text-white transition-transform group-hover:-translate-x-0.5" />
             <span>Back to app</span>
           </button>
         </div>

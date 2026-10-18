@@ -27,6 +27,10 @@ const NotificationsTab: React.FC = () => {
   // const [alertEmail, setAlertEmail] = useState("");
 
   // Other notification toggles matching modern platform alerts
+  const [agentResponseAlerts, setAgentResponseAlerts] = useState<boolean>(() => {
+    const saved = localStorage.getItem("aegis_notify_agent_response");
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const [failedDeployments, setFailedDeployments] = useState(true);
   const [successfulDeployments, setSuccessfulDeployments] = useState(false);
   const [rateLimitAlerts, setRateLimitAlerts] = useState(true);
@@ -54,13 +58,15 @@ const NotificationsTab: React.FC = () => {
   }, [alertSettings, user]);
 
   const updateAlertsMutation = useMutation({
-    mutationFn: async () =>
-      userApi.updateAlertSettings({
+    mutationFn: async () => {
+      localStorage.setItem("aegis_notify_agent_response", JSON.stringify(agentResponseAlerts));
+      return userApi.updateAlertSettings({
         budget_alert_enabled: budgetEnabled,
         monthly_budget_usd: parseFloat(budgetUSD) || 50,
         threshold_percentage: parseInt(threshold) || 80,
         alert_email: user?.email,
-      }),
+      });
+    },
     onSuccess: () => {
       toast.success("Notification preferences saved successfully!");
       refetchAlerts();
@@ -104,6 +110,20 @@ const NotificationsTab: React.FC = () => {
           </div>
         </div>
       ) : null,
+    },
+    {
+      id: "agent-response",
+      title: "Agent response completion",
+      description:
+        "Receive a notification when the agent finishes generating its response in chat.",
+      enabled: agentResponseAlerts,
+      toggle: () => {
+        setAgentResponseAlerts((prev) => {
+          const next = !prev;
+          localStorage.setItem("aegis_notify_agent_response", JSON.stringify(next));
+          return next;
+        });
+      },
     },
     {
       id: "rate-limit-alerts",
@@ -179,7 +199,7 @@ const NotificationsTab: React.FC = () => {
           <Button
             onClick={() => updateAlertsMutation.mutate()}
             disabled={updateAlertsMutation.isPending}
-            className="rounded-lg px-4 py-2 text-sm font-semibold bg-white text-zinc-950 hover:bg-zinc-200 transition-all shadow-sm"
+            className="rounded-full px-4 py-2 text-[13px] font-semibold bg-white text-zinc-950 hover:bg-zinc-200 transition-all shadow-sm"
           >
             {updateAlertsMutation.isPending ? "Saving changes..." : "Save changes"}
           </Button>

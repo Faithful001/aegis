@@ -12,8 +12,7 @@ export type SettingsTab =
   | "connected-accounts"
   | "authorized-apps"
   | "notifications"
-  | "appearance"
-  | "project-transfers";
+  | "appearance";
 
 export const SettingsPage: React.FC = () => {
   const search = useSearch({ from: "/settings" });
