@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Bank, Cpu, Key } from "@phosphor-icons/react";
-import { Button } from '../ui/Button';
+import React, { useState } from "react";
+import { BankIcon, CpuIcon, KeyIcon } from "@phosphor-icons/react";
+import { Button } from "../ui/Button";
 
 interface AppCardProps {
   id: string;
@@ -11,35 +11,35 @@ interface AppCardProps {
   onAction: () => void;
 }
 
-export const AppExploreCards: React.FC<{ onAddCredential?: () => void; onGenerateKey?: () => void }> = ({
-  onAddCredential,
-  onGenerateKey,
-}) => {
+export const AppExploreCards: React.FC<{
+  onAddCredential?: () => void;
+  onGenerateKey?: () => void;
+}> = ({ onAddCredential, onGenerateKey }) => {
   const [dismissed, setDismissed] = useState<string[]>([]);
 
   const cards: AppCardProps[] = [
     {
-      id: 'finance',
-      icon: <Bank className="w-5 h-5 text-emerald-400" />,
-      title: 'Finance',
-      description: 'Connect accounts to manage your finances in chat',
-      actionText: 'Add',
-      onAction: () => alert('Finance module connected'),
+      id: "finance",
+      icon: <BankIcon className="w-5 h-5 text-emerald-400" />,
+      title: "Finance",
+      description: "Connect accounts to manage your finances in chat",
+      actionText: "Add",
+      onAction: () => alert("Finance module connected"),
     },
     {
-      id: 'byok',
-      icon: <Key className="w-5 h-5 text-amber-400" />,
-      title: 'BYOK Provider Credentials',
-      description: 'Store OpenAI/OpenRouter API keys in organization secret vault',
-      actionText: 'Configure',
+      id: "byok",
+      icon: <KeyIcon className="w-5 h-5 text-amber-400" />,
+      title: "BYOK Provider Credentials",
+      description: "Store OpenAI/OpenRouter API keys in organization secret vault",
+      actionText: "Configure",
       onAction: () => onAddCredential?.(),
     },
     {
-      id: 'inference',
-      icon: <Cpu className="w-5 h-5 text-sky-400" />,
-      title: 'Distributed Inference',
-      description: 'Issue project API keys to stream LLM responses via Aegis Go worker plane',
-      actionText: 'Manage Keys',
+      id: "inference",
+      icon: <CpuIcon className="w-5 h-5 text-sky-400" />,
+      title: "Distributed Inference",
+      description: "Issue project API keys to stream LLM responses via Aegis Go worker plane",
+      actionText: "Manage Keys",
       onAction: () => onGenerateKey?.(),
     },
   ];

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Eye, EyeSlash } from "@phosphor-icons/react";
+import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { cn } from "./Button";
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -38,7 +38,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               tabIndex={-1}
               aria-label={visible ? "Hide password" : "Show password"}
             >
-              {visible ? <EyeSlash size={15} /> : <Eye size={15} />}
+              {visible ? <EyeSlashIcon size={15} /> : <EyeIcon size={15} />}
             </button>
           )}
         </div>

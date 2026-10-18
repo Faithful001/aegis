@@ -5,7 +5,13 @@ import { useAuth } from "../../context/AuthContext";
 import { AddCredentialModal } from "../modals/AddCredentialModal";
 import { router } from "@/router";
 import { SidebarProps } from "./Sidebar";
-import { CaretRight, ChartBarIcon, GearSixIcon, PlusIcon, Trash } from "@phosphor-icons/react";
+import {
+  CaretRightIcon,
+  ChartBarIcon,
+  GearSixIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
 
 export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = ({ collapsed }) => {
   const { user } = useAuth();
@@ -69,7 +75,7 @@ export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = 
             />
             {!collapsed && <span>Settings</span>}
           </div>
-          {!collapsed && <CaretRight className="w-4 h-4 text-zinc-400" />}
+          {!collapsed && <CaretRightIcon className="w-4 h-4 text-zinc-400" />}
         </Link>
       </div>
 
@@ -126,7 +132,7 @@ export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = 
                     className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-red-400 rounded transition-opacity"
                     title="Delete chat"
                   >
-                    <Trash className="w-3 h-3" />
+                    <TrashIcon className="w-3 h-3" />
                   </button>
                 </div>
               ))

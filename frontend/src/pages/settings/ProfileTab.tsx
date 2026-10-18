@@ -9,14 +9,14 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Card } from "../../components/ui/Card";
 import {
-  DeviceMobile,
-  DownloadSimple,
-  Laptop,
-  Lock,
-  Monitor,
-  Shield,
-  SignOut,
-  Warning,
+  DeviceMobileIcon,
+  DownloadSimpleIcon,
+  LaptopIcon,
+  LockIcon,
+  MonitorIcon,
+  ShieldIcon,
+  SignOutIcon,
+  WarningIcon,
 } from "@phosphor-icons/react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
@@ -255,7 +255,7 @@ export const ProfileTab = () => {
       <Card hover={false} className="p-5 space-y-4 !bg-sidebar">
         <div className="space-y-0.5">
           <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Lock className="w-4 h-4 text-zinc-300" />
+            <LockIcon className="w-4 h-4 text-zinc-300" />
             Security & Password
           </h3>
           <p className="text-xs text-zinc-400">
@@ -317,7 +317,7 @@ export const ProfileTab = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="space-y-0.5">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Shield className="w-4 h-4 text-cyan-400" />
+              <ShieldIcon className="w-4 h-4 text-cyan-400" />
               Active Sessions & Devices
             </h3>
             <p className="text-xs text-zinc-400">
@@ -363,11 +363,11 @@ export const ProfileTab = () => {
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-300">
                       {isMobile ? (
-                        <DeviceMobile className="w-4 h-4" />
+                        <DeviceMobileIcon className="w-4 h-4" />
                       ) : isDesktop ? (
-                        <Laptop className="w-4 h-4" />
+                        <LaptopIcon className="w-4 h-4" />
                       ) : (
-                        <Monitor className="w-4 h-4" />
+                        <MonitorIcon className="w-4 h-4" />
                       )}
                     </div>
                     <div>
@@ -416,7 +416,7 @@ export const ProfileTab = () => {
       <Card hover={false} className="p-5 space-y-4 !bg-sidebar border-red-950/40">
         <div className="space-y-0.5">
           <h3 className="text-sm font-semibold text-red-400 flex items-center gap-2">
-            <Warning className="w-4 h-4 text-red-400" />
+            <WarningIcon className="w-4 h-4 text-red-400" />
             Danger Zone
           </h3>
           <p className="text-xs text-zinc-400">
@@ -438,7 +438,7 @@ export const ProfileTab = () => {
             disabled={exportDataMutation.isPending}
             className="rounded-full text-xs flex items-center gap-1.5 border-zinc-700 hover:bg-zinc-800 self-start sm:self-auto shrink-0"
           >
-            <DownloadSimple className="w-3.5 h-3.5" />
+            <DownloadSimpleIcon className="w-3.5 h-3.5" />
             {exportDataMutation.isPending ? "Exporting..." : "Export Data"}
           </Button>
         </div>
@@ -467,7 +467,7 @@ export const ProfileTab = () => {
           onClick={handleLogout}
           className="bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-full text-[13px] flex items-center gap-2 hover:bg-zinc-700 hover:text-white transition-colors"
         >
-          <SignOut className="w-4 h-4" /> Sign out
+          <SignOutIcon className="w-4 h-4" /> Sign out
         </Button>
       </div>
 

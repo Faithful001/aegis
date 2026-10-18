@@ -9,6 +9,8 @@ import { useAuth } from "./AuthContext";
 
 interface AegisContextType {
   supportedProviders: ProviderMeta[];
+  isLoadingProviders: boolean;
+  isFetchingProviders: boolean;
   refreshProviders: () => Promise<void>;
   refreshCredentials: () => Promise<void>;
   hasCredential: (provider: string) => boolean;
@@ -94,9 +96,12 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [rawThreads, isAuthenticated]);
 
   // TanStack Query for supported providers metadata (carries is_configured per user)
-  const { data: rawSupportedProviders = [], refetch: refetchProvidersQuery } = useQuery<
-    ProviderMeta[]
-  >({
+  const {
+    data: rawSupportedProviders = [],
+    isLoading: isLoadingProviders,
+    isFetching: isFetchingProviders,
+    refetch: refetchProvidersQuery,
+  } = useQuery<ProviderMeta[]>({
     queryKey: ["providers", "supported"],
     queryFn: async () => {
       const list = await credentialsApi.getProviders();
@@ -454,6 +459,8 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <AegisContext.Provider
       value={{
         supportedProviders,
+        isLoadingProviders,
+        isFetchingProviders,
         refreshProviders,
         refreshCredentials,
         hasCredential,

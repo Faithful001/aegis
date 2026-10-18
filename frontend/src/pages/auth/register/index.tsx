@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft } from "@phosphor-icons/react";
+import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "../../../context/AuthContext";
 import { Input } from "../../../components/ui/Input";
@@ -35,7 +35,7 @@ export const RegisterPage: React.FC = () => {
         to="/"
         className="fixed top-4 left-6 flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors group"
       >
-        <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
+        <ArrowLeftIcon size={14} className="group-hover:-translate-x-0.5 transition-transform" />
         Back to Home
       </Link>
       <div className="text-center mb-6">

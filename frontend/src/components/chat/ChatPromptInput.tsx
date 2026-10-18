@@ -1,5 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { CaretDown, Check, Microphone, PaperPlaneRight, Plus } from "@phosphor-icons/react";
+import {
+  CaretDownIcon,
+  CheckIcon,
+  MicrophoneIcon,
+  PaperPlaneRightIcon,
+  PlusIcon,
+} from "@phosphor-icons/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAegis } from "../../context/AegisContext";
 import { useLocation } from "@tanstack/react-router";
@@ -67,7 +73,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
             type="button"
             className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
           >
-            <Plus className="w-4 h-4" />
+            <PlusIcon className="w-4 h-4" />
           </button>
 
           {/* Right Action Icons: Model Selector Dropdown, Mic Icon, Send */}
@@ -82,7 +88,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
                 <span className="truncate">
                   {currentModelObj ? currentModelObj.name : "Select Model"}
                 </span>
-                <CaretDown
+                <CaretDownIcon
                   className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 shrink-0 ${
                     modelDropdownOpen ? "rotate-180" : ""
                   }`}
@@ -130,7 +136,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
                             <span className="flex items-center gap-1.5 truncate">
                               <span className="truncate">{model.name}</span>
                               {selectedModel === model.id && (
-                                <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                <CheckIcon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                               )}
                             </span>
                             <div className="flex items-center gap-1 shrink-0 ml-2">
@@ -156,7 +162,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
               type="button"
               className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
             >
-              <Microphone className="w-4 h-4" />
+              <MicrophoneIcon className="w-4 h-4" />
             </button>
 
             <button
@@ -165,7 +171,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
               disabled={disabled || !input.trim()}
               className="w-8 h-8 rounded-full bg-white hover:bg-white text-black flex items-center justify-center transition-all disabled:opacity-40 disabled:hover:bg-white"
             >
-              <PaperPlaneRight className="w-3.5 h-3.5" />
+              <PaperPlaneRightIcon className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Lock } from "@phosphor-icons/react";
+import { ArrowLeftIcon, LockIcon } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { authApi } from "../../../api/auth";
 import { Input } from "../../../components/ui/Input";
@@ -34,7 +34,9 @@ export const ResetPasswordPage: React.FC = () => {
       navigate({ to: "/auth/login" });
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.message || "Failed to reset password. Token may have expired.");
+      toast.error(
+        err?.response?.data?.message || "Failed to reset password. Token may have expired."
+      );
     },
   });
 
@@ -61,13 +63,13 @@ export const ResetPasswordPage: React.FC = () => {
         to="/auth/verify-otp"
         className="fixed top-4 left-6 flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors group"
       >
-        <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
+        <ArrowLeftIcon size={14} className="group-hover:-translate-x-0.5 transition-transform" />
         Back to OTP Verification
       </Link>
 
       <div className="text-center mb-6">
         <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white text-xl font-bold mx-auto mb-3">
-          <Lock className="w-5 h-5 text-amber-400" />
+          <LockIcon className="w-5 h-5 text-amber-400" />
         </div>
         <h2 className="text-2xl font-medium text-white tracking-tight">Create New Password</h2>
         <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">
