@@ -117,8 +117,7 @@ export const AnalyticsPage: React.FC = () => {
     n ? (n < 0.01 ? `$${n.toFixed(6)}` : `$${n.toFixed(4)}`) : "$0.00";
 
   return (
-    <MainLayout>
-      <div className="max-w-5xl mx-auto p-8 space-y-6">
+    <div className="max-w-5xl mx-auto p-8 space-y-6">
         {/* Header + filter row */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
@@ -176,7 +175,6 @@ export const AnalyticsPage: React.FC = () => {
           />
         </Card>
       </div>
-    </MainLayout>
   );
 };
 

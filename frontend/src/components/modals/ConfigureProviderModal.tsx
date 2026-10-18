@@ -163,7 +163,7 @@ export const ConfigureProviderModal: React.FC<ConfigureProviderModalProps> = ({
                 href={provider.key_link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 transition-colors text-emerald-400 hover:text-emerald-300"
+                className="inline-flex items-center gap-1 transition-colors"
               >
                 Get {provider.name} key <ExternalLink className="w-3 h-3" />
               </a>

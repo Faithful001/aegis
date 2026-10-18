@@ -46,11 +46,6 @@ export const ProfileTab = () => {
     queryFn: credentialsApi.list,
   });
 
-  const { data: supportedProviders = [] } = useQuery<ProviderMeta[]>({
-    queryKey: ["supported-providers"],
-    queryFn: credentialsApi.getProviders,
-  });
-
   const { data: alertSettings, refetch: refetchAlerts } = useQuery({
     queryKey: ["user", "budget-alerts"],
     queryFn: userApi.getAlertSettings,

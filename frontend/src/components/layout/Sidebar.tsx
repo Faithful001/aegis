@@ -1,8 +1,9 @@
 import React from "react";
 import { useLocation } from "@tanstack/react-router";
 import { Sidebar as SidebarIcon } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { SidebarMainContent } from "./SidebarMainContent";
-import SettingsSidebar from "./SettingsSidebar";
+import SettingsMainContent from "./SettingsMainContent";
 
 export interface SidebarProps {
   collapsed: boolean;
@@ -52,7 +53,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
           </div>
         )}
       </div>
-      {isSettings ? <SettingsSidebar /> : <SidebarMainContent collapsed={collapsed} />}
+
+      <div className="relative flex-1 overflow-hidden flex flex-col">
+        <AnimatePresence mode="wait" initial={false}>
+          {isSettings ? (
+            <motion.div
+              key="settings-sidebar"
+              initial={{ x: 24, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 24, opacity: 0 }}
+              transition={{ duration: 0.18, ease: "easeInOut" }}
+              className="flex-1 flex flex-col h-full overflow-hidden"
+            >
+              <SettingsMainContent collapsed={collapsed} setCollapsed={setCollapsed} />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="main-sidebar"
+              initial={{ x: -24, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -24, opacity: 0 }}
+              transition={{ duration: 0.18, ease: "easeInOut" }}
+              className="flex-1 flex flex-col h-full overflow-hidden"
+            >
+              <SidebarMainContent collapsed={collapsed} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </aside>
   );
 };

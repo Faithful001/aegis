@@ -9,6 +9,7 @@ import { Button } from "../../components/ui/Button";
 import { useAegis } from "@/context/AegisContext";
 import { ProviderModelDrawer } from "../../components/settings/ProviderModelDrawer";
 import { ConfigureProviderModal } from "../../components/modals/ConfigureProviderModal";
+import SettingsLayout from "@/components/layout/SettingsLayout";
 
 export const ProvidersTab: React.FC = () => {
   const { supportedProviders, refreshCredentials } = useAegis();
@@ -31,14 +32,10 @@ export const ProvidersTab: React.FC = () => {
   });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-white tracking-tight">Providers</h1>
-        <p className="text-xs text-zinc-400 mt-1">
-          Bring your own key. Connect any model provider — then browse its available models.
-        </p>
-      </div>
-
+    <SettingsLayout
+      title="Providers"
+      subTitle="Bring your own key. Connect any model provider, then browse its available models."
+    >
       <Card hover={false} className="p-0 divide-y divide-surface-border/60 overflow-hidden">
         {providersList.map((provider) => {
           const isConfigured = provider.is_configured;
@@ -46,7 +43,6 @@ export const ProvidersTab: React.FC = () => {
 
           return (
             <div key={provider.id}>
-              {/* ---- Provider row ---- */}
               <div className="flex items-center justify-between px-5 py-4 hover:bg-surface-hover/50 transition-colors">
                 <div className="min-w-0">
                   <span className="text-sm font-semibold text-zinc-100">{provider.name}</span>
@@ -121,6 +117,6 @@ export const ProvidersTab: React.FC = () => {
         onOpenChange={(open) => !open && setConfiguringProvider(null)}
         provider={configuringProvider}
       />
-    </div>
+    </SettingsLayout>
   );
 };

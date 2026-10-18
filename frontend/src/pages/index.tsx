@@ -48,7 +48,7 @@ export const HomePage: React.FC = () => {
   };
 
   return (
-    <MainLayout>
+    <>
       <div className="flex flex-col h-full justify-center pb-6">
         <div className="flex-1 flex flex-col items-center justify-center text-center px-4 pt-12">
           <div className="relative inline-block mb-8 select-none">
@@ -86,7 +86,7 @@ export const HomePage: React.FC = () => {
         defaultProvider={selectedModelMeta?.provider}
       />
       <AuthModal open={authModalOpen} onOpenChange={setAuthModalOpen} initialMode="login" />
-    </MainLayout>
+    </>
   );
 };
 

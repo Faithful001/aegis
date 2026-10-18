@@ -6,6 +6,7 @@ import {
   Outlet,
   RouterProvider,
   useParams,
+  useLocation,
 } from "@tanstack/react-router";
 
 // Import route components
@@ -22,9 +23,20 @@ import ProfilePage from "../pages/profile/index";
 import AnalyticsPage from "../pages/analytics/index";
 import SettingsPage, { SettingsTab } from "../pages/settings/index";
 
-// Root Route
+import { MainLayout } from "../components/layout/MainLayout";
+
+// Root Route with persistent MainLayout for all app pages
 const rootRoute = createRootRoute({
-  component: () => <Outlet />,
+  component: () => {
+    const { pathname } = useLocation();
+    const isAuth = pathname.startsWith("/auth");
+
+    if (isAuth) {
+      return <Outlet />;
+    }
+
+    return <MainLayout />;
+  },
 });
 
 // Index Route (/)
@@ -130,18 +142,18 @@ const settingsRoute = createRoute({
 // Route Tree Assembly
 const routeTree = rootRoute.addChildren([
   indexRoute,
-  loginRoute,
-  registerRoute,
-  forgotPasswordRoute,
-  verifyEmailRoute,
-  verifyOTPRoute,
-  resetPasswordRoute,
   chatRoute,
   chatDynamicRoute,
   threadRoute,
   profileRoute,
   analyticsRoute,
   settingsRoute,
+  loginRoute,
+  registerRoute,
+  forgotPasswordRoute,
+  verifyEmailRoute,
+  verifyOTPRoute,
+  resetPasswordRoute,
 ]);
 
 export const router = createRouter({ routeTree });

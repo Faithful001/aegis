@@ -60,7 +60,7 @@ export const DynamicChatThreadPage: React.FC<Props> = ({ id }) => {
   };
 
   return (
-    <MainLayout>
+    <>
       <div className="flex flex-col h-full justify-between pb-6">
         <div className="flex-1 overflow-y-auto">
           <ChatMessages messages={messages} isStreaming={isStreaming} />
@@ -77,7 +77,7 @@ export const DynamicChatThreadPage: React.FC<Props> = ({ id }) => {
         defaultProvider={selectedModelMeta?.provider}
       />
       <AuthModal open={authModalOpen} onOpenChange={setAuthModalOpen} initialMode="login" />
-    </MainLayout>
+    </>
   );
 };
 
