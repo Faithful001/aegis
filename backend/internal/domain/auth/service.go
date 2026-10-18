@@ -120,6 +120,8 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest, ipAddress
 	}
 
 	if s.sessionRepo != nil && accessClaims != nil {
+		_ = s.sessionRepo.RevokeDeviceSessions(ctx, userEntity.ID, ipAddress, userAgent)
+
 		sess := &UserSession{
 			UserID:       userEntity.ID,
 			AccessJTI:    accessClaims.JTI,

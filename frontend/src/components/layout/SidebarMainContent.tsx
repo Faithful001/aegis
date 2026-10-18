@@ -144,17 +144,20 @@ export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = 
       {collapsed && <div className="flex-1"></div>}
 
       {/* Bottom Footer User Info */}
-      <div className="p-2.5 border-t border-surface-border/60 space-y-1">
+      <div
+        className={`p-2.5 ${collapsed ? "flex items-center justify-center" : "flex items-center justify-start"} w-full border-t border-surface-border/60 space-y-1`}
+      >
         <Link
           to="/settings"
-          className="flex items-center gap-3 px-3 py-2 rounded-md text-zinc-300 text-xs font-medium hover:bg-zinc-800/50 transition-all cursor-pointer"
+          search={{ tab: "profile" }}
+          className={`${!collapsed ? "w-full" : ""} flex items-center gap-3 px-3 py-2 rounded-md text-zinc-300 text-xs font-medium hover:bg-zinc-800/50 transition-all cursor-pointer`}
         >
           <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 text-xs font-semibold flex-shrink-0">
             {user?.first_name && user?.last_name
               ? user.first_name.charAt(0).toUpperCase() + user.last_name.charAt(0).toUpperCase()
               : user?.email
                 ? user.email.charAt(0).toUpperCase() + user.email.charAt(0).toUpperCase()
-                : "FE"}
+                : "AE"}
           </div>
           {!collapsed && (
             <span className="truncate">{user?.name || user?.email || "User Profile"}</span>

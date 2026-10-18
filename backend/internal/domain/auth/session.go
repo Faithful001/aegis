@@ -15,7 +15,7 @@ type UserSession struct {
 	UserID       uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
 	AccessJTI    string    `gorm:"type:varchar(255);not null;index" json:"access_jti"`
 	RefreshJTI   string    `gorm:"type:varchar(255);index" json:"refresh_jti"`
-	IPAddress    string    `gorm:"type:varchar(100)" json:"ip_address"`
+	IPAddress    string    `gorm:"type:varchar(100);index" json:"ip_address"`
 	UserAgent    string    `gorm:"type:text" json:"user_agent"`
 	DeviceName   string    `gorm:"type:varchar(100)" json:"device_name"`
 	LastActiveAt time.Time `gorm:"not null" json:"last_active_at"`
@@ -87,8 +87,15 @@ func ParseDeviceName(ua string) string {
 // SessionRepository interface
 type ISessionRepository interface {
 	Create(ctx context.Context, s *UserSession) error
+	Update(ctx context.Context, s *UserSession) error
 	GetByAccessJTI(ctx context.Context, jti string) (*UserSession, error)
+	GetByUserIDAndIPAddress(
+		ctx context.Context,
+		userID uuid.UUID,
+		ipAddress string,
+	) (*UserSession, error)
 	ListActiveByUserID(ctx context.Context, userID uuid.UUID) ([]*UserSession, error)
+	RevokeDeviceSessions(ctx context.Context, userID uuid.UUID, ipAddress, userAgent string) error
 	RevokeOthers(ctx context.Context, userID uuid.UUID, currentJTI string) ([]*UserSession, error)
 	RevokeByID(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) (*UserSession, error)
 	UpdateLastActive(ctx context.Context, jti string, lastActive time.Time) error
@@ -107,6 +114,39 @@ func (r *GormSessionRepository) Create(ctx context.Context, s *UserSession) erro
 		return nil
 	}
 	return r.db.WithContext(ctx).Create(s).Error
+}
+
+func (r *GormSessionRepository) Update(ctx context.Context, s *UserSession) error {
+	if r.db == nil {
+		return nil
+	}
+	return r.db.WithContext(ctx).
+		Model(&UserSession{}).
+		Where("id = ?", s.ID).
+		Select("access_jti", "refresh_jti", "user_agent", "device_name", "last_active_at", "expires_at", "is_revoked").
+		Updates(s).Error
+}
+
+
+func (r *GormSessionRepository) GetByUserIDAndIPAddress(
+	ctx context.Context,
+	userID uuid.UUID,
+	ipAddress string,
+) (*UserSession, error) {
+	if r.db == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var s UserSession
+	err := r.db.WithContext(ctx).Where(
+		"user_id = ? AND ip_address = ?",
+		userID,
+		ipAddress,
+	).First(&s).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
 }
 
 func (r *GormSessionRepository) GetByAccessJTI(ctx context.Context, jti string) (*UserSession, error) {
@@ -131,6 +171,16 @@ func (r *GormSessionRepository) ListActiveByUserID(ctx context.Context, userID u
 		Order("last_active_at desc").
 		Find(&sessions).Error
 	return sessions, err
+}
+
+func (r *GormSessionRepository) RevokeDeviceSessions(ctx context.Context, userID uuid.UUID, ipAddress, userAgent string) error {
+	if r.db == nil {
+		return nil
+	}
+	return r.db.WithContext(ctx).
+		Model(&UserSession{}).
+		Where("user_id = ? AND ip_address = ? AND user_agent = ? AND is_revoked = false", userID, ipAddress, userAgent).
+		Update("is_revoked", true).Error
 }
 
 func (r *GormSessionRepository) RevokeOthers(ctx context.Context, userID uuid.UUID, currentJTI string) ([]*UserSession, error) {
