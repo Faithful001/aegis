@@ -187,7 +187,7 @@ export const ProfileTab: React.FC = () => {
               </h3>
               <p className="text-xs text-zinc-400">
                 {configuredProviders.length > 0
-                  ? `${configuredProviders.length} BYOK provider${configuredProviders.length > 1 ? "s" : ""} connected and active`
+                  ? `${configuredProviders.length} provider${configuredProviders.length > 1 ? "s" : ""} connected and active`
                   : "No BYOK model providers configured yet"}
               </p>
             </div>
