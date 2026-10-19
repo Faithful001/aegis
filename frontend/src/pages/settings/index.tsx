@@ -29,7 +29,7 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto h-full px-8 py-8">
+    <div className="flex-1 overflow-y-auto h-full px-5 py-8">
       <div className="max-w-3xl mx-auto">
         {activeTab === "profile" && <ProfileTab />}
         {activeTab === "providers" && <ProvidersTab />}

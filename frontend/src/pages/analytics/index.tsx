@@ -117,64 +117,60 @@ export const AnalyticsPage: React.FC = () => {
     n ? (n < 0.01 ? `$${n.toFixed(6)}` : `$${n.toFixed(4)}`) : "$0.00";
 
   return (
-    <div className="max-w-5xl mx-auto p-8 space-y-6">
-        {/* Header + filter row */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Usage &amp; Metering</h1>
-            <p className="text-xs text-zinc-400 mt-1">
-              Token usage, request volume, and cost estimates.
-            </p>
-          </div>
-
-          {/* Range dropdown */}
-          <div className="self-start sm:self-auto">
-            <Select value={activeRange} onValueChange={(val) => setActiveRange(val as RangeKey)}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Select range" />
-              </SelectTrigger>
-              <SelectContent align="end">
-                {RANGE_PRESETS.map((p) => (
-                  <SelectItem key={p.key} value={p.key}>
-                    {p.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+    <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+      {/* Header + filter row */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-white tracking-tight">Usage &amp; Metering</h1>
+          <p className="text-xs text-zinc-400 mt-1">
+            Token usage, request volume, and cost estimates.
+          </p>
         </div>
 
-        {/* Metric cards */}
-        <div
-          className={cn(
-            "grid grid-cols-2 lg:grid-cols-4 gap-4 transition-opacity duration-300",
-            isFetching && "opacity-60"
-          )}
-        >
-          <MetricCard
-            label="Total Requests"
-            value={fmt(metrics?.total_requests)}
-            loading={loading}
-          />
-          <MetricCard label="Input Tokens" value={fmt(metrics?.input_tokens)} loading={loading} />
-          <MetricCard label="Output Tokens" value={fmt(metrics?.output_tokens)} loading={loading} />
-          <MetricCard
-            label="Est. Cost"
-            value={fmtUSD(metrics?.total_cost_usd)}
-            sub={`${fmt(metrics?.total_tokens)} tokens`}
-            loading={loading}
-          />
+        {/* Range dropdown */}
+        <div className="self-start sm:self-auto">
+          <Select value={activeRange} onValueChange={(val) => setActiveRange(val as RangeKey)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Select range" />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {RANGE_PRESETS.map((p) => (
+                <SelectItem key={p.key} value={p.key}>
+                  {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-
-        {/* Token Activity Heatmap */}
-        <Card className="p-6">
-          <TokenActivityHeatmap
-            granularity={granularity}
-            onGranularityChange={setGranularity}
-            // since={since}
-          />
-        </Card>
       </div>
+
+      {/* Metric cards */}
+      <div
+        className={cn(
+          "grid grid-cols-2 lg:grid-cols-4 gap-4 transition-opacity duration-300",
+          isFetching && "opacity-60"
+        )}
+      >
+        <MetricCard label="Total Requests" value={fmt(metrics?.total_requests)} loading={loading} />
+        <MetricCard label="Input Tokens" value={fmt(metrics?.input_tokens)} loading={loading} />
+        <MetricCard label="Output Tokens" value={fmt(metrics?.output_tokens)} loading={loading} />
+        <MetricCard
+          label="Est. Cost"
+          value={fmtUSD(metrics?.total_cost_usd)}
+          sub={`${fmt(metrics?.total_tokens)} tokens`}
+          loading={loading}
+        />
+      </div>
+
+      {/* Token Activity Heatmap */}
+      <Card className="p-6">
+        <TokenActivityHeatmap
+          granularity={granularity}
+          onGranularityChange={setGranularity}
+          // since={since}
+        />
+      </Card>
+    </div>
   );
 };
 
