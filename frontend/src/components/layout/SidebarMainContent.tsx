@@ -165,7 +165,7 @@ export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = 
                 : "AE"}
           </div>
           {!collapsed && (
-            <span className="truncate">{user?.full_name || user?.name || user?.email || "User Profile"}</span>
+            <span className="truncate">{user?.full_name || user?.name || user?.email}</span>
           )}
         </Link>
       </div>

@@ -334,7 +334,7 @@ func staticProviders() []dto.ProviderDescriptor {
 		{
 			ID:          "openrouter",
 			Name:        "OpenRouter",
-			Description: "Universal router for numerous models",
+			Description: "Universal router for several models",
 			Placeholder: "sk-or-...",
 			KeyLink:     "https://openrouter.ai/keys",
 		},
