@@ -84,3 +84,92 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
     </aside>
   );
 };
+
+// sliding transition
+
+// import React from "react";
+// import { useLocation } from "@tanstack/react-router";
+// import { SidebarSimpleIcon as SidebarIcon } from "@phosphor-icons/react";
+// import { motion, AnimatePresence } from "framer-motion";
+// import { SidebarMainContent } from "./SidebarMainContent";
+// import SettingsMainContent from "./SettingsMainContent";
+
+// export interface SidebarProps {
+//   collapsed: boolean;
+//   setCollapsed: (collapsed: boolean) => void;
+//   activeTab?: string;
+// }
+
+// export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => {
+//   const { pathname } = useLocation();
+//   const isSettings = pathname.startsWith("/settings");
+
+//   return (
+//     <aside
+//       className={`h-screen bg-sidebar border-r border-surface-border flex flex-col transition-all duration-300 select-none
+//         fixed md:relative z-30
+//         ${collapsed ? "w-14" : "w-64"}`}
+//     >
+//       <div className="p-3.5 flex items-center justify-between border-b border-surface-border/40">
+//         <div className="flex items-center gap-2.5 overflow-hidden">
+//           <div className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-700/80 flex items-center justify-center flex-shrink-0 text-white shadow-sm">
+//             <span className="font-bold text-lg tracking-tighter">Ø</span>
+//           </div>
+//           {!collapsed && (
+//             <span className="font-semibold text-sm tracking-wide text-zinc-100">Aegis</span>
+//           )}
+//         </div>
+
+//         {!collapsed && (
+//           <div className="flex items-center gap-1">
+//             <button
+//               onClick={() => setCollapsed(true)}
+//               className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 transition-colors"
+//             >
+//               <SidebarIcon className="w-4 h-4" />
+//             </button>
+//           </div>
+//         )}
+
+//         {collapsed && (
+//           <div className="w-full flex items-center justify-between">
+//             <button
+//               onClick={() => setCollapsed(false)}
+//               className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 transition-colors mx-auto"
+//             >
+//               <SidebarIcon className="w-4 h-4" />
+//             </button>
+//           </div>
+//         )}
+//       </div>
+
+//       <div className="relative flex-1 overflow-hidden flex flex-col">
+//         <AnimatePresence mode="wait" initial={false}>
+//           {isSettings ? (
+//             <motion.div
+//               key="settings-sidebar"
+//               initial={{ x: "100%" }}
+//               animate={{ x: 0 }}
+//               exit={{ x: "100%" }}
+//               transition={{ type: "spring", stiffness: 340, damping: 32, mass: 0.8 }}
+//               className="absolute inset-0 flex flex-col overflow-hidden"
+//             >
+//               <SettingsMainContent collapsed={collapsed} setCollapsed={setCollapsed} />
+//             </motion.div>
+//           ) : (
+//             <motion.div
+//               key="main-sidebar"
+//               initial={{ x: "-100%" }}
+//               animate={{ x: 0 }}
+//               exit={{ x: "-100%" }}
+//               transition={{ type: "spring", stiffness: 340, damping: 32, mass: 0.8 }}
+//               className="absolute inset-0 flex flex-col overflow-hidden"
+//             >
+//               <SidebarMainContent collapsed={collapsed} />
+//             </motion.div>
+//           )}
+//         </AnimatePresence>
+//       </div>
+//     </aside>
+//   );
+// };
