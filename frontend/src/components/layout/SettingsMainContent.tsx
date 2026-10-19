@@ -75,17 +75,17 @@ export const SettingsMainContent: React.FC<SidebarProps> = ({ collapsed, setColl
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
-      {!collapsed && (
-        <div className="pt-4 px-4 pb-2">
-          <button
-            onClick={handleBack}
-            className="group inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-medium focus:outline-none"
-          >
-            <ArrowLeftIcon className="text-sm w-4 h-4 text-zinc-400 group-hover:text-white transition-transform group-hover:-translate-x-0.5" />
-            <span>Back to app</span>
-          </button>
-        </div>
-      )}
+      <div className="pt-4 px-4 pb-2">
+        <button
+          onClick={handleBack}
+          className="group inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-medium focus:outline-none"
+        >
+          <ArrowLeftIcon
+            className={`text-sm w-4 h-4 text-zinc-400 group-hover:text-white transition-transform ${!collapsed ? "group-hover:-translate-x-0.5" : ""}`}
+          />
+          {!collapsed && <span>Back to app</span>}
+        </button>
+      </div>
 
       <div
         onClick={() => {

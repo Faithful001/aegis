@@ -26,7 +26,7 @@ export const Dialog: React.FC<DialogProps> = ({
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
           className={cn(
-            'fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] border border-surface-border bg-surface p-6 shadow-2xl duration-200 rounded-2xl focus:outline-none text-zinc-100',
+            'fixed left-[50%] top-[50%] z-50 w-[calc(100%-2.5rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] border border-surface-border bg-surface p-6 shadow-2xl duration-200 rounded-2xl focus:outline-none text-zinc-100',
             className
           )}
         >

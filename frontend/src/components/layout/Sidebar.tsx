@@ -17,9 +17,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
 
   return (
     <aside
-      className={`h-screen bg-sidebar border-r border-surface-border flex flex-col transition-all duration-300 z-30 select-none ${
-        collapsed ? "w-14" : "w-64"
-      }`}
+      className={`h-screen bg-sidebar border-r border-surface-border flex flex-col transition-all duration-300 select-none
+        fixed md:relative z-30
+        ${collapsed ? "w-14" : "w-64"}`}
     >
       <div className="p-3.5 flex items-center justify-between border-b border-surface-border/40">
         <div className="flex items-center gap-2.5 overflow-hidden">

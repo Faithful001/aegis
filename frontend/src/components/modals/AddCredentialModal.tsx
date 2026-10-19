@@ -32,8 +32,7 @@ export const AddCredentialModal: React.FC<Props> = ({
 
   const providersList = supportedProviders.length > 0 ? supportedProviders : [];
 
-  const selectedProviderMeta =
-    providersList.find((p) => p.id === provider) ||
+  const selectedProviderMeta = providersList.find((p) => p.id === provider) ||
     providersList[0] || {
       id: provider,
       name: provider,

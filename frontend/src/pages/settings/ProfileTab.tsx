@@ -83,7 +83,7 @@ export const ProfileTab: React.FC = () => {
   return (
     <SettingsLayout
       title="Profile"
-      subTitle="Manage your personal details, developer identity, and account credentials."
+      subTitle="Manage your personal details, and account credentials."
     >
       <div className="space-y-6">
         {/* Profile Identity Card */}
@@ -98,15 +98,15 @@ export const ProfileTab: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex-1 text-center sm:text-left space-y-1.5">
+            <div className="flex flex-col items-start text-left space-y-1.5">
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
                 <h2 className="text-lg font-semibold text-white">
-                  {user?.full_name || user?.name || "Aegis User"}
+                  {user?.full_name || user?.name}
                 </h2>
               </div>
 
               <div className="flex items-center justify-center sm:justify-start gap-2 text-xs text-zinc-400">
-                <span>{user?.email || "user@aegis.dev"}</span>
+                <span>{user?.email}</span>
               </div>
             </div>
           </div>
