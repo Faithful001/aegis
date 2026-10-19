@@ -146,9 +146,6 @@ export const ProfileTab: React.FC = () => {
                 disabled
                 className="rounded-lg bg-zinc-900/40 border-zinc-800/60 text-sm text-zinc-400 cursor-not-allowed opacity-80"
               />
-              <p className="text-[11px] text-zinc-500">
-                To update your email or login credentials, manage your security settings.
-              </p>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
