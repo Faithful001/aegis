@@ -123,7 +123,7 @@ func (r *GormSessionRepository) Update(ctx context.Context, s *UserSession) erro
 	return r.db.WithContext(ctx).
 		Model(&UserSession{}).
 		Where("id = ?", s.ID).
-		Select("access_jti", "refresh_jti", "user_agent", "device_name", "last_active_at", "expires_at", "is_revoked").
+		Select("access_jti", "refresh_jti", "ip_address", "user_agent", "device_name", "last_active_at", "expires_at", "is_revoked").
 		Updates(s).Error
 }
 

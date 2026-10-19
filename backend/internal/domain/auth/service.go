@@ -375,7 +375,7 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, req 
 	return s.userRepo.UpdatePassword(ctx, userID, hashedPassword)
 }
 
-func (s *AuthService) RefreshToken(ctx context.Context, req dto.RefreshRequest) (*dto.AuthResponse, error) {
+func (s *AuthService) RefreshToken(ctx context.Context, req dto.RefreshRequest, ipAddress, userAgent string) (*dto.AuthResponse, error) {
 	claims, err := s.tokenService.ValidateToken(req.RefreshToken, TokenTypeRefresh)
 	if err != nil {
 		return nil, err
@@ -401,9 +401,45 @@ func (s *AuthService) RefreshToken(ctx context.Context, req dto.RefreshRequest) 
 		return nil, user.ErrUserInactive
 	}
 
-	tokenPair, _, _, err := s.tokenService.GenerateTokenPair(userEntity.ID, userEntity.Email)
+	tokenPair, accessClaims, refreshClaims, err := s.tokenService.GenerateTokenPair(userEntity.ID, userEntity.Email)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate new token pair: %w", err)
+	}
+
+	if s.sessionRepo != nil && accessClaims != nil {
+		// Update the existing session that was tied to the previous refresh token
+		existingSess, err := s.sessionRepo.GetByAccessJTI(ctx, claims.JTI)
+		if err == nil && existingSess != nil {
+			existingSess.AccessJTI = accessClaims.JTI
+			existingSess.RefreshJTI = refreshClaims.JTI
+			existingSess.LastActiveAt = time.Now().UTC()
+			existingSess.ExpiresAt = refreshClaims.ExpiresAt
+			if ipAddress != "" {
+				existingSess.IPAddress = ipAddress
+			}
+			if userAgent != "" {
+				existingSess.UserAgent = userAgent
+				existingSess.DeviceName = ParseDeviceName(userAgent)
+			}
+			_ = s.sessionRepo.Update(ctx, existingSess)
+		} else {
+			// If no session row was matched, ensure device duplicates are revoked before creating
+			if ipAddress != "" && userAgent != "" {
+				_ = s.sessionRepo.RevokeDeviceSessions(ctx, userEntity.ID, ipAddress, userAgent)
+			}
+			sess := &UserSession{
+				UserID:       userEntity.ID,
+				AccessJTI:    accessClaims.JTI,
+				RefreshJTI:   refreshClaims.JTI,
+				IPAddress:    ipAddress,
+				UserAgent:    userAgent,
+				DeviceName:   ParseDeviceName(userAgent),
+				LastActiveAt: time.Now().UTC(),
+				ExpiresAt:    refreshClaims.ExpiresAt,
+				IsRevoked:    false,
+			}
+			_ = s.sessionRepo.Create(ctx, sess)
+		}
 	}
 
 	return &dto.AuthResponse{
@@ -596,6 +632,9 @@ func (s *AuthService) ListSessions(ctx context.Context, userID uuid.UUID, curren
 	}
 
 	if !hasCurrent && currentJTI != "" {
+		if currentIP != "" && currentUA != "" {
+			_ = s.sessionRepo.RevokeDeviceSessions(ctx, userID, currentIP, currentUA)
+		}
 		newSess := &UserSession{
 			UserID:       userID,
 			AccessJTI:    currentJTI,

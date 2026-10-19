@@ -229,7 +229,7 @@ func (h *AuthController) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	result, err := h.authService.RefreshToken(c.Request.Context(), req)
+	result, err := h.authService.RefreshToken(c.Request.Context(), req, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
 		if errors.Is(err, ErrTokenRevoked) || errors.Is(err, ErrTokenExpired) || errors.Is(err, ErrInvalidToken) {
 			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": err.Error(), "data": nil})

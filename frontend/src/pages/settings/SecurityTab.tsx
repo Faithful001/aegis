@@ -167,7 +167,7 @@ const SecurityTab = () => {
               size="sm"
               onClick={() => revokeOthersMutation.mutate()}
               disabled={revokeOthersMutation.isPending}
-              className="rounded-full text-xs text-red-400 hover:text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500/50 self-start sm:self-auto"
+              className="rounded-full text-[11px] text-red-400 hover:text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500/50 self-start sm:self-auto"
             >
               {revokeOthersMutation.isPending ? "Signing out..." : "Sign Out Other Devices"}
             </Button>
@@ -212,11 +212,11 @@ const SecurityTab = () => {
                         <span className="text-xs font-semibold text-white">
                           {sess.device_name || "Web Client"}
                         </span>
-                        {/* {sess.is_current && (
+                        {sess.is_current && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium text-white border border-zinc-700">
                             Current session
                           </span>
-                        )} */}
+                        )}
                       </div>
                       <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
                         <span>IP: {sess.ip_address || "127.0.0.1"}</span>
@@ -230,7 +230,7 @@ const SecurityTab = () => {
                     </div>
                   </div>
 
-                  {/* {!sess.is_current && (
+                  {!sess.is_current && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -240,7 +240,7 @@ const SecurityTab = () => {
                     >
                       Revoke
                     </Button>
-                  )} */}
+                  )}
                 </div>
               );
             })
