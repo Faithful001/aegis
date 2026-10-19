@@ -18,8 +18,7 @@ const (
 
 type User struct {
 	ID         uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	FirstName  string     `gorm:"type:varchar(100);not null" json:"first_name"`
-	LastName   string     `gorm:"type:varchar(100);not null" json:"last_name"`
+	FullName   string     `gorm:"type:varchar(255);not null;default:''" json:"full_name"`
 	Email      string     `gorm:"type:varchar(255);not null;uniqueIndex" json:"email"`
 	Password   string     `gorm:"type:varchar(255);not null" json:"-"`
 	Status     UserStatus `gorm:"type:varchar(50);not null;default:'active'" json:"status"`
@@ -42,19 +41,17 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-func NewUser(firstName, lastName, email, hashedPassword string) (*User, error) {
+func NewUser(fullName, email, hashedPassword string) (*User, error) {
 	email = strings.TrimSpace(strings.ToLower(email))
-	firstName = strings.TrimSpace(firstName)
-	lastName = strings.TrimSpace(lastName)
+	fullName = strings.TrimSpace(fullName)
 
-	if email == "" || firstName == "" || lastName == "" || hashedPassword == "" {
+	if email == "" || fullName == "" || hashedPassword == "" {
 		return nil, ErrInvalidUserData
 	}
 
 	return &User{
 		ID:         uuid.New(),
-		FirstName:  firstName,
-		LastName:   lastName,
+		FullName:   fullName,
 		Email:      email,
 		Password:   hashedPassword,
 		Status:     StatusActive,
@@ -62,10 +59,6 @@ func NewUser(firstName, lastName, email, hashedPassword string) (*User, error) {
 		CreatedAt:  time.Now().UTC(),
 		UpdatedAt:  time.Now().UTC(),
 	}, nil
-}
-
-func (u *User) FullName() string {
-	return strings.TrimSpace(u.FirstName + " " + u.LastName)
 }
 
 func (u *User) IsActive() bool {

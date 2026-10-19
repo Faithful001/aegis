@@ -55,8 +55,8 @@ export const HomePage: React.FC = () => {
             <div className="ambient-mesh-glow absolute -inset-6 bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
             <h1 className="relative flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 text-3xl tracking-tight font-medium text-white">
               <span>
-                {isAuthenticated && user?.first_name
-                  ? `Hey ${user?.first_name || "there"}, what should we`
+                {isAuthenticated && user?.full_name
+                  ? `Hey ${user.full_name.split(" ")[0] || "there"}, what should we`
                   : "What should we"}
               </span>
               <span className="live-mesh-badge text-zinc-950 font-bold px-2.5 py-0.5 rounded-lg inline-flex items-center justify-center shadow-lg overflow-hidden align-middle">

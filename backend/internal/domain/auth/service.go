@@ -84,7 +84,15 @@ func (s *AuthService) Register(ctx context.Context, req dto.RegisterRequest) (bo
 		return false, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	newUser, err := user.NewUser(req.FirstName, req.LastName, email, hashedPassword)
+	fullName := strings.TrimSpace(req.FullName)
+	if fullName == "" {
+		fullName = strings.TrimSpace(req.FirstName + " " + req.LastName)
+	}
+	if fullName == "" {
+		fullName = "User"
+	}
+
+	newUser, err := user.NewUser(fullName, email, hashedPassword)
 	if err != nil {
 		return false, err
 	}
@@ -181,7 +189,7 @@ func (s *AuthService) SendVerificationEmail(ctx context.Context, userEmail strin
 		return fmt.Errorf("failed to store OTP: %w", err)
 	}
 
-	name := strings.TrimSpace(u.FirstName + " " + u.LastName)
+	name := u.FullName
 
 	if s.eventProducer != nil {
 		evt := kafka.NewEmailEvent("", u.Email, name, code, string(otp.OTPPurposeEmailVerification))
@@ -270,7 +278,7 @@ func (s *AuthService) ForgotPassword(ctx context.Context, req dto.ForgotPassword
 		return fmt.Errorf("failed to store OTP: %w", err)
 	}
 
-	name := strings.TrimSpace(u.FirstName + " " + u.LastName)
+	name := u.FullName
 
 	if s.eventProducer != nil {
 		evt := kafka.NewEmailEvent("", u.Email, name, code, string(otp.OTPPurposePasswordReset))

@@ -47,11 +47,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const formatUser = (rawUser: any): User | null => {
     if (!rawUser) return null;
     const fullName =
+      rawUser.full_name ||
       [rawUser.first_name, rawUser.last_name].filter(Boolean).join(" ") ||
       rawUser.name ||
       rawUser.email;
     return {
       ...rawUser,
+      full_name: fullName,
       name: fullName,
     };
   };

@@ -1,7 +1,12 @@
 import { apiClient } from "./client";
-import { UserAlertSettings } from "../types/api";
+import { User, UserAlertSettings } from "../types/api";
 
 export const userApi = {
+  updateProfile: async (payload: { full_name: string }): Promise<User> => {
+    const res = await apiClient.put<{ success: boolean; message: string; data: User }>("/user/me", payload);
+    return res.data.data;
+  },
+
   getAlertSettings: async (): Promise<UserAlertSettings> => {
     const res = await apiClient.get<{ success: boolean; data: UserAlertSettings }>("/user/budget-alerts");
     return res.data.data;

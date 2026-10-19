@@ -121,6 +121,8 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		{
 			// User Profile & Preferences
 			protected.GET("/user/me", cfg.UserController.GetMe)
+			protected.PUT("/user/me", cfg.UserController.UpdateMe)
+			protected.PATCH("/user/me", cfg.UserController.UpdateMe)
 			protected.GET("/user/budget-alerts", cfg.UserController.GetAlertSettings)
 			protected.PUT("/user/budget-alerts", cfg.UserController.UpdateAlertSettings)
 			protected.POST("/user/export-data", cfg.UserController.ExportData)

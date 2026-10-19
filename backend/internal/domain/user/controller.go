@@ -3,6 +3,7 @@ package user
 import (
 	"net/http"
 
+	"github.com/Faithful001/aegis/internal/domain/user/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -31,6 +32,31 @@ func (c *UserController) GetMe(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "User fetched successfully", "data": user})
+}
+
+
+
+func (c *UserController) UpdateMe(ctx *gin.Context) {
+	userIDVal, ok := ctx.Get("userID")
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		return
+	}
+	userID := userIDVal.(uuid.UUID)
+
+	var req dto.UpdateProfileDTO
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Full name is required"})
+		return
+	}
+
+	user, err := c.userService.UpdateProfile(ctx.Request.Context(), userID, req.FullName)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "Profile updated successfully", "data": user})
 }
 
 func (c *UserController) GetAlertSettings(ctx *gin.Context) {

@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,6 +36,23 @@ func (s *Service) SetAlertRepo(alertRepo IAlertSettingsRepository) {
 
 func (s *Service) GetUserByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	return s.repo.GetByID(ctx, id)
+}
+
+func (s *Service) UpdateProfile(ctx context.Context, userID uuid.UUID, fullName string) (*User, error) {
+	u, err := s.repo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	fullName = strings.TrimSpace(fullName)
+	if fullName == "" {
+		return nil, ErrInvalidUserData
+	}
+	u.FullName = fullName
+	u.UpdatedAt = time.Now().UTC()
+	if err := s.repo.Update(ctx, u); err != nil {
+		return nil, err
+	}
+	return u, nil
 }
 
 func (s *Service) GetUserByEmail(ctx context.Context, email string) (*User, error) {
@@ -115,8 +133,7 @@ func (s *Service) ExportUserData(ctx context.Context, userID uuid.UUID) (map[str
 		"exported_at": time.Now().UTC().Format(time.RFC3339),
 		"profile": map[string]interface{}{
 			"id":          u.ID,
-			"first_name":  u.FirstName,
-			"last_name":   u.LastName,
+			"full_name":   u.FullName,
 			"email":       u.Email,
 			"status":      u.Status,
 			"is_verified": u.IsVerified,

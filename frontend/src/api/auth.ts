@@ -9,15 +9,11 @@ export const authApi = {
   },
 
   register: async (email: string, password: string, name: string): Promise<BaseResponse<void>> => {
-    const trimmed = name.trim();
-    const parts = trimmed.split(/\s+/);
-    const firstName = parts[0] || "User";
-    const lastName = parts.slice(1).join(" ") || parts[0] || "User";
+    const fullName = name.trim();
     const res = await apiClient.post("/auth/register", {
       email,
       password,
-      first_name: firstName,
-      last_name: lastName,
+      full_name: fullName,
     });
     return res.data;
   },
@@ -96,12 +92,16 @@ export const authApi = {
   },
 
   revokeOtherSessions: async (): Promise<{ success: boolean; message: string }> => {
-    const res = await apiClient.post<{ success: boolean; message: string }>("/auth/sessions/revoke-others");
+    const res = await apiClient.post<{ success: boolean; message: string }>(
+      "/auth/sessions/revoke-others"
+    );
     return res.data;
   },
 
   revokeSession: async (id: string): Promise<{ success: boolean; message: string }> => {
-    const res = await apiClient.delete<{ success: boolean; message: string }>(`/auth/sessions/${id}`);
+    const res = await apiClient.delete<{ success: boolean; message: string }>(
+      `/auth/sessions/${id}`
+    );
     return res.data;
   },
 };

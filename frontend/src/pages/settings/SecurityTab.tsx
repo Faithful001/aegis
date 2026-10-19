@@ -145,12 +145,86 @@ const SecurityTab = () => {
     },
   });
 
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    if (changePasswordMutation.isPending) return;
+    changePasswordMutation.mutate({ currentPass: currentPassword, newPass: newPassword });
+  };
+
   const otherSessionsCount = sessions.filter((s) => !s.is_current).length;
+
   return (
     <SettingsLayout
       title="Security"
       subTitle="Manage your account's security preferences and active sessions."
     >
+      <Card hover={false} className="p-5 space-y-4 !bg-sidebar">
+        <div className="space-y-0.5">
+          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            Password
+          </h3>
+          <p className="text-xs text-zinc-400">
+            Update your account password. Choose a strong password with at least 8 characters.
+          </p>
+        </div>
+        <form onSubmit={handleChangePassword} className="space-y-3 pt-2">
+          <Input
+            label="Current Password"
+            type="password"
+            placeholder="••••••••"
+            className="rounded-full"
+            showToggle
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            required
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="New Password"
+              type="password"
+              placeholder="•••••••• (min 8 chars)"
+              className="rounded-full"
+              showToggle
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+            />
+            <Input
+              label="Confirm New Password"
+              type="password"
+              placeholder="••••••••"
+              className="rounded-full"
+              showToggle
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+          </div>
+          <div className="flex justify-end pt-1">
+            <Button
+              type="submit"
+              disabled={
+                changePasswordMutation.isPending ||
+                !currentPassword ||
+                !newPassword ||
+                !confirmPassword
+              }
+              className="rounded-full px-5 py-2 font-semibold text-xs"
+            >
+              {changePasswordMutation.isPending ? "Updating..." : "Update Password"}
+            </Button>
+          </div>
+        </form>
+      </Card>
+
       <Card hover={false} className="p-5 space-y-4 !bg-sidebar">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="space-y-0.5">
@@ -248,7 +322,6 @@ const SecurityTab = () => {
         </div>
       </Card>
 
-      {/* 5. Danger Zone */}
       <Card hover={false} className="p-5 space-y-4 !bg-sidebar border-red-950/40">
         <div className="space-y-0.5">
           <h3 className="text-sm font-semibold text-red-400 flex items-center gap-2">

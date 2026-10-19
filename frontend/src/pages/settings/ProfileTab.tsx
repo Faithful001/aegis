@@ -1,314 +1,222 @@
-import { authApi } from "@/api/auth";
-import { credentialsApi } from "@/api/credentials";
+import React, { useEffect, useState } from "react";
 import { userApi } from "@/api/user";
 import { useAuth } from "@/context/AuthContext";
-import { ProviderCredential, ProviderMeta, UserSession } from "@/types/api";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Card } from "../../components/ui/Card";
-import {
-  DeviceMobileIcon,
-  DownloadSimpleIcon,
-  LaptopIcon,
-  LockIcon,
-  MonitorIcon,
-  ShieldIcon,
-  SignOutIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
-import { Dialog } from "../../components/ui/Dialog";
+import SettingsLayout from "@/components/layout/SettingsLayout";
+import { useAegis } from "@/context/AegisContext";
+import { ArrowRightIcon } from "@phosphor-icons/react";
 
-export const ProfileTab = () => {
-  const { user, logout } = useAuth();
+export const ProfileTab: React.FC = () => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { supportedProviders } = useAegis();
 
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [fullName, setFullName] = useState(user?.full_name || user?.name || "");
 
-  // Budget Alerts state
-  const [budgetEnabled, setBudgetEnabled] = useState(true);
-  const [budgetUSD, setBudgetUSD] = useState("50.00");
-  const [threshold, setThreshold] = useState("80");
-  const [alertEmail, setAlertEmail] = useState("");
-
-  // Danger zone state
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [confirmDeleteText, setConfirmDeleteText] = useState("");
-
-  // Queries
-  const { data: credentials = [] } = useQuery<ProviderCredential[]>({
-    queryKey: ["credentials"],
-    queryFn: credentialsApi.list,
-  });
-
-  const { data: alertSettings, refetch: refetchAlerts } = useQuery({
-    queryKey: ["user", "budget-alerts"],
-    queryFn: userApi.getAlertSettings,
-  });
-
-  const {
-    data: sessions = [],
-    isLoading: isLoadingSessions,
-    refetch: refetchSessions,
-  } = useQuery<UserSession[]>({
-    queryKey: ["auth", "sessions"],
-    queryFn: authApi.listSessions,
-  });
-
+  // Sync input when user data is loaded or changes
   useEffect(() => {
-    if (alertSettings) {
-      setBudgetEnabled(alertSettings.budget_alert_enabled);
-      setBudgetUSD(
-        alertSettings.monthly_budget_usd ? alertSettings.monthly_budget_usd.toString() : "50.00"
-      );
-      setThreshold(
-        alertSettings.threshold_percentage ? alertSettings.threshold_percentage.toString() : "80"
-      );
-      setAlertEmail(alertSettings.alert_email || user?.email || "");
-    } else if (user?.email && !alertEmail) {
-      setAlertEmail(user.email);
+    if (user) {
+      setFullName(user.full_name || user.name || "");
     }
-  }, [alertSettings, user]);
+  }, [user]);
 
-  const changePasswordMutation = useMutation({
-    mutationFn: async ({ currentPass, newPass }: { currentPass: string; newPass: string }) =>
-      await authApi.changePassword(currentPass, newPass),
-    onSuccess: () => {
-      toast.success("Password changed successfully!");
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
+  const updateProfileMutation = useMutation({
+    mutationFn: async (payload: { full_name: string }) => {
+      return await userApi.updateProfile(payload);
+    },
+    onSuccess: (updatedUser) => {
+      toast.success("Profile updated successfully!");
+      queryClient.setQueryData(["auth", "me"], (old: any) => {
+        if (!old) return old;
+        const name = updatedUser.full_name || updatedUser.name;
+        return {
+          ...old,
+          ...updatedUser,
+          full_name: name,
+          name: name,
+        };
+      });
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
     },
     onError: (err: any) => {
-      toast.error(
-        err?.response?.data?.message ||
-          "Failed to change password. Please check your current password."
-      );
+      toast.error(err?.response?.data?.message || "Failed to update profile name");
     },
   });
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleSaveName = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword.length < 8) {
-      toast.error("New password must be at least 8 characters");
+    const trimmed = fullName.trim();
+    if (!trimmed) {
+      toast.error("Full name cannot be empty");
       return;
     }
-    if (newPassword !== confirmPassword) {
-      toast.error("New passwords do not match");
-      return;
-    }
-    if (changePasswordMutation.isPending) return;
-    changePasswordMutation.mutate({ currentPass: currentPassword, newPass: newPassword });
+
+    updateProfileMutation.mutate({ full_name: trimmed });
   };
 
-  const updateAlertsMutation = useMutation({
-    mutationFn: async () =>
-      userApi.updateAlertSettings({
-        budget_alert_enabled: budgetEnabled,
-        monthly_budget_usd: parseFloat(budgetUSD) || 50,
-        threshold_percentage: parseInt(threshold) || 80,
-        alert_email: alertEmail,
-      }),
-    onSuccess: () => {
-      toast.success("Budget alert preferences saved!");
-      refetchAlerts();
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || "Failed to update alert settings");
-    },
-  });
-
-  const revokeOthersMutation = useMutation({
-    mutationFn: authApi.revokeOtherSessions,
-    onSuccess: () => {
-      toast.success("Signed out of all other devices!");
-      refetchSessions();
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || "Failed to revoke sessions");
-    },
-  });
-
-  const revokeSessionMutation = useMutation({
-    mutationFn: (id: string) => authApi.revokeSession(id),
-    onSuccess: () => {
-      toast.success("Session revoked");
-      refetchSessions();
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || "Failed to revoke session");
-    },
-  });
-
-  const exportDataMutation = useMutation({
-    mutationFn: userApi.exportData,
-    onSuccess: (data) => {
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `aegis-account-export-${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success("Account data exported successfully!");
-    },
-    onError: () => {
-      toast.error("Failed to export account data");
-    },
-  });
-
-  const deleteAccountMutation = useMutation({
-    mutationFn: userApi.deleteAccount,
-    onSuccess: async () => {
-      toast.success("Your account has been deleted.");
-      await logout();
-      navigate({ to: "/auth/register" });
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || "Failed to delete account");
-    },
-  });
+  const isNameChanged =
+    fullName.trim() !== (user?.full_name || user?.name || "").trim() && fullName.trim().length > 0;
 
   const initials =
-    user?.first_name && user?.last_name
-      ? user.first_name.slice(0, 1).toUpperCase() + user.last_name.slice(0, 1).toUpperCase()
+    user?.full_name || user?.name
+      ? (user.full_name || user.name || "")
+          .split(" ")
+          .filter(Boolean)
+          .map((n) => n[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase()
       : user?.email
         ? user.email.slice(0, 2).toUpperCase()
         : "AE";
 
-  const otherSessionsCount = sessions.filter((s) => !s.is_current).length;
+  const configuredProviders = Array.isArray(supportedProviders)
+    ? supportedProviders.filter((p) => p.is_configured)
+    : [];
 
   return (
-    <div className="space-y-6">
-      {/* Profile Header */}
-      <div className="flex flex-col items-center text-center space-y-3 pt-2">
-        <div className="w-20 h-20 rounded-full bg-[#27AF61] flex items-center justify-center text-zinc-100 text-3xl font-medium shadow-md">
-          {initials}
-        </div>
-        <div>
-          <div className="flex items-center justify-center gap-2">
-            <h2 className="text-lg text-white">
-              {user?.first_name ? `${user.first_name} ${user.last_name}` : "Aegis User"}
-            </h2>
-          </div>
-          <p className="text-xs text-zinc-400 mt-0.5">{user?.email || "user@aegis.dev"}</p>
-        </div>
-      </div>
+    <SettingsLayout
+      title="Profile"
+      subTitle="Manage your personal details, developer identity, and account credentials."
+    >
+      <div className="space-y-6">
+        {/* Profile Identity Card */}
+        <Card
+          hover={false}
+          className="p-6 bg-[#121214] border border-zinc-800/80 rounded-xl space-y-6"
+        >
+          <div className="flex items-center gap-5">
+            <div className="relative group">
+              <div className="w-20 h-20 rounded-full bg-[#27AF61] flex items-center justify-center text-white text-2xl font-semibold shadow-lg shadow-emerald-950/40 border-2 border-emerald-400/20">
+                {initials}
+              </div>
+            </div>
 
-      {/* 1. Connected Providers Overview */}
-      {/* <Card hover={false} className="p-5 space-y-3 !bg-sidebar">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="space-y-0.5">
+            <div className="flex-1 text-center sm:text-left space-y-1.5">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+                <h2 className="text-lg font-semibold text-white">
+                  {user?.full_name || user?.name || "Aegis User"}
+                </h2>
+              </div>
+
+              <div className="flex items-center justify-center sm:justify-start gap-2 text-xs text-zinc-400">
+                <span>{user?.email || "user@aegis.dev"}</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Edit Personal Information Form */}
+        <Card
+          hover={false}
+          className="p-6 bg-[#121214] border border-zinc-800/80 rounded-xl space-y-5"
+        >
+          <div className="space-y-1">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Blocks className="w-4 h-4 text-emerald-400" />
-              Connected Providers
+              Personal Information
             </h3>
             <p className="text-xs text-zinc-400">
-              Bring Your Own Key (BYOK) providers active on your gateway
+              Update your name. This will be reflected in your chats, workspace, and export reports.
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onSwitchTab("providers")}
-            className="rounded-full text-xs flex items-center gap-1.5 border-zinc-700/80 hover:bg-zinc-800 text-zinc-200 self-start sm:self-auto"
-          >
-            Configure Providers <ChevronRight className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-        <div className="flex items-center justify-between pt-1">
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold text-white">{configuredCount}</span>
-            <span className="text-xs text-zinc-400 font-medium">/ {totalCount} configured</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5 justify-end">
-            {credentials.length > 0 ? (
-              credentials.map((c) => (
-                <span
-                  key={c.provider}
-                  className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 capitalize"
-                >
-                  {c.provider}
-                </span>
-              ))
-            ) : (
-              <span className="text-xs text-zinc-500 italic">No providers configured yet</span>
-            )}
-          </div>
-        </div>
-      </Card> */}
 
-      {/* 3. Security & Password */}
-      <Card hover={false} className="p-5 space-y-4 !bg-sidebar">
-        <div className="space-y-0.5">
-          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-            <LockIcon className="w-4 h-4 text-zinc-300" />
-            Security & Password
-          </h3>
-          <p className="text-xs text-zinc-400">
-            Update your account password. Choose a strong password with at least 8 characters.
-          </p>
-        </div>
-        <form onSubmit={handleChangePassword} className="space-y-3 pt-2">
-          <Input
-            label="Current Password"
-            type="password"
-            placeholder="••••••••"
-            className="rounded-full"
-            showToggle
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            required
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
-              label="New Password"
-              type="password"
-              placeholder="•••••••• (min 8 chars)"
-              className="rounded-full"
-              showToggle
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-            />
-            <Input
-              label="Confirm New Password"
-              type="password"
-              placeholder="••••••••"
-              className="rounded-full"
-              showToggle
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
-          </div>
-          <div className="flex justify-end pt-1">
+          <form onSubmit={handleSaveName} className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-zinc-300">Full Name</label>
+              <Input
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Full name"
+                className="rounded-lg bg-zinc-900/70 border-zinc-800 text-sm focus:border-zinc-600 text-zinc-100"
+                required
+              />
+            </div>
+
+            {/* Email Address (Read-only with helper) */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-zinc-300">Email Address</label>
+              <Input
+                value={user?.email || ""}
+                disabled
+                className="rounded-lg bg-zinc-900/40 border-zinc-800/60 text-sm text-zinc-400 cursor-not-allowed opacity-80"
+              />
+              <p className="text-[11px] text-zinc-500">
+                To update your email or login credentials, manage your security settings.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              {isNameChanged && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setFullName(user?.full_name || user?.name || "");
+                  }}
+                  className="rounded-full text-xs text-zinc-400 hover:text-zinc-200 border-zinc-800 hover:bg-zinc-800/60"
+                >
+                  Cancel
+                </Button>
+              )}
+              <Button
+                type="submit"
+                disabled={!isNameChanged || updateProfileMutation.isPending}
+                className="rounded-full px-5 py-2 text-xs font-semibold bg-white text-zinc-950 hover:bg-zinc-200 transition-all shadow-sm disabled:opacity-50"
+              >
+                {updateProfileMutation.isPending ? "Saving..." : "Save changes"}
+              </Button>
+            </div>
+          </form>
+        </Card>
+
+        <Card
+          hover={false}
+          className="p-5 bg-[#121214] border border-zinc-800/80 rounded-xl space-y-3"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                Connected Model Providers
+              </h3>
+              <p className="text-xs text-zinc-400">
+                {configuredProviders.length > 0
+                  ? `${configuredProviders.length} BYOK provider${configuredProviders.length > 1 ? "s" : ""} connected and active`
+                  : "No BYOK model providers configured yet"}
+              </p>
+            </div>
             <Button
-              type="submit"
-              disabled={
-                changePasswordMutation.isPending ||
-                !currentPassword ||
-                !newPassword ||
-                !confirmPassword
-              }
-              className="rounded-full px-5 py-2 font-semibold text-xs"
+              variant="outline"
+              size="sm"
+              onClick={() => navigate({ to: "/settings", search: { tab: "providers" } })}
+              className="rounded-full text-xs flex items-center gap-1.5 border-zinc-700/80 hover:bg-zinc-800 text-zinc-200 self-start sm:self-auto"
             >
-              {changePasswordMutation.isPending ? "Updating..." : "Update Password"}
+              Configure Providers <ArrowRightIcon className="w-3.5 h-3.5" />
             </Button>
           </div>
-        </form>
-      </Card>
 
-      
-
-      
-    </div>
+          {configuredProviders.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {configuredProviders.map((c) => (
+                <span
+                  key={c.id}
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-zinc-900 text-zinc-300 border border-zinc-800 capitalize"
+                >
+                  {c.name}
+                </span>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+    </SettingsLayout>
   );
 };
+
+export default ProfileTab;
