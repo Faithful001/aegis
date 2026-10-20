@@ -5,6 +5,7 @@ import { useSearch, useNavigate } from "@tanstack/react-router";
 import { GearIcon } from "@phosphor-icons/react";
 import NotificationsTab from "./NotificationsTab";
 import SecurityTab from "./SecurityTab";
+import ConnectedAccountsTab from "./ConnectedAccountsTab";
 
 export type SettingsTab =
   | "profile"
@@ -33,11 +34,13 @@ export const SettingsPage: React.FC = () => {
       <div className="max-w-3xl mx-auto">
         {activeTab === "profile" && <ProfileTab />}
         {activeTab === "providers" && <ProvidersTab />}
+        {activeTab === "connected-accounts" && <ConnectedAccountsTab />}
         {activeTab === "notifications" && <NotificationsTab />}
         {activeTab === "security" && <SecurityTab />}
 
         {activeTab !== "profile" &&
           activeTab !== "providers" &&
+          activeTab !== "connected-accounts" &&
           activeTab !== "notifications" &&
           activeTab !== "security" && (
             <div className="flex flex-col items-center justify-center py-24 text-center border border-zinc-800/80 rounded-2xl bg-zinc-900/30 p-8 mt-6">

@@ -2,8 +2,10 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"strings"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/otp"
 	"github.com/Faithful001/aegis/internal/domain/project"
 	"github.com/Faithful001/aegis/internal/domain/user"
+	"github.com/Faithful001/aegis/internal/infra/config"
 	"github.com/Faithful001/aegis/internal/infra/email"
 	"github.com/Faithful001/aegis/internal/infra/queue/kafka"
 	"github.com/google/uuid"
@@ -26,6 +29,7 @@ type AuthService struct {
 	blacklistRepo ITokenBlacklistRepository
 	eventProducer kafka.EventProducer
 	sessionRepo   ISessionRepository
+	oauthConfig   config.OAuthConfig
 }
 
 func NewAuthService(
@@ -60,6 +64,10 @@ func (s *AuthService) SetEventProducer(ep kafka.EventProducer) {
 
 func (s *AuthService) SetSessionRepo(repo ISessionRepository) {
 	s.sessionRepo = repo
+}
+
+func (s *AuthService) SetOAuthConfig(cfg config.OAuthConfig) {
+	s.oauthConfig = cfg
 }
 
 // func (s *AuthService) SetEmailService(emailService *email.EmailService) {
@@ -706,5 +714,254 @@ func (s *AuthService) RevokeSession(ctx context.Context, userID uuid.UUID, sessi
 		}
 	}
 	return nil
+}
+
+// GetOAuthURL builds the authorization redirect URL for Google or GitHub.
+func (s *AuthService) GetOAuthURL(provider string, state string) (string, error) {
+	if state == "" {
+		state = uuid.New().String()
+	}
+
+	switch strings.ToLower(provider) {
+	case "google":
+		if s.oauthConfig.GoogleClientID == "" {
+			return "", errors.New("google oauth is not configured on the server")
+		}
+		params := url.Values{
+			"client_id":     {s.oauthConfig.GoogleClientID},
+			"redirect_uri":  {s.oauthConfig.GoogleRedirectURI},
+			"response_type": {"code"},
+			"scope":         {"openid email profile"},
+			"state":         {state},
+			"access_type":   {"offline"},
+			"prompt":        {"select_account"},
+		}
+		return "https://accounts.google.com/o/oauth2/v2/auth?" + params.Encode(), nil
+
+	case "github":
+		if s.oauthConfig.GitHubClientID == "" {
+			return "", errors.New("github oauth is not configured on the server")
+		}
+		params := url.Values{
+			"client_id":    {s.oauthConfig.GitHubClientID},
+			"redirect_uri": {s.oauthConfig.GitHubRedirectURI},
+			"scope":        {"read:user user:email"},
+			"state":        {state},
+		}
+		return "https://github.com/login/oauth/authorize?" + params.Encode(), nil
+
+	default:
+		return "", ErrOAuthProviderNotSupported
+	}
+}
+
+// HandleOAuthCallback handles the exchange of OAuth code, finds or creates user directly, and returns tokens.
+func (s *AuthService) HandleOAuthCallback(ctx context.Context, provider, code, ipAddress, userAgent string) (*dto.AuthResponse, error) {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	var profile *OAuthProfile
+	var err error
+
+	switch provider {
+	case "google":
+		profile, err = ExchangeGoogleCode(ctx, s.oauthConfig.GoogleClientID, s.oauthConfig.GoogleClientSecret, s.oauthConfig.GoogleRedirectURI, code)
+	case "github":
+		profile, err = ExchangeGitHubCode(ctx, s.oauthConfig.GitHubClientID, s.oauthConfig.GitHubClientSecret, s.oauthConfig.GitHubRedirectURI, code)
+	default:
+		return nil, ErrOAuthProviderNotSupported
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var userEntity *user.User
+
+	// 1. Look up user by provider ID directly on the User model
+	if provider == "google" {
+		userEntity, err = s.userRepo.GetByGoogleID(ctx, profile.ProviderUserID)
+	} else if provider == "github" {
+		userEntity, err = s.userRepo.GetByGithubID(ctx, profile.ProviderUserID)
+	}
+
+	// 2. If not found by provider ID, check if user exists by email
+	if err != nil || userEntity == nil {
+		existingUser, errByEmail := s.userRepo.GetByEmail(ctx, profile.Email)
+		if errByEmail == nil && existingUser != nil {
+			// Link provider ID to existing user account
+			userEntity = existingUser
+			if provider == "google" {
+				userEntity.GoogleID = profile.ProviderUserID
+			} else if provider == "github" {
+				userEntity.GithubID = profile.ProviderUserID
+			}
+			if userEntity.AvatarURL == "" {
+				userEntity.AvatarURL = profile.AvatarURL
+			}
+			_ = s.userRepo.Update(ctx, userEntity)
+		} else {
+			// 3. Create brand new user
+			newUser := user.NewOAuthUser(profile.Name, profile.Email, profile.AvatarURL)
+			if provider == "google" {
+				newUser.GoogleID = profile.ProviderUserID
+			} else if provider == "github" {
+				newUser.GithubID = profile.ProviderUserID
+			}
+			if err := s.userRepo.Create(ctx, newUser); err != nil {
+				return nil, fmt.Errorf("failed to create user: %w", err)
+			}
+			userEntity = newUser
+		}
+	}
+
+	if !userEntity.IsActive() {
+		return nil, user.ErrUserInactive
+	}
+
+	// 4. Generate JWT tokens and register session
+	tokenPair, accessClaims, refreshClaims, err := s.tokenService.GenerateTokenPair(userEntity.ID, userEntity.Email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate token pair: %w", err)
+	}
+
+	if s.sessionRepo != nil && accessClaims != nil {
+		_ = s.sessionRepo.RevokeDeviceSessions(ctx, userEntity.ID, ipAddress, userAgent)
+
+		sess := &UserSession{
+			UserID:       userEntity.ID,
+			AccessJTI:    accessClaims.JTI,
+			RefreshJTI:   refreshClaims.JTI,
+			IPAddress:    ipAddress,
+			UserAgent:    userAgent,
+			DeviceName:   ParseDeviceName(userAgent),
+			LastActiveAt: time.Now().UTC(),
+			ExpiresAt:    refreshClaims.ExpiresAt,
+			IsRevoked:    false,
+		}
+		_ = s.sessionRepo.Create(ctx, sess)
+	}
+
+	return &dto.AuthResponse{
+		Token: dto.TokenResponse{
+			AccessToken:  tokenPair.AccessToken,
+			RefreshToken: tokenPair.RefreshToken,
+			TokenType:    tokenPair.TokenType,
+			ExpiresIn:    tokenPair.ExpiresIn,
+		},
+		User: userEntity,
+	}, nil
+}
+
+// ListConnectedAccounts returns all connected OAuth providers for the given user.
+func (s *AuthService) ListConnectedAccounts(ctx context.Context, userID uuid.UUID) (*dto.ConnectedAccountsResponse, error) {
+	userEntity, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	items := []dto.ConnectedAccountItem{
+		{
+			Provider:  "google",
+			Connected: userEntity.GoogleID != "",
+			Email:     userEntity.Email,
+			AvatarURL: userEntity.AvatarURL,
+		},
+		{
+			Provider:  "github",
+			Connected: userEntity.GithubID != "",
+			Email:     userEntity.Email,
+			AvatarURL: userEntity.AvatarURL,
+		},
+	}
+
+	return &dto.ConnectedAccountsResponse{
+		Accounts:    items,
+		HasPassword: userEntity.HasPassword(),
+	}, nil
+}
+
+// UnlinkOAuthAccount removes a provider connection from a user account.
+func (s *AuthService) UnlinkOAuthAccount(ctx context.Context, userID uuid.UUID, provider string) error {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	userEntity, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	// Count active sign-in methods
+	count := 0
+	if userEntity.GoogleID != "" {
+		count++
+	}
+	if userEntity.GithubID != "" {
+		count++
+	}
+
+	// Protect user from getting locked out of their account
+	if !userEntity.HasPassword() && count <= 1 {
+		return ErrCannotUnlinkOnlyLogin
+	}
+
+	if provider == "google" {
+		userEntity.GoogleID = ""
+	} else if provider == "github" {
+		userEntity.GithubID = ""
+	} else {
+		return ErrOAuthProviderNotSupported
+	}
+
+	return s.userRepo.Update(ctx, userEntity)
+}
+
+// LinkOAuthAccount links an external OAuth provider to an already authenticated user.
+func (s *AuthService) LinkOAuthAccount(ctx context.Context, userID uuid.UUID, provider, code string) error {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	var profile *OAuthProfile
+	var err error
+
+	switch provider {
+	case "google":
+		profile, err = ExchangeGoogleCode(ctx, s.oauthConfig.GoogleClientID, s.oauthConfig.GoogleClientSecret, s.oauthConfig.GoogleRedirectURI, code)
+	case "github":
+		profile, err = ExchangeGitHubCode(ctx, s.oauthConfig.GitHubClientID, s.oauthConfig.GitHubClientSecret, s.oauthConfig.GitHubRedirectURI, code)
+	default:
+		return ErrOAuthProviderNotSupported
+	}
+	if err != nil {
+		return err
+	}
+
+	// Verify not already linked to another account
+	if provider == "google" {
+		existing, err := s.userRepo.GetByGoogleID(ctx, profile.ProviderUserID)
+		if err == nil && existing != nil {
+			if existing.ID == userID {
+				return nil // already linked
+			}
+			return ErrOAuthAccountAlreadyLinked
+		}
+	} else if provider == "github" {
+		existing, err := s.userRepo.GetByGithubID(ctx, profile.ProviderUserID)
+		if err == nil && existing != nil {
+			if existing.ID == userID {
+				return nil // already linked
+			}
+			return ErrOAuthAccountAlreadyLinked
+		}
+	}
+
+	userEntity, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	if provider == "google" {
+		userEntity.GoogleID = profile.ProviderUserID
+	} else if provider == "github" {
+		userEntity.GithubID = profile.ProviderUserID
+	}
+	if userEntity.AvatarURL == "" {
+		userEntity.AvatarURL = profile.AvatarURL
+	}
+
+	return s.userRepo.Update(ctx, userEntity)
 }
 

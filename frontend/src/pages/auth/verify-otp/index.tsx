@@ -80,69 +80,70 @@ export const VerifyOTPPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-screen bg-background flex flex-col items-center justify-center max-w-md mx-auto px-4 relative">
+    <div className="w-full min-h-screen bg-background flex flex-col justify-center items-center py-12 px-4 sm:px-6 relative overflow-y-auto">
       <Link
         to="/auth/forgot-password"
-        className="fixed top-4 left-6 flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors group"
+        className="absolute top-6 left-6 flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors group z-10"
       >
         <ArrowLeftIcon size={14} className="group-hover:-translate-x-0.5 transition-transform" />
         Back
       </Link>
 
-      <div className="text-center mb-6">
-        <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white text-xl font-bold mx-auto mb-3">
-          <KeyIcon className="w-5 h-5" />
+      <div className="w-full max-w-md my-auto flex flex-col items-center">
+        <div className="text-center mb-6">
+          <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white text-xl font-bold mx-auto mb-3 shadow-lg">
+            <KeyIcon className="w-5 h-5" />
+          </div>
+          <h2 className="text-2xl font-medium text-white tracking-tight">Verify Reset Code</h2>
+          <p className="text-xs text-zinc-400 mt-2 max-w-xs mx-auto leading-relaxed">
+            Enter the 6-digit verification code sent to{" "}
+            <span className="text-zinc-200 font-semibold">{email || "your email"}</span>
+          </p>
         </div>
-        <h2 className="text-2xl font-medium text-white tracking-tight">Verify Reset Code</h2>
-        <p className="text-xs text-zinc-400 mt-2 max-w-xs mx-auto leading-relaxed">
-          Enter the 6-digit verification code sent to{" "}
-          <span className="text-zinc-200 font-semibold">{email || "your email"}</span>
-        </p>
-      </div>
 
-      <form onSubmit={handleVerify} className="space-y-4 w-full">
-        <Input
-          label="6-Digit OTP Code"
-          type="text"
-          // placeholder="123456"
-          className="rounded-full text-center text-lg "
-          value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-          required
-          autoFocus
-          maxLength={6}
-        />
+        <form onSubmit={handleVerify} className="space-y-4 w-full">
+          <Input
+            label="6-Digit OTP Code"
+            type="text"
+            className="rounded-full text-center text-lg tracking-widest"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            required
+            autoFocus
+            maxLength={6}
+          />
 
-        <Button
-          type="submit"
-          className="w-full py-2.5 font-semibold mt-2 rounded-full"
-          disabled={verifyOTPMutation.isPending || code.length !== 6}
-        >
-          {verifyOTPMutation.isPending ? "Verifying..." : "Verify Code"}
-        </Button>
-
-        <div className="flex items-center justify-between text-xs text-zinc-400 pt-2">
-          <Link to="/auth/login" className="hover:text-white transition-colors">
-            Cancel
-          </Link>
-          <button
-            type="button"
-            onClick={handleResend}
-            disabled={resendCooldown > 0 || resendOTPMutation.isPending || !email.trim()}
-            className={`font-medium ${
-              resendCooldown > 0 || !email.trim() || resendOTPMutation.isPending
-                ? "text-zinc-600 cursor-not-allowed"
-                : "text-white"
-            }`}
+          <Button
+            type="submit"
+            className="w-full py-2.5 font-semibold mt-2 rounded-full"
+            disabled={verifyOTPMutation.isPending || code.length !== 6}
           >
-            {resendCooldown > 0
-              ? `Resend code in ${resendCooldown}s`
-              : resendOTPMutation.isPending
-                ? "Sending..."
-                : "Resend code"}
-          </button>
-        </div>
-      </form>
+            {verifyOTPMutation.isPending ? "Verifying..." : "Verify Code"}
+          </Button>
+
+          <div className="flex items-center justify-between text-xs text-zinc-400 pt-2">
+            <Link to="/auth/login" className="hover:text-white transition-colors">
+              Cancel
+            </Link>
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resendCooldown > 0 || resendOTPMutation.isPending || !email.trim()}
+              className={`font-medium ${
+                resendCooldown > 0 || !email.trim() || resendOTPMutation.isPending
+                  ? "text-zinc-600 cursor-not-allowed"
+                  : "text-white"
+              }`}
+            >
+              {resendCooldown > 0
+                ? `Resend code in ${resendCooldown}s`
+                : resendOTPMutation.isPending
+                  ? "Sending..."
+                  : "Resend code"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

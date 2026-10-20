@@ -112,6 +112,10 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 				authRoutes.POST("/reset-password", cfg.AuthController.ResetPassword)
 				authRoutes.POST("/send-verification-email", cfg.AuthController.SendVerificationEmail)
 				authRoutes.POST("/verify-email", cfg.AuthController.VerifyEmail)
+
+				// Public OAuth 2.0 routes (Google & GitHub)
+				authRoutes.GET("/oauth/:provider/url", cfg.AuthController.GetOAuthURL)
+				authRoutes.POST("/oauth/:provider/callback", cfg.AuthController.OAuthCallback)
 			}
 		}
 
@@ -127,6 +131,13 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			protected.PUT("/user/budget-alerts", cfg.UserController.UpdateAlertSettings)
 			protected.POST("/user/export-data", cfg.UserController.ExportData)
 			protected.DELETE("/user/me", cfg.UserController.DeleteAccount)
+
+			// Connected OAuth Accounts (Google & GitHub)
+			if cfg.AuthController != nil {
+				protected.GET("/user/connected-accounts", cfg.AuthController.ListConnectedAccounts)
+				protected.DELETE("/user/connected-accounts/:provider", cfg.AuthController.UnlinkOAuthAccount)
+				protected.POST("/user/connected-accounts/:provider/link", cfg.AuthController.LinkOAuthAccount)
+			}
 
 			// Protected OTP & Session routes (JWT required)
 			if cfg.AuthController != nil {

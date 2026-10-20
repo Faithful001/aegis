@@ -4,13 +4,10 @@ import { SettingsTab } from "@/pages/settings";
 import { SidebarProps } from "./Sidebar";
 import {
   ArrowLeftIcon,
-  ArrowsLeftRightIcon,
   BellSimpleIcon,
   CubeIcon,
   LinkSimpleHorizontalIcon,
-  LockSimpleIcon,
   MagnifyingGlassIcon,
-  PaletteIcon,
   ShieldCheckIcon,
   UserIcon,
 } from "@phosphor-icons/react";
@@ -26,9 +23,7 @@ export const DEFAULT_SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   { id: "providers", label: "Providers", icon: CubeIcon },
   { id: "security", label: "Security & sign-in", icon: ShieldCheckIcon },
   { id: "connected-accounts", label: "Connected accounts", icon: LinkSimpleHorizontalIcon },
-  { id: "authorized-apps", label: "Authorized apps", icon: LockSimpleIcon },
   { id: "notifications", label: "Notifications", icon: BellSimpleIcon },
-  { id: "appearance", label: "Appearance", icon: PaletteIcon },
 ];
 
 export const SettingsMainContent: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => {

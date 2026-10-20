@@ -1,5 +1,5 @@
 import { apiClient, getAccessToken, getRefreshToken, clearTokens } from "./client";
-import { User, AuthResponse, UserSession } from "../types/api";
+import { User, AuthResponse, UserSession, ConnectedAccountsResponse } from "../types/api";
 import { BaseResponse } from ".";
 
 export const authApi = {
@@ -104,4 +104,54 @@ export const authApi = {
     );
     return res.data;
   },
+
+  getOAuthUrl: async (
+    provider: string,
+    state?: string
+  ): Promise<{ success: boolean; data: { url: string; state: string } }> => {
+    const res = await apiClient.get<{ success: boolean; data: { url: string; state: string } }>(
+      `/auth/oauth/${provider}/url`,
+      { params: { state } }
+    );
+    return res.data;
+  },
+
+  oauthCallback: async (
+    provider: string,
+    code: string,
+    state?: string
+  ): Promise<BaseResponse<AuthResponse>> => {
+    const res = await apiClient.post<BaseResponse<AuthResponse>>(
+      `/auth/oauth/${provider}/callback`,
+      { code, state }
+    );
+    return res.data;
+  },
+
+  getConnectedAccounts: async (): Promise<ConnectedAccountsResponse> => {
+    const res = await apiClient.get<{ success: boolean; data: ConnectedAccountsResponse }>(
+      "/user/connected-accounts"
+    );
+    return res.data.data;
+  },
+
+  unlinkAccount: async (provider: string): Promise<{ success: boolean; message: string }> => {
+    const res = await apiClient.delete<{ success: boolean; message: string }>(
+      `/user/connected-accounts/${provider}`
+    );
+    return res.data;
+  },
+
+  linkAccount: async (
+    provider: string,
+    code: string,
+    state?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const res = await apiClient.post<{ success: boolean; message: string }>(
+      `/user/connected-accounts/${provider}/link`,
+      { code, state }
+    );
+    return res.data;
+  },
 };
+

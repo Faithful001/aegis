@@ -149,3 +149,17 @@ export interface UserAlertSettings {
   alert_email: string;
 }
 
+export interface ConnectedAccountItem {
+  provider: "google" | "github" | string;
+  connected: boolean;
+  email?: string;
+  avatar_url?: string;
+  connected_at?: string;
+}
+
+export interface ConnectedAccountsResponse {
+  accounts: ConnectedAccountItem[];
+  has_password: boolean;
+}
+
+

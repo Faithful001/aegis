@@ -17,6 +17,7 @@ import ForgotPasswordPage from "../pages/auth/forgot-password/index";
 import VerifyEmailPage from "../pages/auth/verify-email/index";
 import VerifyOTPPage from "../pages/auth/verify-otp/index";
 import ResetPasswordPage from "../pages/auth/reset-password/index";
+import OAuthCallbackPage from "../pages/auth/oauth-callback/index";
 import ChatPage from "../pages/chat/index";
 import DynamicChatThreadPage from "../pages/chat/[id]/index";
 import ProfilePage from "../pages/profile/index";
@@ -81,6 +82,12 @@ const resetPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/auth/reset-password",
   component: ResetPasswordPage,
+});
+
+const oauthCallbackRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/auth/callback",
+  component: OAuthCallbackPage,
 });
 
 // Chat Routes
@@ -154,6 +161,7 @@ const routeTree = rootRoute.addChildren([
   verifyEmailRoute,
   verifyOTPRoute,
   resetPasswordRoute,
+  oauthCallbackRoute,
 ]);
 
 export const router = createRouter({ routeTree });

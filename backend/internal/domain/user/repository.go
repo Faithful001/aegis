@@ -12,6 +12,8 @@ type IUserRepository interface {
 	Create(ctx context.Context, u *User) error
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 	GetByEmail(ctx context.Context, email string) (*User, error)
+	GetByGoogleID(ctx context.Context, googleID string) (*User, error)
+	GetByGithubID(ctx context.Context, githubID string) (*User, error)
 	Update(ctx context.Context, u *User) error
 	UpdatePassword(ctx context.Context, id uuid.UUID, hashedPassword string) error
 	MarkVerified(ctx context.Context, id uuid.UUID) error
@@ -53,6 +55,40 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*User, e
 	}
 	var u User
 	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&u).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &u, nil
+}
+
+func (r *UserRepository) GetByGoogleID(ctx context.Context, googleID string) (*User, error) {
+	if r.db == nil {
+		return nil, errors.New("database connection is nil")
+	}
+	if googleID == "" {
+		return nil, ErrUserNotFound
+	}
+	var u User
+	if err := r.db.WithContext(ctx).Where("google_id = ?", googleID).First(&u).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &u, nil
+}
+
+func (r *UserRepository) GetByGithubID(ctx context.Context, githubID string) (*User, error) {
+	if r.db == nil {
+		return nil, errors.New("database connection is nil")
+	}
+	if githubID == "" {
+		return nil, ErrUserNotFound
+	}
+	var u User
+	if err := r.db.WithContext(ctx).Where("github_id = ?", githubID).First(&u).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrUserNotFound
 		}

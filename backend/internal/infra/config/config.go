@@ -19,6 +19,16 @@ type Config struct {
 	Worker      WorkerConfig
 	Kafka       KafkaConfig
 	Resend      ResendConfig
+	OAuth       OAuthConfig
+}
+
+type OAuthConfig struct {
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURI  string
+	GitHubClientID     string
+	GitHubClientSecret string
+	GitHubRedirectURI  string
 }
 
 type KafkaConfig struct {
@@ -100,6 +110,14 @@ func Load() (*Config, error) {
 		Resend: ResendConfig{
 			APIKey:   getEnv("RESEND_API_KEY", ""),
 			FromAddr: getEnv("RESEND_FROM_ADDR", "noreply@resend.dev"),
+		},
+		OAuth: OAuthConfig{
+			GoogleClientID:     getEnv("GOOGLE_CLIENT_ID", ""),
+			GoogleClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
+			GoogleRedirectURI:  getEnv("GOOGLE_REDIRECT_URI", "http://localhost:5173/auth/callback?provider=google"),
+			GitHubClientID:     getEnv("GITHUB_CLIENT_ID", ""),
+			GitHubClientSecret: getEnv("GITHUB_CLIENT_SECRET", ""),
+			GitHubRedirectURI:  getEnv("GITHUB_REDIRECT_URI", "http://localhost:5173/auth/callback?provider=github"),
 		},
 	}
 

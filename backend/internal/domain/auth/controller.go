@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -325,6 +326,111 @@ func (h *AuthController) RevokeSession(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Session revoked successfully."})
+}
+
+func (h *AuthController) GetOAuthURL(c *gin.Context) {
+	provider := c.Param("provider")
+	state := c.Query("state")
+
+	authURL, err := h.authService.GetOAuthURL(provider, state)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": dto.OAuthURLResponse{
+			URL:   authURL,
+			State: state,
+		},
+	})
+}
+
+func (h *AuthController) OAuthCallback(c *gin.Context) {
+	provider := c.Param("provider")
+	var req dto.OAuthCallbackRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	result, err := h.authService.HandleOAuthCallback(c.Request.Context(), provider, req.Code, c.ClientIP(), c.Request.UserAgent())
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "oauth authentication successful",
+		"data":    result,
+	})
+}
+
+func (h *AuthController) ListConnectedAccounts(c *gin.Context) {
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized"})
+		return
+	}
+	userID := userIDVal.(uuid.UUID)
+
+	res, err := h.authService.ListConnectedAccounts(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": res})
+}
+
+func (h *AuthController) UnlinkOAuthAccount(c *gin.Context) {
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized"})
+		return
+	}
+	userID := userIDVal.(uuid.UUID)
+	provider := c.Param("provider")
+
+	if err := h.authService.UnlinkOAuthAccount(c.Request.Context(), userID, provider); err != nil {
+		if errors.Is(err, ErrCannotUnlinkOnlyLogin) {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": fmt.Sprintf("%s account disconnected successfully", provider)})
+}
+
+func (h *AuthController) LinkOAuthAccount(c *gin.Context) {
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "unauthorized"})
+		return
+	}
+	userID := userIDVal.(uuid.UUID)
+	provider := c.Param("provider")
+
+	var req dto.OAuthCallbackRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	if err := h.authService.LinkOAuthAccount(c.Request.Context(), userID, provider, req.Code); err != nil {
+		if errors.Is(err, ErrOAuthAccountAlreadyLinked) {
+			c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": fmt.Sprintf("%s account connected successfully", provider)})
 }
 
 type APIKeyController struct {

@@ -20,7 +20,10 @@ type User struct {
 	ID         uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	FullName   string     `gorm:"type:varchar(255);not null;default:''" json:"full_name"`
 	Email      string     `gorm:"type:varchar(255);not null;uniqueIndex" json:"email"`
-	Password   string     `gorm:"type:varchar(255);not null" json:"-"`
+	Password   string     `gorm:"type:varchar(255);default:''" json:"-"`
+	GoogleID   string     `gorm:"type:varchar(255);default:'';index" json:"google_id,omitempty"`
+	GithubID   string     `gorm:"type:varchar(255);default:'';index" json:"github_id,omitempty"`
+	AvatarURL  string     `gorm:"type:text;default:''" json:"avatar_url,omitempty"`
 	Status     UserStatus `gorm:"type:varchar(50);not null;default:'active'" json:"status"`
 	IsVerified bool       `gorm:"default:false" json:"is_verified"`
 	CreatedAt  time.Time  `gorm:"autoCreateTime" json:"created_at"`
@@ -63,4 +66,32 @@ func NewUser(fullName, email, hashedPassword string) (*User, error) {
 
 func (u *User) IsActive() bool {
 	return u.Status == StatusActive
+}
+
+func (u *User) HasPassword() bool {
+	return strings.TrimSpace(u.Password) != ""
+}
+
+func NewOAuthUser(fullName, email, avatarURL string) *User {
+	email = strings.TrimSpace(strings.ToLower(email))
+	fullName = strings.TrimSpace(fullName)
+	if fullName == "" {
+		parts := strings.Split(email, "@")
+		if len(parts) > 0 && parts[0] != "" {
+			fullName = parts[0]
+		} else {
+			fullName = "User"
+		}
+	}
+	return &User{
+		ID:         uuid.New(),
+		FullName:   fullName,
+		Email:      email,
+		Password:   "",
+		AvatarURL:  avatarURL,
+		Status:     StatusActive,
+		IsVerified: true, // Email from trusted OAuth provider is verified
+		CreatedAt:  time.Now().UTC(),
+		UpdatedAt:  time.Now().UTC(),
+	}
 }

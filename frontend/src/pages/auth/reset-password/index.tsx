@@ -58,64 +58,66 @@ export const ResetPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-screen bg-background flex flex-col items-center justify-center max-w-md mx-auto px-4 relative">
+    <div className="w-full min-h-screen bg-background flex flex-col justify-center items-center py-12 px-4 sm:px-6 relative overflow-y-auto">
       <Link
         to="/auth/verify-otp"
-        className="fixed top-4 left-6 flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors group"
+        className="absolute top-6 left-6 flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors group z-10"
       >
         <ArrowLeftIcon size={14} className="group-hover:-translate-x-0.5 transition-transform" />
         Back to OTP Verification
       </Link>
 
-      <div className="text-center mb-6">
-        <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white text-xl font-bold mx-auto mb-3">
-          <LockIcon className="w-5 h-5 text-amber-400" />
+      <div className="w-full max-w-md my-auto flex flex-col items-center">
+        <div className="text-center mb-6">
+          <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white text-xl font-bold mx-auto mb-3 shadow-lg">
+            <LockIcon className="w-5 h-5 text-amber-400" />
+          </div>
+          <h2 className="text-2xl font-medium text-white tracking-tight">Create New Password</h2>
+          <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">
+            Your reset code was verified. Please choose a strong new password for your account.
+          </p>
         </div>
-        <h2 className="text-2xl font-medium text-white tracking-tight">Create New Password</h2>
-        <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">
-          Your reset code was verified. Please choose a strong new password for your account.
-        </p>
+
+        <form onSubmit={handleResetPassword} className="space-y-4 w-full">
+          <Input
+            label="New Password"
+            type="password"
+            placeholder="•••••••• (min 8 chars)"
+            className="rounded-full"
+            showToggle
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            required
+            autoFocus
+          />
+
+          <Input
+            label="Confirm New Password"
+            type="password"
+            placeholder="••••••••"
+            className="rounded-full"
+            showToggle
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+          />
+
+          <Button
+            type="submit"
+            className="w-full py-2.5 font-semibold mt-2 rounded-full"
+            disabled={resetPasswordMutation.isPending || !newPassword || !confirmPassword}
+          >
+            {resetPasswordMutation.isPending ? "Updating Password..." : "Update Password"}
+          </Button>
+
+          <p className="text-xs text-center text-zinc-400 mt-4">
+            Need a new code?{" "}
+            <Link to="/auth/forgot-password" className="text-amber-400 hover:underline font-medium">
+              Start over
+            </Link>
+          </p>
+        </form>
       </div>
-
-      <form onSubmit={handleResetPassword} className="space-y-4 w-full">
-        <Input
-          label="New Password"
-          type="password"
-          placeholder="•••••••• (min 8 chars)"
-          className="rounded-full"
-          showToggle
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          required
-          autoFocus
-        />
-
-        <Input
-          label="Confirm New Password"
-          type="password"
-          placeholder="••••••••"
-          className="rounded-full"
-          showToggle
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-        />
-
-        <Button
-          type="submit"
-          className="w-full py-2.5 font-semibold mt-2 rounded-full"
-          disabled={resetPasswordMutation.isPending || !newPassword || !confirmPassword}
-        >
-          {resetPasswordMutation.isPending ? "Updating Password..." : "Update Password"}
-        </Button>
-
-        <p className="text-xs text-center text-zinc-400 mt-4">
-          Need a new code?{" "}
-          <Link to="/auth/forgot-password" className="text-amber-400 hover:underline font-medium">
-            Start over
-          </Link>
-        </p>
-      </form>
     </div>
   );
 };

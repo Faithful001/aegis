@@ -122,3 +122,26 @@ type ChangePasswordRequest struct {
 type MessageResponse struct {
 	Message string `json:"message"`
 }
+
+type OAuthCallbackRequest struct {
+	Code  string `json:"code" binding:"required"`
+	State string `json:"state"`
+}
+
+type OAuthURLResponse struct {
+	URL   string `json:"url"`
+	State string `json:"state"`
+}
+
+type ConnectedAccountItem struct {
+	Provider    string     `json:"provider"`
+	Connected   bool       `json:"connected"`
+	Email       string     `json:"email,omitempty"`
+	AvatarURL   string     `json:"avatar_url,omitempty"`
+	ConnectedAt *time.Time `json:"connected_at,omitempty"`
+}
+
+type ConnectedAccountsResponse struct {
+	Accounts    []ConnectedAccountItem `json:"accounts"`
+	HasPassword bool                   `json:"has_password"`
+}

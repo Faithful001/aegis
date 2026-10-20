@@ -25,6 +25,7 @@ export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = 
   const isSettings = pathname.startsWith("/settings");
 
   const [addCredOpen, setAddCredOpen] = useState(false);
+
   return (
     <>
       {/* Main Action Links */}

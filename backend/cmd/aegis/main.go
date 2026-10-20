@@ -125,6 +125,7 @@ func main() {
 		eventProducer,
 	)
 	authService.SetSessionRepo(sessionRepo)
+	authService.SetOAuthConfig(cfg.OAuth)
 
 	userService := user.NewUserService(userRepo, alertRepo)
 	userService.SetDB(database)
