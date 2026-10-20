@@ -93,7 +93,7 @@ export const ProfileTab: React.FC = () => {
         >
           <div className="flex items-center gap-5">
             <div className="relative group">
-              <div className="w-20 h-20 rounded-full bg-[#27AF61] flex items-center justify-center text-white text-2xl font-semibold shadow-lg shadow-emerald-950/40 border-2 border-emerald-400/20">
+              <div className="w-20 h-20 rounded-full bg-[#27AF61] flex items-center justify-center text-white text-2xl font-semibold">
                 {initials}
               </div>
             </div>
