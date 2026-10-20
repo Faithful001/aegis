@@ -32,10 +32,10 @@ export const ForgotPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full min-h-screen bg-background flex flex-col justify-center items-center py-12 px-4 sm:px-6 relative overflow-y-auto">
+    <div className="w-full h-screen bg-background flex flex-col justify-center items-center py-12 px-4 sm:px-6 relative overflow-y-auto">
       <Link
         to="/auth/login"
-        className="absolute top-6 left-6 flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors group z-10"
+        className="fixed top-6 left-6 flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors group z-10"
       >
         <ArrowLeftIcon size={14} className="group-hover:-translate-x-0.5 transition-transform" />
         Back to Sign In

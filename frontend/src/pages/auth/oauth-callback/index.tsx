@@ -54,7 +54,9 @@ export const OAuthCallbackPage: React.FC = () => {
           sessionStorage.removeItem("aegis_oauth_mode");
           sessionStorage.removeItem("aegis_oauth_provider");
 
-          toast.success(`${provider.charAt(0).toUpperCase() + provider.slice(1)} account connected!`);
+          toast.success(
+            `${provider.charAt(0).toUpperCase() + provider.slice(1)} account connected!`
+          );
           navigate({
             to: "/settings",
             search: { tab: "connected-accounts" },
@@ -95,11 +97,7 @@ export const OAuthCallbackPage: React.FC = () => {
   }, [navigate, searchParams, setAuthData]);
 
   return (
-    <div className="w-full h-screen bg-background flex flex-col items-center justify-center max-w-md mx-auto px-6 text-center">
-      <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white text-xl font-bold mb-4 shadow-lg">
-        Ø
-      </div>
-
+    <div className="w-full h-screen bg-background flex flex-col justify-center items-center py-12 px-4 sm:px-6 relative overflow-y-auto">
       {status === "loading" ? (
         <div className="space-y-3">
           <div className="flex items-center justify-center text-zinc-400">
@@ -113,17 +111,15 @@ export const OAuthCallbackPage: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4 flex flex-col items-center justify-center">
           <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mx-auto">
             <WarningCircleIcon className="w-5 h-5" />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 flex flex-col items-center justify-center">
             <h2 className="text-base font-medium text-white tracking-tight">
               Authentication Failed
             </h2>
-            <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
-              {errorMessage}
-            </p>
+            <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">{errorMessage}</p>
           </div>
           <div className="pt-2">
             <Button
