@@ -99,7 +99,7 @@ export const OAuthCallbackPage: React.FC = () => {
   return (
     <div className="w-full h-screen bg-background flex flex-col justify-center items-center py-12 px-4 sm:px-6 relative overflow-y-auto">
       {status === "loading" ? (
-        <div className="space-y-3">
+        <div className="space-y-3 flex flex-col items-center justify-center">
           <div className="flex items-center justify-center text-zinc-400">
             <CircleNotchIcon className="w-6 h-6 animate-spin text-zinc-300" />
           </div>

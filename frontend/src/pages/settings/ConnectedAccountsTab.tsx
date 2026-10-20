@@ -53,9 +53,7 @@ export const ConnectedAccountsTab: React.FC = () => {
         setConnectingProvider(null);
       }
     } catch (err: any) {
-      toast.error(
-        err?.response?.data?.message || `Failed to start ${provider} connection`
-      );
+      toast.error(err?.response?.data?.message || `Failed to start ${provider} connection`);
       setConnectingProvider(null);
     }
   };
@@ -85,7 +83,7 @@ export const ConnectedAccountsTab: React.FC = () => {
       subTitle="Link third-party identities to your Aegis profile for single-click authentication."
     >
       <div className="space-y-6">
-        {!hasPassword && connectedCount <= 1 && (
+        {/* {!hasPassword && connectedCount <= 1 && (
           <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs leading-relaxed">
             <WarningCircleIcon className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
             <div className="space-y-1">
@@ -108,7 +106,7 @@ export const ConnectedAccountsTab: React.FC = () => {
               </button>
             </div>
           </div>
-        )}
+        )} */}
 
         <Card hover={false} className="p-0 divide-y divide-surface-border/60 overflow-hidden">
           {providerConfigs.map((cfg) => {
@@ -130,7 +128,6 @@ export const ConnectedAccountsTab: React.FC = () => {
                       <h4 className="text-sm font-medium text-white">{cfg.name}</h4>
                       {isConnected ? (
                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                           Connected
                         </span>
                       ) : (
@@ -141,9 +138,7 @@ export const ConnectedAccountsTab: React.FC = () => {
                     </div>
                     <p className="text-xs text-zinc-400 line-clamp-1">
                       {isConnected && acc?.email ? (
-                        <span className="text-zinc-300 font-mono text-[11px]">
-                          {acc.email}
-                        </span>
+                        <span className="text-zinc-300 font-mono text-[11px]">{acc.email}</span>
                       ) : (
                         cfg.description
                       )}
@@ -197,7 +192,8 @@ export const ConnectedAccountsTab: React.FC = () => {
                 <span className="font-semibold block text-red-200 mb-1">
                   Cannot disconnect this account
                 </span>
-                This is currently your only sign-in method and you have not configured a password. Disconnecting it would lock you out of your Aegis account.
+                This is currently your only sign-in method and you have not configured a password.
+                Disconnecting it would lock you out of your Aegis account.
               </div>
               <p className="text-xs text-zinc-400">
                 Please visit the{" "}
@@ -226,7 +222,8 @@ export const ConnectedAccountsTab: React.FC = () => {
           ) : (
             <div className="space-y-4">
               <p className="text-xs text-zinc-300 leading-relaxed">
-                Are you sure you want to disconnect this {disconnectingProvider} account? You will no longer be able to use it to sign in to Aegis unless you reconnect it.
+                Are you sure you want to disconnect this {disconnectingProvider} account? You will
+                no longer be able to use it to sign in to Aegis unless you reconnect it.
               </p>
               <div className="flex justify-end items-center gap-2.5 pt-2">
                 <Button
