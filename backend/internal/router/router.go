@@ -91,10 +91,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			"ready": isReady,
 		})
 	})
-
-	// ==========================================
-	// 1. CONTROL PLANE API (/api/v1) - JWT Auth
-	// ==========================================
+	
 	api := r.Group("/api/v1")
 	{
 		// Public Auth Endpoints
@@ -193,9 +190,6 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		}
 	}
 
-	// ==================================================
-	// 2. INFERENCE / DATA PLANE API (/v1) - JWT Auth
-	// ==================================================
 	inferenceV1 := r.Group("/v1")
 	inferenceV1.Use(middleware.AuthMiddleware(cfg.AuthService))
 
