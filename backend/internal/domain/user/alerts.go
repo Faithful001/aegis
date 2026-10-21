@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type AlertSettings struct {
@@ -90,5 +91,23 @@ func (r *GormAlertSettingsRepository) Upsert(
 		return nil
 	}
 
-	return r.db.WithContext(ctx).Save(settings).Error
+	return r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{
+				{Name: "user_id"},
+			},
+			DoUpdates: clause.AssignmentColumns([]string{
+				"is_budget_alert_enabled",
+				"monthly_budget_usd",
+				"threshold_percentage",
+				"alert_email",
+				"is_rate_limit_alert_enabled",
+				"is_failed_request_alert_enabled",
+				"is_modified_credential_alert_enabled",
+				"is_weekly_usage_alert_enabled",
+				"last_alert_sent_at",
+				"updated_at",
+			}),
+		}).
+		Create(settings).Error
 }
