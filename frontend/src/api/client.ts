@@ -95,6 +95,12 @@ apiClient.interceptors.response.use(
           refresh_token: refreshToken,
         });
 
+        // if (res.status !== 200) {
+        //   clearTokens();
+        //   window.dispatchEvent(new Event("unauthorized"));
+        //   throw new Error("Refresh token is invalid");
+        // }
+
         const newTokenData = res.data?.data?.token;
         const newAccessToken = newTokenData?.access_token;
         const newRefreshToken = newTokenData?.refresh_token;

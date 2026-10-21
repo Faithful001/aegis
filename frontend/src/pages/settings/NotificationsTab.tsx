@@ -22,19 +22,19 @@ const NotificationsTab: React.FC = () => {
 
   // Budget Alerts state
   const [budgetEnabled, setBudgetEnabled] = useState(true);
-  const [budgetUSD, setBudgetUSD] = useState("50.00");
-  const [threshold, setThreshold] = useState("80");
+  const [budgetUSD, setBudgetUSD] = useState("0");
+  const [threshold, setThreshold] = useState("0");
   // const [alertEmail, setAlertEmail] = useState("");
+  const [rateLimitAlert, setRateLimitAlert] = useState(true);
+  const [failedRequest, setFailedRequest] = useState(false);
+  const [modifiedCredential, setModifiedCredential] = useState(false);
+  const [weeklyUsage, setWeeklyUsage] = useState(false);
 
   // Other notification toggles matching modern platform alerts
   const [agentResponseAlerts, setAgentResponseAlerts] = useState<boolean>(() => {
     const saved = localStorage.getItem("aegis_notify_agent_response");
     return saved !== null ? JSON.parse(saved) : true;
   });
-  const [failedDeployments, setFailedDeployments] = useState(true);
-  const [successfulDeployments, setSuccessfulDeployments] = useState(false);
-  const [rateLimitAlerts, setRateLimitAlerts] = useState(true);
-  const [keyRevokedAlerts, setKeyRevokedAlerts] = useState(false);
 
   const { data: alertSettings, refetch: refetchAlerts } = useQuery({
     queryKey: ["user", "budget-alerts"],
@@ -43,13 +43,17 @@ const NotificationsTab: React.FC = () => {
 
   useEffect(() => {
     if (alertSettings) {
-      setBudgetEnabled(alertSettings.budget_alert_enabled);
+      setBudgetEnabled(alertSettings.is_budget_alert_enabled);
       setBudgetUSD(
         alertSettings.monthly_budget_usd ? alertSettings.monthly_budget_usd.toString() : "50.00"
       );
       setThreshold(
         alertSettings.threshold_percentage ? alertSettings.threshold_percentage.toString() : "80"
       );
+      setRateLimitAlert(alertSettings.is_rate_limit_alert_enabled);
+      setFailedRequest(alertSettings.is_failed_request_alert_enabled);
+      setModifiedCredential(alertSettings.is_modified_credential_alert_enabled);
+      setWeeklyUsage(alertSettings.is_weekly_usage_alert_enabled);
       // setAlertEmail(alertSettings.alert_email || user?.email || "");
     }
     // else if (user?.email && !alertEmail) {
@@ -61,10 +65,14 @@ const NotificationsTab: React.FC = () => {
     mutationFn: async () => {
       localStorage.setItem("aegis_notify_agent_response", JSON.stringify(agentResponseAlerts));
       return userApi.updateAlertSettings({
-        budget_alert_enabled: budgetEnabled,
+        is_budget_alert_enabled: budgetEnabled,
         monthly_budget_usd: parseFloat(budgetUSD) || 50,
         threshold_percentage: parseInt(threshold) || 80,
         alert_email: user?.email,
+        is_rate_limit_alert_enabled: rateLimitAlert,
+        is_failed_request_alert_enabled: failedRequest,
+        is_modified_credential_alert_enabled: modifiedCredential,
+        is_weekly_usage_alert_enabled: weeklyUsage,
       });
     },
     onSuccess: () => {
@@ -75,6 +83,30 @@ const NotificationsTab: React.FC = () => {
       toast.error(err?.response?.data?.message || "Failed to update notification settings");
     },
   });
+
+  const notificationsChanged = (): boolean => {
+    if (!alertSettings) return false;
+
+    const budget = budgetUSD.trim() === "" ? null : Number(budgetUSD);
+    const savedBudget = Number(alertSettings.monthly_budget_usd);
+
+    const thresholdValue = threshold.trim() === "" ? null : Number(threshold);
+    const savedThreshold = Number(alertSettings.threshold_percentage);
+
+    const notificationsMap = {
+      is_budget_alert_enabled: budgetEnabled !== alertSettings.is_budget_alert_enabled,
+      monthly_budget_usd: budget !== savedBudget,
+      threshold_percentage: thresholdValue !== savedThreshold,
+      is_rate_limit_alert_enabled: rateLimitAlert !== alertSettings.is_rate_limit_alert_enabled,
+      is_failed_request_alert_enabled:
+        failedRequest !== alertSettings.is_failed_request_alert_enabled,
+      is_modified_credential_alert_enabled:
+        modifiedCredential !== alertSettings.is_modified_credential_alert_enabled,
+      is_weekly_usage_alert_enabled: weeklyUsage !== alertSettings.is_weekly_usage_alert_enabled,
+    };
+
+    return Object.values(notificationsMap).some(Boolean);
+  };
 
   const notificationSections: NotificationItem[] = [
     {
@@ -130,31 +162,31 @@ const NotificationsTab: React.FC = () => {
       title: "Rate limit warnings",
       description:
         "When your API calls encounter provider rate limits (HTTP 429) or token capacity caps.",
-      enabled: rateLimitAlerts,
-      toggle: () => setRateLimitAlerts(!rateLimitAlerts),
+      enabled: rateLimitAlert,
+      toggle: () => setRateLimitAlert(!rateLimitAlert),
     },
     {
       id: "failed-requests",
       title: "Failed requests & model outages",
       description:
         "When a connected model provider returns persistent 5xx errors or connection timeouts.",
-      enabled: failedDeployments,
-      toggle: () => setFailedDeployments(!failedDeployments),
+      enabled: failedRequest,
+      toggle: () => setFailedRequest(!failedRequest),
     },
     {
-      id: "key-revocation",
+      id: "modified-credentials",
       title: "Credential status changes",
       description: "When an active API key is invalidated, expired, or modified in the vault.",
-      enabled: keyRevokedAlerts,
-      toggle: () => setKeyRevokedAlerts(!keyRevokedAlerts),
+      enabled: modifiedCredential,
+      toggle: () => setModifiedCredential(!modifiedCredential),
     },
     {
       id: "weekly-digest",
       title: "Weekly usage digest",
       description:
         "Receive a summary of token consumption, model breakdown, and cost estimates every Monday.",
-      enabled: successfulDeployments,
-      toggle: () => setSuccessfulDeployments(!successfulDeployments),
+      enabled: weeklyUsage,
+      toggle: () => setWeeklyUsage(!weeklyUsage),
     },
   ];
 
@@ -198,8 +230,8 @@ const NotificationsTab: React.FC = () => {
         <div className="flex justify-end pt-2">
           <Button
             onClick={() => updateAlertsMutation.mutate()}
-            disabled={updateAlertsMutation.isPending}
-            className="rounded-full px-4 py-2 text-[13px] font-semibold bg-white text-zinc-950 hover:bg-zinc-200 transition-all shadow-sm"
+            disabled={updateAlertsMutation.isPending || !notificationsChanged()}
+            className="rounded-full px-4 py-2 text-[13px] font-semibold bg-white text-zinc-950 transition-all shadow-sm"
           >
             {updateAlertsMutation.isPending ? "Saving changes..." : "Save changes"}
           </Button>

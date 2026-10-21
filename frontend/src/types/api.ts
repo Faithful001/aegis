@@ -120,13 +120,13 @@ export interface PaginatedResult<T> {
 }
 
 export interface TokenActivityBucket {
-  date: string;     // "YYYY-MM-DD" for daily/cumulative, "IYYY-WIW" for weekly
+  date: string; // "YYYY-MM-DD" for daily/cumulative, "IYYY-WIW" for weekly
   tokens: number;
   requests: number;
 }
 
 export interface TokenActivityResponse {
-  granularity: 'daily' | 'weekly' | 'cumulative';
+  granularity: "daily" | "weekly" | "cumulative";
   buckets: TokenActivityBucket[];
   max_tokens: number;
 }
@@ -143,10 +143,14 @@ export interface UserSession {
 export interface UserAlertSettings {
   id?: string;
   user_id?: string;
-  budget_alert_enabled: boolean;
+  is_budget_alert_enabled: boolean;
   monthly_budget_usd: number;
   threshold_percentage: number;
   alert_email: string;
+  is_rate_limit_alert_enabled: boolean;
+  is_failed_request_alert_enabled: boolean;
+  is_modified_credential_alert_enabled: boolean;
+  is_weekly_usage_alert_enabled: boolean;
 }
 
 export interface ConnectedAccountItem {
@@ -161,5 +165,3 @@ export interface ConnectedAccountsResponse {
   accounts: ConnectedAccountItem[];
   has_password: boolean;
 }
-
-

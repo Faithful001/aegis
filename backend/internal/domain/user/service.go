@@ -2,6 +2,8 @@ package user
 
 import (
 	"context"
+	"errors"
+	"log"
 	"strings"
 	"time"
 
@@ -59,68 +61,121 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (*User, erro
 	return s.repo.GetByEmail(ctx, email)
 }
 
-func (s *Service) GetAlertSettings(ctx context.Context, userID uuid.UUID, defaultEmail string) (*UserAlertSettings, error) {
+func newDefaultAlertSettings(
+	userID uuid.UUID,
+	defaultEmail string,
+) *AlertSettings {
+	return &AlertSettings{
+		UserID:                           userID,
+		IsBudgetAlertEnabled:             true,
+		MonthlyBudgetUSD:                 50.00,
+		ThresholdPercentage:              80,
+		AlertEmail:                       defaultEmail,
+		IsRateLimitAlertEnabled:          true,
+		IsFailedRequestAlertEnabled:      false,
+		IsModifiedCredentialAlertEnabled: false,
+		IsWeeklyUsageAlertEnabled:        false,
+	}
+}
+
+func (s *Service) GetAlertSettings(
+	ctx context.Context,
+	userID uuid.UUID,
+	defaultEmail string,
+) (*AlertSettings, error) {
 	if s.alertRepo == nil {
-		return &UserAlertSettings{
-			UserID:              userID,
-			BudgetAlertEnabled:  true,
-			MonthlyBudgetUSD:    50.00,
-			ThresholdPercentage: 80,
-			AlertEmail:          defaultEmail,
-		}, nil
+		return newDefaultAlertSettings(userID, defaultEmail), nil
 	}
 
 	settings, err := s.alertRepo.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	if settings == nil {
-		settings = &UserAlertSettings{
-			UserID:              userID,
-			BudgetAlertEnabled:  true,
-			MonthlyBudgetUSD:    50.00,
-			ThresholdPercentage: 80,
-			AlertEmail:          defaultEmail,
-		}
-		_ = s.alertRepo.Upsert(ctx, settings)
+
+	if settings != nil {
+		return settings, nil
 	}
+
+	settings = newDefaultAlertSettings(userID, defaultEmail)
+
+	log.Printf("Creating alert settings for user %s", userID)
+
+	if err := s.alertRepo.Upsert(ctx, settings); err != nil {
+		log.Printf("Failed to create alert settings for user %s: %v", userID, err)
+		return nil, err
+	}
+
 	return settings, nil
 }
 
-func (s *Service) UpdateAlertSettings(ctx context.Context, userID uuid.UUID, dto UpdateAlertSettingsDTO) (*UserAlertSettings, error) {
+func (s *Service) UpdateAlertSettings(
+	ctx context.Context,
+	userID uuid.UUID,
+	dto UpdateAlertSettingsDTO,
+) (*AlertSettings, error) {
 	if s.alertRepo == nil {
-		return nil, nil
+		return nil, errors.New("alert settings repository is unavailable")
 	}
+
 	settings, err := s.alertRepo.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
+
 	if settings == nil {
-		settings = &UserAlertSettings{
-			UserID:              userID,
-			BudgetAlertEnabled:  true,
-			MonthlyBudgetUSD:    50.00,
-			ThresholdPercentage: 80,
-		}
+		return nil, errors.New("alert settings not found; initialize settings before updating")
 	}
 
-	if dto.BudgetAlertEnabled != nil {
-		settings.BudgetAlertEnabled = *dto.BudgetAlertEnabled
+	if err := validateAlertSettingsUpdate(dto); err != nil {
+		return nil, err
 	}
+
+	if dto.IsBudgetAlertEnabled != nil {
+		settings.IsBudgetAlertEnabled = *dto.IsBudgetAlertEnabled
+	}
+
 	if dto.MonthlyBudgetUSD != nil {
 		settings.MonthlyBudgetUSD = *dto.MonthlyBudgetUSD
 	}
+
 	if dto.ThresholdPercentage != nil {
 		settings.ThresholdPercentage = *dto.ThresholdPercentage
 	}
-	if dto.AlertEmail != nil {
-		settings.AlertEmail = *dto.AlertEmail
+
+	if dto.IsRateLimitAlertEnabled != nil {
+		settings.IsRateLimitAlertEnabled = *dto.IsRateLimitAlertEnabled
+	}
+
+	if dto.IsFailedRequestAlertEnabled != nil {
+		settings.IsFailedRequestAlertEnabled = *dto.IsFailedRequestAlertEnabled
+	}
+
+	if dto.IsModifiedCredentialAlertEnabled != nil {
+		settings.IsModifiedCredentialAlertEnabled = *dto.IsModifiedCredentialAlertEnabled
+	}
+
+	if dto.IsWeeklyUsageAlertEnabled != nil {
+		settings.IsWeeklyUsageAlertEnabled = *dto.IsWeeklyUsageAlertEnabled
 	}
 
 	if err := s.alertRepo.Upsert(ctx, settings); err != nil {
 		return nil, err
 	}
+
 	return settings, nil
+}
+
+func validateAlertSettingsUpdate(dto UpdateAlertSettingsDTO) error {
+	if dto.MonthlyBudgetUSD != nil && *dto.MonthlyBudgetUSD < 0 {
+		return errors.New("monthly budget cannot be negative")
+	}
+
+	if dto.ThresholdPercentage != nil &&
+		(*dto.ThresholdPercentage < 1 || *dto.ThresholdPercentage > 100) {
+		return errors.New("threshold percentage must be between 1 and 100")
+	}
+
+	return nil
 }
 
 func (s *Service) ExportUserData(ctx context.Context, userID uuid.UUID) (map[string]interface{}, error) {

@@ -57,7 +57,7 @@ func main() {
 			&thread.Thread{},
 			&thread.Message{},
 			&auth.UserSession{},
-			&user.UserAlertSettings{},
+			&user.AlertSettings{},
 		}
 		if err := db.AutoMigrate(migrationModels...); err != nil {
 			logger.Error("Failed to run database migrations", "error", err)
