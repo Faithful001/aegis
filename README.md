@@ -51,7 +51,7 @@ Running an LLM-powered service in production is not primarily an AI problem: it 
 - How do you record token usage reliably even if a worker crashes mid-stream?
 - How do you guarantee that usage events are processed exactly once even with Kafka redelivery?
 
-Aegis is designed to surface and solve those problems in a clean, well-structured codebase. The LLM itself (Mistral via LangChain) is the _payload_: the interesting engineering is everything around it.
+Aegis is designed to surface and solve those problems in a clean, well-structured codebase. The LLM itself is the _payload_: the interesting engineering is everything around it.
 
 ---
 
@@ -85,21 +85,21 @@ aegis/
 
 ### Backend
 
-| Layer             | Technology                       |
-| ----------------- | -------------------------------- |
-| Control plane     | Go 1.26+                         |
-| HTTP framework    | Gin                              |
-| Inference workers | Python 3.12+                     |
-| LLM orchestration | LangChain                        |
-| LLM provider      | Mistral (via BYOK API key)       |
-| Go to Python RPC  | gRPC / Protocol Buffers          |
-| Token streaming   | gRPC server-side streaming → SSE |
-| Async event bus   | Kafka (segmentio/kafka-go)       |
-| Distributed state | Redis (go-redis/v9)              |
-| Durable storage   | PostgreSQL (GORM + pgx/v5)       |
-| Observability     | OpenTelemetry + Prometheus       |
-| Containerisation  | Docker / Docker Compose          |
-| Orchestration     | Kubernetes                       |
+| Layer             | Technology                                |
+| ----------------- | ----------------------------------------- |
+| Control plane     | Go 1.26+                                  |
+| HTTP framework    | Gin                                       |
+| Inference workers | Python 3.12+                              |
+| LLM orchestration | LangChain                                 |
+| LLM provider      | Multiple LLM providers (via BYOK API key) |
+| Go to Python RPC  | gRPC / Protocol Buffers                   |
+| Token streaming   | gRPC server-side streaming → SSE          |
+| Async event bus   | Kafka (segmentio/kafka-go)                |
+| Distributed state | Redis (go-redis/v9)                       |
+| Durable storage   | PostgreSQL (GORM + pgx/v5)                |
+| Observability     | OpenTelemetry + Prometheus                |
+| Containerisation  | Docker / Docker Compose                   |
+| Orchestration     | Kubernetes                                |
 
 ---
 
@@ -138,7 +138,7 @@ aegis/
                            LangChain
                                │
                                ▼
-                             Mistral
+      OpenAI │ Anthropic │ Google Gemini │ Mistral │ OpenRouter
 
 
                           Async Events
@@ -215,7 +215,7 @@ Responsibilities:
 - Register with the Go backend on startup and send periodic heartbeats
 - Advertise which models they support
 - Accept `Generate` RPC calls from Go
-- Use **LangChain** to interact with the Mistral API using the user's BYOK key
+- Use **LangChain** to interact with supported LLM providers using the user's BYOK keys.
 - Stream generated tokens back over the gRPC connection
 - Publish a `UsageEvent` to Kafka at inference completion (actual token counts from the model)
 - Handle cancellation, timeouts, and graceful drain on shutdown
@@ -232,7 +232,7 @@ Kafka decouples inference completion from usage persistence. The Python worker d
 | `aegis.usage.events`     | Python worker | Go metering consumer |
 | `aegis.dlq`              | All consumers | Manual investigation |
 
-Token streaming does **not** go through Kafka. Tokens flow: `Mistral → LangChain → gRPC stream → Go → SSE → Client`.
+Token streaming does **not** go through Kafka. Tokens flow: `LLM Provider → LangChain → gRPC stream → Go → SSE → Client`.
 
 ### Redis: Distributed Ephemeral State
 
@@ -300,7 +300,7 @@ Scheduler               select best available worker
   ▼
 Python Worker
   │
-LangChain → Mistral API   (user BYOK key used here)
+LangChain → Selected LLM Provider API (user's BYOK key used here)
   │
 token stream
   ▼
@@ -374,11 +374,11 @@ Infrastructure (`backend/internal/infra/`) implements the interfaces defined by 
 
 ## BYOK Model
 
-Aegis operates a **Bring Your Own Key** model. Users register their own Mistral API keys via the Settings page in the dashboard. When an inference request is admitted and dispatched to a Python worker, the worker retrieves the user's provider key (decrypted from secure storage) and uses it to call Mistral directly.
+Aegis operates a **Bring Your Own Key** model. Users register their own LLM provider API keys via the Settings page in the dashboard. When an inference request is admitted and dispatched to a Python worker, the worker retrieves the user's provider key (decrypted from secure storage) and uses it to call the LLM provider directly.
 
 Implications:
 
-- Aegis has **no billing responsibility**: the user pays Mistral directly for tokens consumed
+- Aegis has **no billing responsibility**: the user pays the LLM provider directly for tokens consumed
 - Aegis does **meter usage**: token counts are recorded per project and organisation for quota enforcement and analytics visible in the dashboard
 - Provider keys are **never logged** and never included in inference job records
 - Key rotation and revocation are supported at the project level via the dashboard
@@ -504,14 +504,13 @@ Secrets (API keys, provider keys, passwords) are **never logged**.
 
 ## Getting Started
 
-**Prerequisites:** Node.js 20+, Docker, Docker Compose, a Mistral API key.
+**Prerequisites:** Node.js 20+, Docker, and Docker Compose. Users can configure their LLM provider and API key through the frontend settings page.
 
 ### 1. Backend
 
 ```bash
 cd backend
 cp .env.example .env
-# Fill in MISTRAL_API_KEY and other values
 
 docker compose up
 ```
