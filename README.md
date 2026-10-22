@@ -2,7 +2,7 @@
 
 > A distributed harness for running AI inference reliably under load. Handles scheduling, admission control, rate limiting, and durable usage metering, and it’s built around BYOK so customers keep control of their own model credentials.
 
-Aegis is not a chatbot, a RAG application, or a simple LLM API wrapper.
+Aegis is not just a chatbot, a RAG application, or a simple LLM API wrapper.
 
 It is a distributed infrastructure harness that simulates the engineering problems encountered when operating an AI inference platform at scale. Users supply their own API keys (BYOK, Bring Your Own Key) to interact with upstream LLM providers directly. There is no platform-level billing. Instead the platform focuses on **secure key management**, **admission control**, **distributed rate limiting**, **capacity-aware scheduling**, and **durable usage metering**.
 
