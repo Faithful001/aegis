@@ -22,10 +22,11 @@ var (
 
 // Normalized profile data returned by OAuth providers.
 type OAuthProfile struct {
-	ProviderUserID string
-	Email          string
-	Name           string
-	AvatarURL      string
+    ProviderUserID string
+    Email          string
+    EmailVerified  bool
+    Name           string
+    AvatarURL      string
 }
 
 // ExchangeGoogleCode exchanges an authorization code with Google for user info.
@@ -99,10 +100,11 @@ func ExchangeGoogleCode(ctx context.Context, clientID, clientSecret, redirectURI
 	}
 
 	var profileResp struct {
-		Sub     string `json:"sub"`
-		Email   string `json:"email"`
-		Name    string `json:"name"`
-		Picture string `json:"picture"`
+		Sub     		string `json:"sub"`
+		Email   		string `json:"email"`
+		EmailVerified 	bool   `json:"email_verified"`
+		Name    		string `json:"name"`
+		Picture 		string `json:"picture"`
 	}
 	if err := json.Unmarshal(userBody, &profileResp); err != nil {
 		return nil, fmt.Errorf("failed to decode google profile: %w", err)
@@ -116,6 +118,7 @@ func ExchangeGoogleCode(ctx context.Context, clientID, clientSecret, redirectURI
 		ProviderUserID: profileResp.Sub,
 		Email:          strings.ToLower(strings.TrimSpace(profileResp.Email)),
 		Name:           profileResp.Name,
+		EmailVerified:  profileResp.EmailVerified,
 		AvatarURL:      profileResp.Picture,
 	}, nil
 }
