@@ -20,7 +20,6 @@ export const OAuthCallbackPage: React.FC = () => {
     executedRef.current = true;
 
     const handleCallback = async () => {
-      // 1. Extract query params from searchParams or window.location.search
       const urlParams = new URLSearchParams(window.location.search);
       const code = searchParams?.code || urlParams.get("code");
       const state = searchParams?.state || urlParams.get("state");
@@ -106,7 +105,7 @@ export const OAuthCallbackPage: React.FC = () => {
           <h2 className="text-lg font-medium text-white tracking-tight">
             Completing authentication...
           </h2>
-          <p className="text-xs text-zinc-500 max-w-xs mx-auto">
+          <p className="text-xs text-zinc-500 max-w-xs mx-auto text-center">
             Securely exchanging credentials and establishing your Aegis session.
           </p>
         </div>
@@ -119,7 +118,9 @@ export const OAuthCallbackPage: React.FC = () => {
             <h2 className="text-base font-medium text-white tracking-tight">
               Authentication Failed
             </h2>
-            <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">{errorMessage}</p>
+            <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed text-center">
+              {errorMessage}
+            </p>
           </div>
           <div className="pt-2">
             <Button

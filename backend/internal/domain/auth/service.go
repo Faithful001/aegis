@@ -793,44 +793,45 @@ func (s *AuthService) GetOAuthURL(provider string, state string) (string, error)
 }
 
 // HandleOAuthCallback handles the exchange of OAuth code, finds or creates user directly, and returns tokens.
+
 func (s *AuthService) HandleOAuthCallback(
-    ctx context.Context,
-    provider, code, ipAddress, userAgent string,
+	ctx context.Context,
+	provider, code, ipAddress, userAgent string,
 ) (*dto.AuthResponse, error) {
-    provider = strings.ToLower(strings.TrimSpace(provider))
+	provider = strings.ToLower(strings.TrimSpace(provider))
 
-    var (
-        profile *OAuthProfile
-        err     error
-    )
+	var (
+		profile *OAuthProfile
+		err     error
+	)
 
-    switch provider {
-    case "google":
-        profile, err = ExchangeGoogleCode(
-            ctx,
-            s.oauthConfig.GoogleClientID,
-            s.oauthConfig.GoogleClientSecret,
-            s.oauthConfig.GoogleRedirectURI,
-            code,
-        )
-    case "github":
-        profile, err = ExchangeGitHubCode(
-            ctx,
-            s.oauthConfig.GitHubClientID,
-            s.oauthConfig.GitHubClientSecret,
-            s.oauthConfig.GitHubRedirectURI,
-            code,
-        )
-    default:
-        return nil, ErrOAuthProviderNotSupported
-    }
+	switch provider {
+	case "google":
+		profile, err = ExchangeGoogleCode(
+			ctx,
+			s.oauthConfig.GoogleClientID,
+			s.oauthConfig.GoogleClientSecret,
+			s.oauthConfig.GoogleRedirectURI,
+			code,
+		)
+	case "github":
+		profile, err = ExchangeGitHubCode(
+			ctx,
+			s.oauthConfig.GitHubClientID,
+			s.oauthConfig.GitHubClientSecret,
+			s.oauthConfig.GitHubRedirectURI,
+			code,
+		)
+	default:
+		return nil, ErrOAuthProviderNotSupported
+	}
 
-    if err != nil {
-        return nil, fmt.Errorf("failed to exchange OAuth code: %w", err)
-    }
+	if err != nil {
+		return nil, fmt.Errorf("failed to exchange OAuth code: %w", err)
+	}
 
-    if profile == nil {
-    	return nil, errors.New("OAuth provider returned an empty profile")
+	if profile == nil {
+		return nil, errors.New("OAuth provider returned an empty profile")
 	}
 
 	if strings.TrimSpace(profile.ProviderUserID) == "" {
@@ -846,117 +847,130 @@ func (s *AuthService) HandleOAuthCallback(
 		return nil, ErrOAuthEmailNotVerified
 	}
 
-    var userEntity *user.User
+	var userEntity *user.User
 
-    switch provider {
-    case "google":
-        userEntity, err = s.userRepo.GetByGoogleID(
-            ctx, profile.ProviderUserID,
-        )
-    case "github":
-        userEntity, err = s.userRepo.GetByGithubID(
-            ctx, profile.ProviderUserID,
-        )
-    }
+	switch provider {
+	case "google":
+		userEntity, err = s.userRepo.GetByGoogleID(
+			ctx, profile.ProviderUserID,
+		)
+	case "github":
+		userEntity, err = s.userRepo.GetByGithubID(
+			ctx, profile.ProviderUserID,
+		)
+	}
 
-    if err != nil && !errors.Is(err, user.ErrUserNotFound) {
-        return nil, fmt.Errorf("failed to find OAuth user: %w", err)
-    }
+	if err != nil && !errors.Is(err, user.ErrUserNotFound) {
+		return nil, fmt.Errorf("failed to find OAuth user: %w", err)
+	}
 
-    if errors.Is(err, user.ErrUserNotFound) {
-        userEntity = nil
-    }
+	if errors.Is(err, user.ErrUserNotFound) {
+		userEntity = nil
+	}
 
-    if userEntity == nil {
-        existingUser, err := s.userRepo.GetByEmail(ctx, email)
+	if userEntity == nil {
+		newUser := user.NewOAuthUser(
+			profile.Name,
+			email,
+			profile.AvatarURL,
+		)
 
-        if err != nil && !errors.Is(err, user.ErrUserNotFound) {
-            return nil, fmt.Errorf("failed to find user by email: %w", err)
-        }
+		switch provider {
+		case "google":
+			newUser.GoogleID = profile.ProviderUserID
+		case "github":
+			newUser.GithubID = profile.ProviderUserID
+		}
 
-        if existingUser != nil {
-            return nil, ErrAccountAlreadyExists
-        }
+		createdUser, created, err := s.userRepo.FindOrCreateOAuthUser(
+			ctx,
+			newUser,
+		)
+		if err != nil {
+			// a concurrent request may have created the account first.
+			existingUser, lookupErr := s.userRepo.GetByEmail(ctx, email)
+			if lookupErr == nil && existingUser != nil {
+				if existingUser.HasPassword() {
+					return nil, ErrUsePasswordLogin
+				}
 
-        newUser := user.NewOAuthUser(
-            profile.Name,
-            email,
-            profile.AvatarURL,
-        )
+				return nil, ErrAccountAlreadyExists
+			}
 
-        switch provider {
-        case "google":
-            newUser.GoogleID = profile.ProviderUserID
-        case "github":
-            newUser.GithubID = profile.ProviderUserID
-        }
+			return nil, fmt.Errorf("failed to create OAuth user: %w", err)
+		}
 
-        if err := s.userRepo.Create(ctx, newUser); err != nil {
-            return nil, fmt.Errorf("failed to create OAuth user: %w", err)
-        }
+		if !created {
+			if createdUser.HasPassword() {
+				return nil, ErrUsePasswordLogin
+			}
 
-        userEntity = newUser
-    }
+			// do not silently link an OAuth provider to an existing account.
+			return nil, ErrAccountAlreadyExists
+		}
 
-    // 6. Ensure the account is active.
-    if !userEntity.IsActive() {
-        return nil, user.ErrUserInactive
-    }
+		userEntity = createdUser
+	}
 
-    // 7. Generate access and refresh tokens.
-    tokenPair, accessClaims, refreshClaims, err :=
-        s.tokenService.GenerateTokenPair(
-            userEntity.ID,
-            userEntity.Email,
-        )
+	if userEntity.HasPassword() {
+		return nil, ErrUsePasswordLogin
+	}
 
-    if err != nil {
-        return nil, fmt.Errorf("failed to generate token pair: %w", err)
-    }
+	if !userEntity.IsActive() {
+		return nil, user.ErrUserInactive
+	}
 
-    // 8. Register the session if session persistence is enabled.
-    if s.sessionRepo != nil {
-        if accessClaims == nil || refreshClaims == nil {
-            return nil, errors.New("token generation returned missing claims")
-        }
+	tokenPair, accessClaims, refreshClaims, err :=
+		s.tokenService.GenerateTokenPair(
+			userEntity.ID,
+			userEntity.Email,
+		)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate token pair: %w", err)
+	}
 
-        if err := s.sessionRepo.RevokeDeviceSessions(
-            ctx,
-            userEntity.ID,
-            ipAddress,
-            userAgent,
-        ); err != nil {
-            return nil, fmt.Errorf("failed to revoke device sessions: %w", err)
-        }
+	if s.sessionRepo != nil {
+		if accessClaims == nil || refreshClaims == nil {
+			return nil, errors.New("token generation returned missing claims")
+		}
 
-        sess := &UserSession{
-            UserID:       userEntity.ID,
-            AccessJTI:    accessClaims.JTI,
-            RefreshJTI:   refreshClaims.JTI,
-            IPAddress:    ipAddress,
-            UserAgent:    userAgent,
-            DeviceName:   ParseDeviceName(userAgent),
-            LastActiveAt: time.Now().UTC(),
-            ExpiresAt:    refreshClaims.ExpiresAt,
-            IsRevoked:    false,
-        }
+		if err := s.sessionRepo.RevokeDeviceSessions(
+			ctx,
+			userEntity.ID,
+			ipAddress,
+			userAgent,
+		); err != nil {
+			return nil, fmt.Errorf("failed to revoke device sessions: %w", err)
+		}
 
-        if err := s.sessionRepo.Create(ctx, sess); err != nil {
-            return nil, fmt.Errorf("failed to create user session: %w", err)
-        }
-    }
+		session := &UserSession{
+			UserID:       userEntity.ID,
+			AccessJTI:    accessClaims.JTI,
+			RefreshJTI:   refreshClaims.JTI,
+			IPAddress:    ipAddress,
+			UserAgent:    userAgent,
+			DeviceName:   ParseDeviceName(userAgent),
+			LastActiveAt: time.Now().UTC(),
+			ExpiresAt:    refreshClaims.ExpiresAt,
+			IsRevoked:    false,
+		}
 
-    // 9. Return the authentication response.
-    return &dto.AuthResponse{
-        Token: dto.TokenResponse{
-            AccessToken:  tokenPair.AccessToken,
-            RefreshToken: tokenPair.RefreshToken,
-            TokenType:    tokenPair.TokenType,
-            ExpiresIn:    tokenPair.ExpiresIn,
-        },
-        User: userEntity,
-    }, nil
+		if err := s.sessionRepo.Create(ctx, session); err != nil {
+			return nil, fmt.Errorf("failed to create user session: %w", err)
+		}
+	}
+
+	return &dto.AuthResponse{
+		Token: dto.TokenResponse{
+			AccessToken:  tokenPair.AccessToken,
+			RefreshToken: tokenPair.RefreshToken,
+			TokenType:    tokenPair.TokenType,
+			ExpiresIn:    tokenPair.ExpiresIn,
+		},
+		User: userEntity,
+	}, nil
 }
+
 
 // ListConnectedAccounts returns all connected OAuth providers for the given user.
 func (s *AuthService) ListConnectedAccounts(ctx context.Context, userID uuid.UUID) (*dto.ConnectedAccountsResponse, error) {
