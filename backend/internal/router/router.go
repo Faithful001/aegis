@@ -101,7 +101,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			authRoutes.POST("/login", cfg.AuthController.Login)
 			authRoutes.POST("/refresh", cfg.AuthController.RefreshToken)
 			authRoutes.POST("/logout", cfg.AuthController.Logout)
-			// Public OTP routes (no JWT required)
+			
 			if cfg.AuthController != nil {
 				authRoutes.POST("/forgot-password", cfg.AuthController.ForgotPassword)
 				authRoutes.POST("/verify-reset-otp", cfg.AuthController.VerifyResetOTP)
@@ -110,7 +110,6 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 				authRoutes.POST("/send-verification-email", cfg.AuthController.SendVerificationEmail)
 				authRoutes.POST("/verify-email", cfg.AuthController.VerifyEmail)
 
-				// Public OAuth 2.0 routes (Google & GitHub)
 				authRoutes.GET("/oauth/:provider/url", cfg.AuthController.GetOAuthURL)
 				authRoutes.POST("/oauth/:provider/callback", cfg.AuthController.OAuthCallback)
 			}
