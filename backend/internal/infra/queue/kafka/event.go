@@ -8,9 +8,10 @@ import (
 )
 
 const (
-	TopicUsageEvents = "aegis.events.usage"
-	TopicJobEvents   = "aegis.events.jobs"
-	TopicEmailEvents = "aegis.events.email"
+	TopicUsageEvents         = "aegis.events.usage"
+	TopicJobEvents           = "aegis.events.jobs"
+	TopicEmailEvents         = "aegis.events.email"
+	TopicFailedRequestEvents = "aegis.events.failed_requests"
 )
 
 // Event is the interface implemented by all infrastructure events.

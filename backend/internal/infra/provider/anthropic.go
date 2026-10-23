@@ -5,8 +5,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -137,7 +139,7 @@ func (a *AnthropicAdapter) Generate(
 	httpReq.Header.Set("x-api-key", apiKey)
 	httpReq.Header.Set("anthropic-version", "2023-06-01")
 
-	resp, err := a.httpClient.Do(httpReq)
+	resp, err := a.doWithRetry(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrProviderAPIError, err)
 	}
@@ -376,4 +378,92 @@ func (a *AnthropicAdapter) ListModels(ctx context.Context, apiKey, baseURL strin
 	}
 
 	return results, nil
+}
+
+func (a *AnthropicAdapter) doWithRetry(
+    req *http.Request,
+) (*http.Response, error) {
+    const maxAttempts = 3
+
+    var lastErr error
+
+    for attempt := 0; attempt < maxAttempts; attempt++ {
+        // Recreate the request body for each attempt.
+        retryReq := req.Clone(req.Context())
+
+        if req.Body != nil {
+            if req.GetBody == nil {
+                return nil, fmt.Errorf(
+                    "cannot retry request: body is not replayable",
+                )
+            }
+
+            body, err := req.GetBody()
+            if err != nil {
+                return nil, fmt.Errorf(
+                    "failed to recreate request body: %w", err,
+                )
+            }
+            retryReq.Body = body
+        }
+
+        resp, err := a.httpClient.Do(retryReq)
+
+        if err == nil && !isRetryableStatus(resp.StatusCode) {
+            return resp, nil
+        }
+
+        if err == nil {
+            // Retryable 5xx response. Close it before retrying.
+            _, _ = io.Copy(
+                io.Discard,
+                io.LimitReader(resp.Body, 64*1024),
+            )
+            _ = resp.Body.Close()
+
+            lastErr = fmt.Errorf(
+                "Anthropic returned HTTP %d", resp.StatusCode,
+            )
+        } else {
+            // Don't retry if the caller cancelled the request.
+            if req.Context().Err() != nil {
+                return nil, req.Context().Err()
+            }
+
+            var netErr net.Error
+            if !errors.As(err, &netErr) || !netErr.Timeout() {
+                return nil, fmt.Errorf(
+                    "Anthropic request failed: %w", err,
+                )
+            }
+
+            lastErr = err
+        }
+
+        if attempt == maxAttempts-1 {
+            break
+        }
+
+        // 200ms, then 400ms.
+        delay := 200 * time.Millisecond * time.Duration(1<<attempt)
+
+        timer := time.NewTimer(delay)
+        select {
+        case <-req.Context().Done():
+            timer.Stop()
+            return nil, req.Context().Err()
+        case <-timer.C:
+        }
+    }
+
+    return nil, fmt.Errorf(
+        "%w: Anthropic request failed after %d attempts: %w",
+        ErrProviderAPIError,
+        maxAttempts,
+        lastErr,
+    )
+}
+
+func isRetryableStatus(statusCode int) bool {
+    return statusCode >= 500 && statusCode <= 599
 }

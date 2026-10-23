@@ -8,11 +8,17 @@ import (
 	"time"
 
 	"github.com/Faithful001/aegis/internal/domain/inference/dto"
+	notificationEvent "github.com/Faithful001/aegis/internal/domain/notification"
 	"github.com/Faithful001/aegis/internal/domain/provider"
 	providerDTO "github.com/Faithful001/aegis/internal/domain/provider/dto"
 	"github.com/Faithful001/aegis/internal/domain/scheduler"
 	"github.com/Faithful001/aegis/internal/infra/queue/kafka"
 	"github.com/google/uuid"
+)
+
+var (
+	ErrProviderAPIError = errors.New("external provider API error")
+	ErrUnsupportedModel = errors.New("unsupported model for provider")
 )
 
 type ProviderGateway interface {
@@ -231,6 +237,19 @@ func (s *InferenceService) ExecuteStreamChatCompletion(
 
 			chunkChan, err := s.providerGateway.StreamGenerate(ctx, providerName, apiKey, baseURL, req)
 			if err != nil {
+				if errors.Is(err, ErrProviderAPIError) {
+					// send to failed request notification queue
+					evt := notificationEvent.NewFailedRequestEvent(
+						reqID,
+						userID,
+						userID,
+						userID,
+						req.Model,
+						"Failed to generate chat completion",
+						err.Error(),
+					)
+					_ = s.eventProducer.Publish(ctx, kafka.TopicFailedRequestEvents, reqID, evt)
+				}
 				return nil, nil, err
 			}
 
