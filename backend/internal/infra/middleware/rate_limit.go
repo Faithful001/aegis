@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Faithful001/aegis/internal/domain/notification"
+	"github.com/Faithful001/aegis/internal/infra/queue/kafka"
 	"github.com/Faithful001/aegis/internal/infra/ratelimiter"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -21,7 +23,12 @@ const (
 	DefaultTPM = 100000
 )
 
-func RateLimitMiddleware(limiter ratelimiter.RateLimiter) gin.HandlerFunc {
+func RateLimitMiddleware(limiter ratelimiter.RateLimiter, producer ...kafka.EventProducer) gin.HandlerFunc {
+	var eventProducer kafka.EventProducer
+	if len(producer) > 0 {
+		eventProducer = producer[0]
+	}
+
 	return func(c *gin.Context) {
 		if limiter == nil {
 			c.Next()
@@ -61,6 +68,19 @@ func RateLimitMiddleware(limiter ratelimiter.RateLimiter) gin.HandlerFunc {
 				if retrySecs < 1 {
 					retrySecs = 1
 				}
+
+				if eventProducer != nil {
+					evt := notification.NewRateLimitEvent(
+						userID,
+						userID,
+						uuid.Nil,
+						c.Request.URL.Path,
+						"Rate Limit Warning",
+						fmt.Sprintf("Rate limit of %d RPM exceeded on %s. Please retry in %d seconds.", res.Limit, c.Request.URL.Path, retrySecs),
+					)
+					_ = eventProducer.Publish(ctx, kafka.TopicRateLimitEvents, userID.String(), evt)
+				}
+
 				c.Header(HeaderRetryAfter, strconv.Itoa(retrySecs))
 				c.JSON(http.StatusTooManyRequests, gin.H{
 					"success": false,

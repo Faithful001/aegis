@@ -10,6 +10,7 @@ import (
 
 type IEmailService interface {
 	SendOTPEmail(ctx context.Context, toEmail, name, otpCode string, purpose otp.OTPPurpose) error
+	SendAlertEmail(ctx context.Context, toEmail, subject, htmlBody string) error
 }
 
 type EmailService struct {
@@ -44,6 +45,18 @@ func (e *EmailService) SendOTPEmail(ctx context.Context, toEmail, name, otpCode 
 		To:      []string{toEmail},
 		Subject: subject,
 		Html:    body,
+	}
+
+	_, err := e.client.Emails.Send(params)
+	return err
+}
+
+func (e *EmailService) SendAlertEmail(ctx context.Context, toEmail, subject, htmlBody string) error {
+	params := &resend.SendEmailRequest{
+		From:    e.fromAddr,
+		To:      []string{toEmail},
+		Subject: subject,
+		Html:    htmlBody,
 	}
 
 	_, err := e.client.Emails.Send(params)

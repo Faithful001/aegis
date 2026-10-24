@@ -7,7 +7,9 @@ import (
 	"log"
 	"strings"
 
+	"github.com/Faithful001/aegis/internal/domain/notification"
 	"github.com/Faithful001/aegis/internal/domain/provider/dto"
+	"github.com/Faithful001/aegis/internal/infra/queue/kafka"
 	"github.com/Faithful001/aegis/internal/pkg/crypto"
 	"github.com/google/uuid"
 )
@@ -20,6 +22,7 @@ type ProviderCredentialService struct {
 	repo          IProviderCredentialRepository
 	encryptionKey []byte
 	gateway       ProviderModelLister
+	eventProducer kafka.EventProducer
 }
 
 func NewProviderCredentialService(repo IProviderCredentialRepository, encryptionKey string) *ProviderCredentialService {
@@ -35,6 +38,10 @@ func NewProviderCredentialService(repo IProviderCredentialRepository, encryption
 
 func (s *ProviderCredentialService) SetGateway(gw ProviderModelLister) {
 	s.gateway = gw
+}
+
+func (s *ProviderCredentialService) SetEventProducer(ep kafka.EventProducer) {
+	s.eventProducer = ep
 }
 
 func (s *ProviderCredentialService) SaveCredential(
@@ -65,6 +72,17 @@ func (s *ProviderCredentialService) SaveCredential(
 
 	if err := s.repo.Save(ctx, cred); err != nil {
 		return nil, err
+	}
+
+	if s.eventProducer != nil {
+		evt := notification.NewModifiedCredentialEvent(
+			userID,
+			"provider_credential_saved",
+			"",
+			"Provider API Key Configured",
+			fmt.Sprintf("Your API key for provider '%s' was successfully saved.", provider),
+		)
+		_ = s.eventProducer.Publish(ctx, kafka.TopicModifiedCredentialEvents, userID.String(), evt)
 	}
 
 	return &dto.CredentialResponse{
@@ -137,7 +155,22 @@ func (s *ProviderCredentialService) DeleteCredential(
 	if !IsSupportedProvider(provider) {
 		return ErrInvalidProvider
 	}
-	return s.repo.Delete(ctx, userID, provider)
+	if err := s.repo.Delete(ctx, userID, provider); err != nil {
+		return err
+	}
+
+	if s.eventProducer != nil {
+		evt := notification.NewModifiedCredentialEvent(
+			userID,
+			"provider_credential_deleted",
+			"",
+			"Provider API Key Removed",
+			fmt.Sprintf("Your API key for provider '%s' was removed from Aegis.", provider),
+		)
+		_ = s.eventProducer.Publish(ctx, kafka.TopicModifiedCredentialEvents, userID.String(), evt)
+	}
+
+	return nil
 }
 
 func (s *ProviderCredentialService) ListProviderModels(

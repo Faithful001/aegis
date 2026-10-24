@@ -12,6 +12,7 @@ import (
 
 	"github.com/Faithful001/aegis/internal/domain/auth"
 	"github.com/Faithful001/aegis/internal/domain/inference"
+	"github.com/Faithful001/aegis/internal/domain/notification"
 	"github.com/Faithful001/aegis/internal/domain/otp"
 	"github.com/Faithful001/aegis/internal/domain/provider"
 	"github.com/Faithful001/aegis/internal/domain/scheduler"
@@ -131,6 +132,7 @@ func main() {
 	userService.SetDB(database)
 	usageService := usage.NewUsageService(usageRepo, logger)
 	providerService := provider.NewProviderCredentialService(providerRepo, cfg.JWT.Secret)
+	providerService.SetEventProducer(eventProducer)
 
 	// initialize email + OTP service
 	if cfg.Resend.APIKey != "" {
@@ -154,6 +156,17 @@ func main() {
 	if err := emailConsumer.Start(context.Background()); err != nil {
 		logger.Warn("Could not start email consumer background listener", "error", err)
 	}
+
+	notifRepo := notification.NewNotificationRepository()
+	notifService := notification.NewNotificationService(notifRepo, alertRepo, emailService)
+	notifConsumer := notification.NewNotificationConsumer(eventConsumer, notifService, logger)
+	if err := notifConsumer.Start(context.Background()); err != nil {
+		logger.Warn("Could not start notification consumer background listener", "error", err)
+	}
+
+	notifScheduler := notification.NewNotificationScheduler(alertRepo, usageService, eventProducer, notifService, logger)
+	notifScheduler.Start(context.Background())
+	defer notifScheduler.Stop()
 
 	// initialize worker client, capacity scheduler & byok provider gateway
 	sched := scheduler.NewWeightedScoreScheduler(workerReg, logger)
@@ -196,6 +209,7 @@ func main() {
 		ProviderController:  providerController,
 		UserController:      userController,
 		ThreadController:    threadController,
+		EventProducer:       eventProducer,
 	})
 
 	srv := &http.Server{

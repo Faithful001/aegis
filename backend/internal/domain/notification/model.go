@@ -7,6 +7,16 @@ import (
 	"gorm.io/gorm"
 )
 
+type NotificationType string
+
+const (
+	TypeBudgetAlert        NotificationType = "budget_alert"
+	TypeRateLimit          NotificationType = "rate_limit"
+	TypeFailedRequest      NotificationType = "failed_request"
+	TypeModifiedCredential NotificationType = "modified_credential"
+	TypeWeeklyUsage        NotificationType = "weekly_usage"
+)
+
 type Notification struct {
 	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	UserID    uuid.UUID `gorm:"type:uuid;index:idx_notifications_user" json:"user_id"`

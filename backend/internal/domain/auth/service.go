@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Faithful001/aegis/internal/domain/auth/dto"
+	"github.com/Faithful001/aegis/internal/domain/notification"
 	"github.com/Faithful001/aegis/internal/domain/otp"
 	"github.com/Faithful001/aegis/internal/domain/project"
 	"github.com/Faithful001/aegis/internal/domain/user"
@@ -545,14 +546,29 @@ type APIKeyService struct {
 	apiKeyRepo     APIKeyRepository
 	keyGenerator   *APIKeyGenerator
 	projectService *project.ProjectService
+	eventProducer  kafka.EventProducer
 }
 
-func NewAPIKeyService(apiKeyRepo APIKeyRepository, keyGenerator *APIKeyGenerator, projectService *project.ProjectService) *APIKeyService {
+func NewAPIKeyService(
+	apiKeyRepo APIKeyRepository,
+	keyGenerator *APIKeyGenerator,
+	projectService *project.ProjectService,
+	eventProducer ...kafka.EventProducer,
+) *APIKeyService {
+	var ep kafka.EventProducer
+	if len(eventProducer) > 0 {
+		ep = eventProducer[0]
+	}
 	return &APIKeyService{
 		apiKeyRepo:     apiKeyRepo,
-		keyGenerator: keyGenerator,
+		keyGenerator:   keyGenerator,
 		projectService: projectService,
+		eventProducer:  ep,
 	}
+}
+
+func (s *APIKeyService) SetEventProducer(ep kafka.EventProducer) {
+	s.eventProducer = ep
 }
 
 func (s *APIKeyService) CreateAPIKey(ctx context.Context, projectID, userID uuid.UUID, req dto.CreateAPIKeyRequest) (*dto.CreatedAPIKeyResponse, error) {
@@ -587,6 +603,17 @@ func (s *APIKeyService) CreateAPIKey(ctx context.Context, projectID, userID uuid
 		return nil, fmt.Errorf("failed to store API key: %w", err)
 	}
 
+	if s.eventProducer != nil {
+		evt := notification.NewModifiedCredentialEvent(
+			userID,
+			"api_key_created",
+			"",
+			"API Key Created",
+			fmt.Sprintf("A new API key '%s' (%s...) was created for your project.", apiKeyEntity.Name, generated.KeyPrefix),
+		)
+		_ = s.eventProducer.Publish(ctx, kafka.TopicModifiedCredentialEvents, userID.String(), evt)
+	}
+
 	return &dto.CreatedAPIKeyResponse{
 		ID:        apiKeyEntity.ID,
 		Name:      apiKeyEntity.Name,
@@ -598,7 +625,27 @@ func (s *APIKeyService) CreateAPIKey(ctx context.Context, projectID, userID uuid
 }
 
 func (s *APIKeyService) RevokeAPIKey(ctx context.Context, keyID uuid.UUID) error {
-	return s.apiKeyRepo.Revoke(ctx, keyID)
+	key, err := s.apiKeyRepo.GetByID(ctx, keyID)
+	if err != nil {
+		return err
+	}
+
+	if err := s.apiKeyRepo.Revoke(ctx, keyID); err != nil {
+		return err
+	}
+
+	if s.eventProducer != nil {
+		evt := notification.NewModifiedCredentialEvent(
+			key.UserID,
+			"api_key_revoked",
+			"",
+			"Security Alert: API Key Revoked",
+			fmt.Sprintf("API key '%s' (%s...) has been invalidated and revoked.", key.Name, key.KeyPrefix),
+		)
+		_ = s.eventProducer.Publish(ctx, kafka.TopicModifiedCredentialEvents, key.UserID.String(), evt)
+	}
+
+	return nil
 }
 
 func (s *APIKeyService) ListProjectAPIKeys(ctx context.Context, projectID uuid.UUID) ([]*dto.APIKeyResponse, error) {
@@ -637,6 +684,26 @@ func (s *APIKeyService) AuthenticateAPIKey(ctx context.Context, plaintextKey str
 	}
 
 	if !key.IsActive() {
+		if s.eventProducer != nil {
+			action := "api_key_invalidated"
+			title := "Security Alert: Inactive API Key Used"
+			msg := fmt.Sprintf("An API request was rejected because API key '%s' (%s...) is inactive or revoked.", key.Name, key.KeyPrefix)
+
+			if key.ExpiresAt != nil && key.ExpiresAt.Before(time.Now().UTC()) {
+				action = "api_key_expired"
+				title = "Security Alert: Expired API Key Used"
+				msg = fmt.Sprintf("An API request was rejected because API key '%s' (%s...) expired on %s.", key.Name, key.KeyPrefix, key.ExpiresAt.Format("2006-01-02 15:04:05 UTC"))
+			}
+
+			evt := notification.NewModifiedCredentialEvent(
+				key.UserID,
+				action,
+				"",
+				title,
+				msg,
+			)
+			_ = s.eventProducer.Publish(ctx, kafka.TopicModifiedCredentialEvents, key.UserID.String(), evt)
+		}
 		return nil, ErrAPIKeyInactive
 	}
 

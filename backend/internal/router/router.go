@@ -16,6 +16,7 @@ import (
 	"github.com/Faithful001/aegis/internal/infra/middleware"
 	"github.com/Faithful001/aegis/internal/infra/ratelimiter"
 	"github.com/Faithful001/aegis/internal/infra/redis"
+	events "github.com/Faithful001/aegis/internal/infra/queue/kafka"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -30,6 +31,7 @@ type RouterConfig struct {
 	ThreadController    *thread.ThreadController
 	RateLimiter         ratelimiter.RateLimiter
 	AdmissionService    *admission.AdmissionService
+	EventProducer       events.EventProducer
 }
 
 func SetupRouter(cfg RouterConfig) *gin.Engine {
@@ -177,9 +179,9 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			if cfg.InferenceController != nil {
 				chatGroup := protected.Group("")
 				if cfg.RateLimiter != nil {
-					chatGroup.Use(middleware.RateLimitMiddleware(cfg.RateLimiter))
+					chatGroup.Use(middleware.RateLimitMiddleware(cfg.RateLimiter, cfg.EventProducer))
 				} else if redisClient := redis.GetClient(); redisClient != nil {
-					chatGroup.Use(middleware.RateLimitMiddleware(ratelimiter.NewRedisRateLimiter(redisClient)))
+					chatGroup.Use(middleware.RateLimitMiddleware(ratelimiter.NewRedisRateLimiter(redisClient), cfg.EventProducer))
 				}
 				if cfg.AdmissionService != nil {
 					chatGroup.Use(middleware.AdmissionMiddleware(cfg.AdmissionService))
@@ -193,9 +195,9 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 	inferenceV1.Use(middleware.AuthMiddleware(cfg.AuthService))
 
 	if cfg.RateLimiter != nil {
-		inferenceV1.Use(middleware.RateLimitMiddleware(cfg.RateLimiter))
+		inferenceV1.Use(middleware.RateLimitMiddleware(cfg.RateLimiter, cfg.EventProducer))
 	} else if redisClient := redis.GetClient(); redisClient != nil {
-		inferenceV1.Use(middleware.RateLimitMiddleware(ratelimiter.NewRedisRateLimiter(redisClient)))
+		inferenceV1.Use(middleware.RateLimitMiddleware(ratelimiter.NewRedisRateLimiter(redisClient), cfg.EventProducer))
 	}
 
 	if cfg.AdmissionService != nil {
