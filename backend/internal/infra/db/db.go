@@ -27,12 +27,14 @@ func InitDB() {
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Printf("Failed to connect to database: %v", err)
+		DB = nil
 		return
 	}
 
 	sqlDB, err := DB.DB()
 	if err != nil {
 		log.Printf("Failed to get underlying database/sql instance: %v", err)
+		DB = nil
 		return
 	}
 
