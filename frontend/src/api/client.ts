@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
-export const API_BASE_URL = "/api/v1";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 export const getAccessToken = (): string | null => sessionStorage.getItem("aegis_jwt_token");
 export const getRefreshToken = (): string | null => sessionStorage.getItem("aegis_refresh_token");
