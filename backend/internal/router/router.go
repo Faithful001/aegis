@@ -14,9 +14,9 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/user"
 	"github.com/Faithful001/aegis/internal/infra/db"
 	"github.com/Faithful001/aegis/internal/infra/middleware"
+	events "github.com/Faithful001/aegis/internal/infra/queue/kafka"
 	"github.com/Faithful001/aegis/internal/infra/ratelimiter"
 	"github.com/Faithful001/aegis/internal/infra/redis"
-	events "github.com/Faithful001/aegis/internal/infra/queue/kafka"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -37,6 +37,7 @@ type RouterConfig struct {
 func SetupRouter(cfg RouterConfig) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
+	r.Use(middleware.CORSMiddleware())
 	r.Use(middleware.RequestLoggingMiddleware())
 	r.Use(middleware.PrometheusMiddleware())
 
