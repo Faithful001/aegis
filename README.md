@@ -205,7 +205,7 @@ Responsibilities:
 - **Authentication**: JWT access and refresh tokens with bcrypt password hashes and revocable sessions. The API key model and `APIKeyAuthMiddleware` exist in the codebase but are not wired into the router yet
 - **Authorization**: tenant isolation; a token belonging to one user/organisation can never access another's resources
 - **Rate limiting**: Redis-backed sliding window, enforced per user (the limiter also supports API key, project, and organisation tiers)
-- **Admission control**: decides whether to ACCEPT, QUEUE, or REJECT based on rate limits, quotas, token estimates, and worker capacity
+- **Admission control**: in-process concurrency and request-size gate (ACCEPT / QUEUE / REJECT). Implemented but not wired into the router yet — see [Admission Control](#admission-control)
 - **Scheduler**: selects the best available worker using a capacity-aware strategy (not round-robin)
 - **Worker registry**: tracks active Python workers and their health via heartbeats stored in Redis
 - **gRPC client**: forwards admitted inference jobs to a selected Python worker
@@ -218,7 +218,7 @@ Each Python worker (`backend/worker/inference/`) is a long-running gRPC server p
 
 Responsibilities:
 
-- Register with the Go backend on startup and send periodic heartbeats
+- Serve a `HealthCheck` RPC (registration and heartbeat reporting are not implemented yet — see [Worker Registry & Heartbeats](#worker-registry--heartbeats))
 - Advertise which models they support
 - Accept `Generate` RPC calls from Go
 - Use **LangChain** to interact with supported LLM providers using the user's BYOK keys.
@@ -308,7 +308,8 @@ Distributed Rate Limit  Redis atomic counter (per key / project / org)
 Token Estimation        estimate input token count
   │
 Admission Control       ACCEPT / QUEUE / REJECT
-  │                     considers: quotas, worker capacity, queue depth
+  │                     considers: request size, local concurrency,
+  │                               queue depth (not wired yet)
 Scheduler               select best available worker
   │                     considers: model support, health, active jobs,
   │                               capacity, queue depth, priority
@@ -429,17 +430,39 @@ The scheduler (`backend/internal/domain/scheduler/`) does not use round-robin. W
 
 ## Admission Control
 
-The admission controller (`backend/internal/domain/admission/`) is designed to gate every request before it reaches the scheduler.
+The admission controller (`backend/internal/domain/admission/`) is an **in-process backpressure gate**: it decides whether a request can start, wait briefly for a slot, or be rejected.
 
-> Note: `main.go` does not currently pass an `AdmissionService` to the router, so the admission middleware is not active yet — requests flow through the rate limiter and then to the scheduler/provider gateway.
+Under BYOK it is **not** a billing or quota mechanism — the user pays the provider directly — and it does not protect a shared worker pool, because inference currently runs through the Go provider gateway. Its only real purpose is protecting the control-plane process (goroutines, sockets, DB pool, Kafka writes) from stream pile-ups, and stopping one user from occupying all local capacity.
 
-| Decision | Condition                                                       |
-| -------- | --------------------------------------------------------------- |
-| `ACCEPT` | Rate limits clear, quota available, worker capacity available   |
-| `QUEUE`  | Rate limits clear but no immediate worker capacity              |
-| `REJECT` | Rate limit exceeded, quota exhausted, or queue at maximum depth |
+### Behaviour
 
-Queuing is bounded. The controller implements backpressure rather than allowing unbounded growth.
+`AdmissionService.Evaluate` considers only request size and local concurrency — rate limiting is a separate middleware that runs before it:
+
+| Decision | Condition (defaults)                                                  |
+| -------- | --------------------------------------------------------------------- |
+| `ACCEPT` | estimated input + output tokens ≤ 8,192 **and** active requests < 50  |
+| `QUEUE`  | tokens within budget but 50 requests active; queue not yet at 100     |
+| `REJECT` | token estimate > 8,192, or queue already at 100                       |
+
+`AcquireSlot` increments the active counter on `ACCEPT`, or waits up to 5 s for a slot on `QUEUE` before returning `ErrQueueTimeout`. `ReleaseSlot` decrements the counter and wakes one waiter. Token estimates are a `len(prompt)/4` heuristic with a 500-token default output. The middleware returns `503` with `Retry-After: 5` on rejection and adds `X-Admission-Wait-Ms` to requests that had to wait.
+
+### Status and limitations
+
+> `main.go` never constructs an `AdmissionService` and does not pass one to the router, so the middleware is **dormant** — no request is gated today.
+
+If it is wired up as-is, note that:
+
+- State is per-process and in-memory, so N replicas allow N × 50 concurrent requests rather than 50.
+- Counters are global, not per tenant, so one user's burst can occupy the whole pool.
+- The 8,192-token cap is fixed with no configuration path and will reject legitimate long-context requests.
+- A 5-second queue is marginal value for LLM calls that hold a slot for tens of seconds.
+- The middleware's `400` branch (`ErrMaxTokensExceeded`) is unreachable: `AcquireSlot` returns `ErrSystemOverloaded` for every rejection.
+
+### Fit with BYOK
+
+The natural admission unit in a BYOK system is **per user / per provider key**, because upstream provider rate limits are per key. A global cap answers "the platform is full"; a per-user cap answers "your key is saturated", which is the more useful signal for the caller.
+
+Rate limiting already covers request rate per user; admission should cover **concurrency**. If this is finished, the sensible shape is a global safety semaphore plus a per-user concurrency limit (optionally Redis-backed so it holds across replicas), rejecting immediately with `429`/`503` rather than queuing. Until then it can stay dormant.
 
 ---
 
