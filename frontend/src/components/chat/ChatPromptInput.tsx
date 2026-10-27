@@ -53,8 +53,8 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-4">
-      <div className="relative bg-surface-card/90 border border-surface-border rounded-3xl p-3.5 shadow-glow-card transition-all focus-within:border-zinc-600 focus-within:ring-1 focus-within:ring-zinc-600">
+    <div className="w-full max-w-3xl mx-auto px-3 sm:px-4">
+      <div className="relative bg-surface-card/90 border border-surface-border rounded-3xl p-3 sm:p-3.5 shadow-glow-card transition-all focus-within:border-zinc-600 focus-within:ring-1 focus-within:ring-zinc-600">
         {/* Main Textarea */}
         <textarea
           rows={2}
@@ -67,23 +67,23 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
         />
 
         {/* Bottom Bar Controls inside prompt box */}
-        <div className="flex items-center justify-between pt-2 border-t border-surface-border/40 px-1">
+        <div className="flex items-center justify-between pt-2 border-t border-surface-border/40 px-1 gap-1">
           {/* Left Attachment Button */}
           <button
             type="button"
-            className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+            className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors shrink-0"
           >
             <PlusIcon className="w-4 h-4" />
           </button>
 
           {/* Right Action Icons: Model Selector Dropdown, Mic Icon, Send */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             {/* Model Selector Dropdown inside prompt bar */}
             <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-zinc-800/80 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/60 transition-all max-w-[200px]"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-xs font-medium bg-zinc-800/80 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/60 transition-all max-w-[125px] sm:max-w-[200px]"
               >
                 <span className="truncate">
                   {currentModelObj ? currentModelObj.name : "Select Model"}
@@ -102,7 +102,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 8 }}
                     transition={{ duration: 0.15, ease: "easeOut" }}
-                    className="absolute right-0 bottom-full mb-2 w-72 max-h-80 overflow-y-auto bg-surface border border-surface-border rounded-2xl p-1.5 shadow-2xl z-50 space-y-1"
+                    className="absolute right-0 bottom-full mb-2 w-72 max-w-[calc(100vw-3rem)] max-h-80 overflow-y-auto bg-surface border border-surface-border rounded-2xl p-1.5 shadow-2xl z-50 space-y-1"
                   >
                     <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-zinc-400 tracking-wider flex items-center justify-between">
                       <span>Select Model</span>

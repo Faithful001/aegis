@@ -14,7 +14,7 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="h-14 px-6 flex items-center justify-between select-none bg-transparent sticky top-0 z-20">
+    <header className="h-14 px-4 sm:px-6 flex items-center justify-between select-none bg-transparent sticky top-0 z-20 w-full max-w-full">
       {/* Left side: Logo when unauthenticated */}
       <div className="flex items-center gap-2">
         <Link to="/" className="flex items-center gap-2 text-white">

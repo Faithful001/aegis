@@ -49,11 +49,11 @@ export const HomePage: React.FC = () => {
 
   return (
     <>
-      <div className="flex flex-col h-full justify-center pb-6">
-        <div className="flex-1 flex flex-col items-center justify-center text-center pt-12">
-          <div className="relative inline-block mb-8 select-none">
-            <div className="ambient-mesh-glow absolute -inset-6 bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-            <h1 className="relative flex flex-wrap items-center justify-center px-3 gap-x-2.5 gap-y-1.5 text-3xl tracking-tight font-medium text-white">
+      <div className="flex flex-col h-full justify-center pb-6 w-full max-w-full overflow-x-hidden">
+        <div className="flex-1 flex flex-col items-center justify-center text-center pt-12 px-3 sm:px-4 w-full max-w-full">
+          <div className="relative inline-block mb-8 select-none max-w-full">
+            <div className="ambient-mesh-glow absolute -inset-3 sm:-inset-6 bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+            <h1 className="relative flex flex-wrap items-center justify-center px-2 sm:px-3 gap-x-2 sm:gap-x-2.5 gap-y-1.5 text-2xl sm:text-3xl tracking-tight font-medium text-white max-w-full">
               <span>
                 {isAuthenticated && user?.full_name
                   ? `Hey ${user.full_name.split(" ")[0] || "there"}, what should we`
