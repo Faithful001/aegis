@@ -1,5 +1,5 @@
 import { ChatCompletionRequest, ChatCompletionChunk } from "../types/api";
-import { getAccessToken, getRefreshToken, setTokens, clearTokens } from "./client";
+import { API_BASE_URL, getAccessToken, getRefreshToken, setTokens, clearTokens } from "./client";
 import { authApi } from "./auth";
 
 export const streamChatCompletion = async (
@@ -9,8 +9,9 @@ export const streamChatCompletion = async (
   onError: (err: Error) => void
 ) => {
   try {
+    const url = `${API_BASE_URL.replace(/\/+$/, "")}/chat/completions`;
     let token = getAccessToken();
-    let response = await fetch("/api/v1/chat/completions", {
+    let response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -29,7 +30,7 @@ export const streamChatCompletion = async (
           if (newToken) {
             setTokens(newToken, newRefresh);
             token = newToken;
-            response = await fetch("/api/v1/chat/completions", {
+            response = await fetch(url, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
