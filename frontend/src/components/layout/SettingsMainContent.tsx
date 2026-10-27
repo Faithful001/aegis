@@ -58,6 +58,7 @@ export const SettingsMainContent: React.FC<SidebarProps> = ({ collapsed, setColl
       to: "/settings",
       search: { tab: id as SettingsTab },
     });
+    setCollapsed(true);
   };
 
   const handleBack = () => {

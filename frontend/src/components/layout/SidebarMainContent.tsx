@@ -13,7 +13,7 @@ import {
   TrashIcon,
 } from "@phosphor-icons/react";
 
-export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = ({ collapsed }) => {
+export const SidebarMainContent: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => {
   const { user } = useAuth();
   const { chatThreads, activeThreadId, setActiveThreadId, createNewThread, deleteThread } =
     useAegis();
@@ -34,6 +34,7 @@ export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = 
           onClick={() => {
             setActiveThreadId(null);
             router.navigate({ to: "/" });
+            setCollapsed(true);
           }}
           className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all hover:bg-zinc-800 ${
             isChat && !activeThreadId
@@ -47,6 +48,7 @@ export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = 
 
         <Link
           to="/analytics"
+          onClick={() => setCollapsed(true)}
           className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all hover:bg-zinc-800/60 ${
             isAnalytics
               ? "bg-zinc-800 text-white font-semibold"
@@ -91,6 +93,7 @@ export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = 
               onClick={() => {
                 setActiveThreadId(null);
                 router.navigate({ to: "/" });
+                setCollapsed(true);
               }}
               className="p-1 text-zinc-400 hover:text-white rounded hover:bg-zinc-800/60"
               title="New Chat"
@@ -116,6 +119,7 @@ export const SidebarMainContent: React.FC<Omit<SidebarProps, "setCollapsed">> = 
                     onClick={() => {
                       setActiveThreadId(thread.id);
                       router.navigate({ to: `/c/${thread.id}` });
+                      setCollapsed(true);
                     }}
                     className="flex-1 text-left truncate mr-1.5"
                     title={thread.title}

@@ -107,7 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
                 transition={{ duration: 0.18, ease: "easeInOut" }}
                 className="flex-1 flex flex-col h-full overflow-hidden"
               >
-                <SidebarMainContent collapsed={collapsed} />
+                <SidebarMainContent collapsed={collapsed} setCollapsed={setCollapsed} />
               </motion.div>
             )}
           </AnimatePresence>
