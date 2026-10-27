@@ -61,7 +61,8 @@ Aegis is designed to surface and solve those problems in a clean, well-structure
 aegis/
 ├── frontend/     # React + TypeScript dashboard
 ├── backend/      # Go control plane + Python inference workers
-└── start.sh      # Convenience script to start both services
+├── Makefile      # make dev / dev-backend / dev-frontend
+└── start.sh      # Convenience script to start backend and frontend
 ```
 
 ---
@@ -70,36 +71,43 @@ aegis/
 
 ### Frontend
 
-|               | Technology            |
-| ------------- | --------------------- |
-| Framework     | React 18 + TypeScript |
-| Build tool    | Vite                  |
-| Routing       | TanStack Router       |
-| Data fetching | TanStack Query        |
-| UI primitives | Radix UI              |
-| Animations    | Framer Motion         |
-| Styling       | Tailwind CSS          |
-| HTTP client   | Axios                 |
-| Icons         | Lucide React          |
-| Notifications | Sonner                |
+|               | Technology                   |
+| ------------- | ---------------------------- |
+| Framework     | React 18 + TypeScript        |
+| Build tool    | Vite                         |
+| Routing       | TanStack Router              |
+| Data fetching | TanStack Query               |
+| UI primitives | Radix UI                     |
+| Animations    | Framer Motion                |
+| Styling       | Tailwind CSS                 |
+| HTTP client   | Axios                        |
+| Icons         | Phosphor Icons               |
+| Markdown      | React Markdown + remark-gfm  |
+| Notifications | Sonner                       |
+| Deployment    | Vercel (`vercel.json`)       |
 
 ### Backend
 
-| Layer             | Technology                                |
-| ----------------- | ----------------------------------------- |
-| Control plane     | Go 1.26+                                  |
-| HTTP framework    | Gin                                       |
-| Inference workers | Python 3.12+                              |
-| LLM orchestration | LangChain                                 |
-| LLM provider      | Multiple LLM providers (via BYOK API key) |
-| Go to Python RPC  | gRPC / Protocol Buffers                   |
-| Token streaming   | gRPC server-side streaming → SSE          |
-| Async event bus   | Kafka (segmentio/kafka-go)                |
-| Distributed state | Redis (go-redis/v9)                       |
-| Durable storage   | PostgreSQL (GORM + pgx/v5)                |
-| Observability     | OpenTelemetry + Prometheus                |
-| Containerisation  | Docker / Docker Compose                   |
-| Orchestration     | Kubernetes                                |
+| Layer             | Technology                                                          |
+| ----------------- | ------------------------------------------------------------------- |
+| Control plane     | Go 1.26+                                                            |
+| HTTP framework    | Gin                                                                 |
+| Authentication    | JWT (`golang-jwt/v5`) + bcrypt; hashed API keys                     |
+| OAuth sign-in     | Google and GitHub (OAuth 2.0)                                       |
+| Inference workers | Python 3.12+                                                        |
+| LLM orchestration | LangChain (Python worker) + provider adapters in Go                 |
+| LLM providers     | OpenAI, Anthropic, Google Gemini, Mistral AI, OpenRouter (BYOK)     |
+| Go to Python RPC  | gRPC / Protocol Buffers                                             |
+| Token streaming   | gRPC server-side streaming → SSE                                    |
+| Async event bus   | Kafka (segmentio/kafka-go)                                          |
+| Distributed state | Redis (go-redis/v9)                                                 |
+| Durable storage   | PostgreSQL (GORM + pgx/v5)                                          |
+| Email             | Resend (`resend-go/v4`) — OTP and notification emails               |
+| Configuration     | `godotenv` + environment variables                                  |
+| Observability     | Prometheus metrics + Grafana dashboards; JSON logs via `log/slog`   |
+| Containerisation  | Docker Compose (Postgres, Kafka, Redis, Prometheus, Grafana)        |
+
+> Kubernetes manifests are not part of the repository yet; local development uses the Docker Compose stack in `backend/docker-compose.yaml`.
 
 ---
 
@@ -148,23 +156,22 @@ aegis/
                                │
                ┌───────────────┼───────────────┐
                ▼               ▼               ▼
-           Metering        Analytics          DLQ
+           Metering         Email        Notifications
 
 
                             Redis
-               ┌────────────┼────────────┐
-               ▼            ▼            ▼
-          Rate Limits    Worker      Locks &
-                         Registry    Ephemeral State
+                    ┌────────┴────────┐
+                    ▼                 ▼
+              Rate Limits       Worker Registry
 
 
                           PostgreSQL
                ┌────────────┼────────────┐
                ▼            ▼            ▼
-            Users        Usage        Outbox
-            Orgs         Pricing      Events
-            Projects     Inference
-            API Keys     Records
+            Users        Usage        Provider
+            Orgs         Records      Credentials
+            Projects     Sessions     Threads &
+            API Keys                  Messages
 ```
 
 ---
@@ -177,15 +184,14 @@ The frontend (`frontend/`) is a React + TypeScript single-page application built
 
 Pages and features:
 
-| Page              | Purpose                                                                       |
-| ----------------- | ----------------------------------------------------------------------------- |
-| **Auth**          | Login and registration                                                        |
-| **Chat**          | Interactive inference interface: send requests and receive streamed responses |
-| **Projects**      | Create and manage projects within an organisation                             |
-| **Organizations** | Tenant management                                                             |
-| **Analytics**     | Usage charts and token consumption metrics per project and organisation       |
-| **Settings**      | BYOK provider key management, API key management                              |
-| **Profile**       | User account settings                                                         |
+| Page                                        | Purpose                                                                 |
+| ------------------------------------------- | ----------------------------------------------------------------------- |
+| **Home** (`/`)                              | Landing page mounted inside the app shell                               |
+| **Auth** (`/auth/*`)                        | Login, registration, email verification, OTP, password reset, OAuth callback |
+| **Chat** (`/chat`, `/chat/$id`, `/c/$id`)   | Interactive inference interface with persisted, streamed conversations  |
+| **Analytics** (`/analytics`)                | Token usage charts and activity heatmap                                 |
+| **Settings** (`/settings?tab=…`)            | Profile, security, BYOK providers/models, notifications, connected accounts |
+| **Profile** (`/profile`)                    | User account settings                                                   |
 
 The dashboard communicates with the Go backend over HTTP. Streaming responses from the inference endpoint are consumed via Server-Sent Events (SSE) and rendered token-by-token in the chat interface.
 
@@ -195,16 +201,16 @@ The Go backend (`backend/cmd/aegis/main.go`) is the single process that runs as 
 
 Responsibilities:
 
-- **HTTP API**: OpenAI-compatible endpoint (`POST /v1/chat/completions`) plus management, health, and metrics endpoints
-- **Authentication**: API key resolution; keys are never stored in plaintext (hashed with a visible prefix only)
-- **Authorization**: tenant isolation; a key belonging to one organisation can never access another's resources
-- **Distributed rate limiting**: per API key, per project, and per organisation; enforced via Redis so it works across multiple backend replicas
+- **HTTP API**: OpenAI-compatible endpoints (`POST /v1/chat/completions`, `GET /v1/models`) plus the JWT-protected management API under `/api/v1` and health/metrics endpoints
+- **Authentication**: JWT access and refresh tokens with bcrypt password hashes and revocable sessions. The API key model and `APIKeyAuthMiddleware` exist in the codebase but are not wired into the router yet
+- **Authorization**: tenant isolation; a token belonging to one user/organisation can never access another's resources
+- **Rate limiting**: Redis-backed sliding window, enforced per user (the limiter also supports API key, project, and organisation tiers)
 - **Admission control**: decides whether to ACCEPT, QUEUE, or REJECT based on rate limits, quotas, token estimates, and worker capacity
 - **Scheduler**: selects the best available worker using a capacity-aware strategy (not round-robin)
 - **Worker registry**: tracks active Python workers and their health via heartbeats stored in Redis
 - **gRPC client**: forwards admitted inference jobs to a selected Python worker
 - **SSE streaming**: bridges the gRPC token stream from the worker back to the client
-- **Kafka consumer**: consumes usage events published by workers and persists them durably to PostgreSQL
+- **Kafka consumer**: consumes usage, email, and notification events and persists/propagates them
 
 ### Python Inference Workers
 
@@ -217,7 +223,7 @@ Responsibilities:
 - Accept `Generate` RPC calls from Go
 - Use **LangChain** to interact with supported LLM providers using the user's BYOK keys.
 - Stream generated tokens back over the gRPC connection
-- Publish a `UsageEvent` to Kafka at inference completion (actual token counts from the model)
+- Report token usage counts so the Go control plane can publish metering events to Kafka
 - Handle cancellation, timeouts, and graceful drain on shutdown
 
 The Python worker has no knowledge of rate limiting, scheduling, quotas, or admission. Those are Go concerns.
@@ -226,44 +232,55 @@ The Python worker has no knowledge of rate limiting, scheduling, quotas, or admi
 
 Kafka decouples inference completion from usage persistence. The Python worker does not wait for PostgreSQL before returning. This keeps the hot inference path free of database latency.
 
-| Topic                    | Producer      | Consumer             |
-| ------------------------ | ------------- | -------------------- |
-| `aegis.inference.events` | Go backend    | Metering consumer    |
-| `aegis.usage.events`     | Python worker | Go metering consumer |
-| `aegis.dlq`              | All consumers | Manual investigation |
+| Topic                            | Producer                          | Consumer                  |
+| -------------------------------- | --------------------------------- | ------------------------- |
+| `aegis.events.usage`             | Go inference service              | Usage metering consumer   |
+| `aegis.events.email`             | Go auth service                   | Email consumer (Resend)   |
+| `aegis.events.failed_requests`   | Go inference service              | Notification consumer     |
+| `aegis.events.budget_alerts`     | Notification scheduler            | Notification consumer     |
+| `aegis.events.weekly_usage`      | Notification scheduler            | Notification consumer     |
+| `aegis.events.rate_limits`       | Rate limit middleware             | Notification consumer     |
+| `aegis.events.modified_credentials` | Auth / provider services       | Notification consumer     |
+| `aegis.events.notifications`     | Any service                       | Notification consumer     |
+| `aegis.events.jobs`              | —                                 | Reserved, not yet consumed |
 
-Token streaming does **not** go through Kafka. Tokens flow: `LLM Provider → LangChain → gRPC stream → Go → SSE → Client`.
+Token streaming does **not** go through Kafka. Tokens flow: `LLM Provider → LangChain (worker) or Go provider gateway → gRPC/SSE → Client`.
 
 ### Redis: Distributed Ephemeral State
 
 Redis stores state that is fast to read/write, acceptable to lose on restart, and shared across multiple Go backend replicas.
 
-| Key Namespace           | Purpose                        |
-| ----------------------- | ------------------------------ |
-| `rl:{api_key_id}`       | Rate limit counters            |
-| `rl:{project_id}`       | Project-level rate limits      |
-| `rl:{org_id}`           | Organisation-level rate limits |
-| `worker:{worker_id}`    | Worker registry entry          |
-| `worker:{worker_id}:hb` | Heartbeat TTL key              |
-| `lock:{resource}`       | Distributed locks              |
+| Key Namespace                    | Purpose                                  |
+| -------------------------------- | ---------------------------------------- |
+| `ratelimit:{tier}:{id}:rpm`      | Sliding-window RPM counters              |
+| `ratelimit:{tier}:{id}:tpm`      | Sliding-window TPM counters              |
+| `aegis:workers:{worker_id}`      | Worker registry entry (5-minute TTL)     |
+| `aegis:workers:index`            | Set of known worker IDs                  |
 
-Redis is **not** the source of truth for usage, pricing, or metering. PostgreSQL owns that.
+Redis is **not** the source of truth for usage or metering. PostgreSQL owns that.
 
 ### PostgreSQL: Durable Source of Truth
 
 All durable state lives in PostgreSQL.
 
-| Table                 | Purpose                           |
-| --------------------- | --------------------------------- |
-| `users`               | User accounts                     |
-| `organizations`       | Tenants                           |
-| `projects`            | Workspaces within an organisation |
-| `api_keys`            | Hashed API keys with prefix       |
-| `inference_records`   | One record per inference job      |
-| `usage_records`       | Actual token consumption          |
-| `pricing`             | Versioned model pricing           |
-| `idempotency_records` | Deduplication for API requests    |
-| `outbox_events`       | Transactional outbox for Kafka    |
+| Table                            | Purpose                                              |
+| -------------------------------- | ---------------------------------------------------- |
+| `users`                          | User accounts, password hash, Google/GitHub IDs      |
+| `organizations`                  | Tenants                                              |
+| `organization_members`           | Organisation membership                              |
+| `projects`                       | Workspaces within an organisation                    |
+| `api_keys`                       | Hashed API keys with a non-secret prefix             |
+| `provider_credentials`           | AES-256-GCM encrypted BYOK provider keys             |
+| `user_models`                    | Per-user model visibility toggles                    |
+| `chat_threads` / `chat_messages` | Chat history persistence                             |
+| `usage_records`                  | Actual token consumption (unique `event_id`)         |
+| `user_sessions`                  | Refresh-token sessions, revocable per device         |
+| `blacklisted_tokens`             | Revoked access tokens                                |
+| `otp_records`                    | Email verification and password-reset codes          |
+| `alert_settings`                 | Budget alert preferences                             |
+| `notifications`                  | In-app notifications                                 |
+
+Schema is created at startup via GORM `AutoMigrate` (`backend/cmd/aegis/main.go`). Separate `pricing`, `idempotency_records`, and `outbox_events` tables are not implemented yet — pricing is currently a hardcoded map in `backend/internal/domain/usage/`.
 
 ---
 
@@ -316,7 +333,7 @@ CLIENT (tokens rendered in real-time by React chat UI)
 ### Asynchronous (Metering) Path
 
 ```
-Python Worker
+Go Inference Service (and Python Worker for the gRPC path)
   │
   │ UsageEvent {
   │   request_id, org_id, project_id,
@@ -324,7 +341,7 @@ Python Worker
   │   duration_ms, status
   │ }
   ▼
-Kafka  (aegis.usage.events)
+Kafka  (aegis.events.usage)
   │
   ▼
 Go Metering Consumer
@@ -339,11 +356,15 @@ Analytics API  (consumed by React dashboard)
 
 Inference completion is **independent** of metering. The client receives their full response before usage is persisted.
 
+> As implemented today, the Go control plane can also stream from a provider directly through its provider gateway (`backend/internal/infra/provider/`), bypassing the Python worker. The gRPC worker path shown above is used when a worker is healthy and scheduled for the requested model.
+
 ---
 
 ## Domain Model
 
-Aegis uses Domain-Driven Design. Domain packages live under `backend/internal/domain/` and have **zero dependency on infrastructure** (no PostgreSQL, no Redis, no Kafka, no Gin).
+Aegis follows a layered, domain-oriented layout. Logical domains live under `backend/internal/domain/`; each package currently contains its entity/model, repository, service, controller, and (where relevant) Kafka consumer together.
+
+> Note: the domain packages still import infrastructure libraries (GORM for models/repositories, Gin for controllers, Redis/Kafka for consumers). The dependency rule below is the target, not a current invariant — extracting repositories/controllers into `infra`/`application` layers is an ongoing refactor.
 
 ```
 backend/internal/domain/
@@ -357,6 +378,10 @@ backend/internal/domain/
 ├── worker/         Worker entity, health state machine
 ├── provider/       BYOK provider key model
 ├── usage/          Usage record, token consumption
+├── thread/         Chat threads and message persistence
+├── notification/   Budget alerts and notification delivery
+├── otp/            Email verification / password-reset codes
+├── token/          Access and refresh token definitions
 └── metrics/        Domain metric definitions
 ```
 
@@ -368,20 +393,20 @@ Router → Application → Domain
                     Infrastructure
 ```
 
-Infrastructure (`backend/internal/infra/`) implements the interfaces defined by the domain. The domain never imports infra.
+Interfaces are declared alongside their domain types, and `backend/internal/infra/` provides concrete adapters (Postgres, Redis, Kafka, provider gateways, crypto, email). Several domain packages also contain their own GORM repositories and Gin controllers today.
 
 ---
 
 ## BYOK Model
 
-Aegis operates a **Bring Your Own Key** model. Users register their own LLM provider API keys via the Settings page in the dashboard. When an inference request is admitted and dispatched to a Python worker, the worker retrieves the user's provider key (decrypted from secure storage) and uses it to call the LLM provider directly.
+Aegis operates a **Bring Your Own Key** model. Users register their own LLM provider API keys via the Settings page in the dashboard. When an inference request is admitted, the Go control plane decrypts the stored provider key (AES-256-GCM) and the provider gateway in `backend/internal/infra/provider/` calls the upstream LLM directly, streaming tokens back to the client. The gRPC worker path remains available as a fallback when a worker is registered and scheduled.
 
 Implications:
 
 - Aegis has **no billing responsibility**: the user pays the LLM provider directly for tokens consumed
 - Aegis does **meter usage**: token counts are recorded per project and organisation for quota enforcement and analytics visible in the dashboard
 - Provider keys are **never logged** and never included in inference job records
-- Key rotation and revocation are supported at the project level via the dashboard
+- Key rotation and revocation are supported per provider credential via the Settings page
 
 ---
 
@@ -404,7 +429,9 @@ The scheduler (`backend/internal/domain/scheduler/`) does not use round-robin. W
 
 ## Admission Control
 
-The admission controller (`backend/internal/domain/admission/`) gates every request before it reaches the scheduler.
+The admission controller (`backend/internal/domain/admission/`) is designed to gate every request before it reaches the scheduler.
+
+> Note: `main.go` does not currently pass an `AdmissionService` to the router, so the admission middleware is not active yet — requests flow through the rate limiter and then to the scheduler/provider gateway.
 
 | Decision | Condition                                                       |
 | -------- | --------------------------------------------------------------- |
@@ -418,13 +445,14 @@ Queuing is bounded. The controller implements backpressure rather than allowing 
 
 ## Distributed Rate Limiting
 
-Rate limits are enforced using **atomic Redis operations** (sliding window) at three levels:
+Rate limits are enforced by an **atomic Redis Lua script** implementing a sliding window. The limiter supports four tiers:
 
-1. **API key**: per-key RPM and TPM limits
-2. **Project**: project-level aggregate limits
-3. **Organisation**: tenant-level cap across all projects
+1. **User** — enforced by the router today
+2. **API key** — per-key RPM and TPM limits
+3. **Project** — project-level aggregate limits
+4. **Organisation** — tenant-level cap across all projects
 
-Because limits are stored in Redis, they work correctly when **multiple Go backend instances** run behind a load balancer. In-memory limiters are not used as the source of truth.
+Defaults are 600 RPM and 100,000 TPM. Because limits are stored in Redis, they work correctly when **multiple Go backend instances** run behind a load balancer. The in-memory limiter is only used for tests/fallback, not as the source of truth.
 
 On limit exceeded: `429 Too Many Requests` with `Retry-After` header.
 
@@ -446,44 +474,38 @@ STARTING → READY → DRAINING → OFFLINE
 
 The scheduler never dispatches work to `UNHEALTHY` or `OFFLINE` workers. In-flight jobs on a crashed worker are recovered based on their processing state.
 
+> Status: the Redis registry and heartbeat monitor run in the control plane, but nothing currently calls `WorkerService.Register` (there is no registration endpoint yet) and the Python worker does not send heartbeats. Until that is wired up, inference goes through the direct provider gateway.
+
 ---
 
 ## Usage Metering & Idempotency
 
-Usage events are emitted by the Python worker at the end of each inference job. The Go metering consumer processes them from Kafka and writes to PostgreSQL.
+Usage events are emitted when an inference job completes — by the Python worker for the gRPC path, and by the Go inference service for the direct provider path. The Go metering consumer processes them from Kafka and writes to PostgreSQL.
 
 **Idempotency is guaranteed by a unique database constraint on `event_id`**, not by an application-level check. This prevents duplicate records even under concurrent Kafka redelivery.
 
-The transactional outbox pattern is used wherever domain state and an event must be committed atomically:
-
-```sql
-BEGIN;
-  INSERT INTO domain_table ...;
-  INSERT INTO outbox_events (event_type, payload, ...) VALUES (...);
-COMMIT;
-```
-
-A background publisher relays outbox events to Kafka with exponential backoff retries. Events are **never silently lost**.
+Events are currently published to Kafka directly from the Go inference service. The transactional outbox pattern (`outbox_events` table plus a background relay) is planned but not implemented yet; delivery retries are handled by the Kafka producer.
 
 ---
 
 ## Observability
 
-| Signal              | Implementation                                              |
-| ------------------- | ----------------------------------------------------------- |
-| Structured logging  | JSON with `request_id`, `job_id`, `trace_id` on every line  |
-| Distributed tracing | OpenTelemetry, propagated through HTTP → Go → gRPC → Python |
-| Metrics             | Prometheus, exposed at `GET /metrics`                       |
+| Signal              | Implementation                                                        |
+| ------------------- | --------------------------------------------------------------------- |
+| Structured logging  | JSON or text via `log/slog`, with `request_id`, `job_id`, `trace_id` context fields |
+| Metrics             | Prometheus, exposed at `GET /metrics`                                 |
+| Dashboards          | Grafana, provisioned from `backend/deploy/grafana/`                   |
+| Health probes       | `GET /health` (liveness) and `GET /ready` (Postgres + Redis checks)   |
 
-Key metrics tracked:
+> OpenTelemetry tracing is not wired in yet; trace IDs are propagated through request context and logs only.
+
+Key metrics tracked (all prefixed `aegis_`):
 
 ```
-http_requests_total / http_request_duration_seconds
-inference_requests_total / inference_duration_seconds / inference_errors_total
-scheduler_queue_depth / scheduler_jobs_total
-worker_active_jobs / worker_capacity / worker_heartbeat_age_seconds
-usage_events_total / usage_processing_failures_total
-rate_limit_rejections_total
+http_requests_total / http_request_duration_seconds / http_in_flight_requests
+inference_requests_total / inference_duration_seconds / inference_tokens_total
+ratelimit_hits_total
+worker_active_count
 ```
 
 Secrets (API keys, provider keys, passwords) are **never logged**.
@@ -493,10 +515,9 @@ Secrets (API keys, provider keys, passwords) are **never logged**.
 ## Security
 
 - API keys are generated with cryptographically secure random data; only the hash and a non-secret prefix are stored
-- BYOK provider keys are stored encrypted; the plaintext is only retrieved inside the Python worker at inference time
-- Strict tenant isolation: a key from Organisation A can never access Organisation B's resources
+- BYOK provider keys are stored encrypted with AES-256-GCM (key derived from `JWT_SECRET`) and decrypted only inside the Go control plane at inference time
+- Strict tenant isolation: a token or key from one user/organisation can never access another's resources
 - Parameterised SQL throughout; no string interpolation in queries
-- Request size limits enforced at the router level
 - Internal infrastructure (gRPC, Redis, Kafka) is not exposed publicly
 - Secrets are managed via environment variables; never committed to the repository
 
@@ -504,39 +525,60 @@ Secrets (API keys, provider keys, passwords) are **never logged**.
 
 ## Getting Started
 
-**Prerequisites:** Node.js 20+, Docker, and Docker Compose. Users can configure their LLM provider and API key through the frontend settings page.
+**Prerequisites:** Node.js 20+, Go 1.26+, Python 3.12+, Docker, and Docker Compose. Users can configure their LLM provider and API key through the frontend settings page.
 
-### 1. Backend
+### 1. Infrastructure
 
 ```bash
 cd backend
 cp .env.example .env
 
-docker compose up
+docker compose up -d
 ```
 
-This starts the Go backend, Python inference worker(s), PostgreSQL, Redis, Kafka, Prometheus, and Grafana.
+This starts PostgreSQL, Kafka, Redis, Prometheus, and Grafana. The Go control plane and Python workers are **not** part of the Compose file; run them separately below.
 
-The API is available at `http://localhost:8080`.
+### 2. Go control plane
 
-### 2. Frontend
+```bash
+cd backend
+# The Vite dev proxy targets 127.0.0.1:8080, so set PORT to match
+PORT=8080 go run ./cmd/aegis
+# or, with hot reload (air installed):
+PORT=8080 air
+```
+
+The API is available at `http://localhost:8080` (`PORT` defaults to `5000` in `internal/infra/config/config.go`).
+
+### 3. Python inference worker (optional)
+
+```bash
+cd backend/worker/inference
+pip install -r ../requirements.txt
+python main.py
+```
+
+The worker listens on `localhost:50051` by default; point the backend at it with `INFERENCE_WORKER_ADDR`. If no worker is reachable, the backend falls back to its built-in mock worker client and the direct provider gateway.
+
+### 4. Frontend
 
 ```bash
 cd frontend
-cp .env.example .env.local
-# Set VITE_API_URL=http://localhost:8080
-
+# Set VITE_API_BASE_URL in .env if you are not using the Vite dev proxy
 npm install
 npm run dev
 ```
 
 The dashboard is available at `http://localhost:5173`.
 
-### Or: start everything at once
+### Or: start backend and frontend at once
 
 ```bash
-# From the repo root
+# From the repo root (infrastructure must already be running)
 ./start.sh
+
+# Or via the Makefile, which uses npx concurrently
+make dev
 ```
 
 ---
@@ -545,20 +587,29 @@ The dashboard is available at `http://localhost:5173`.
 
 ### Backend: see [`backend/.env.example`](backend/.env.example)
 
-| Variable                | Description                                   |
-| ----------------------- | --------------------------------------------- |
-| `DATABASE_URL`          | PostgreSQL connection string                  |
-| `REDIS_URL`             | Redis connection string                       |
-| `KAFKA_BROKERS`         | Comma-separated Kafka broker addresses        |
-| `GRPC_WORKER_ADDRESSES` | Comma-separated Python worker gRPC addresses  |
-| `JWT_SECRET`            | Secret for signing JWT tokens                 |
-| `ENCRYPTION_KEY`        | Key used to encrypt stored BYOK provider keys |
+| Variable                                                 | Description                                                        |
+| -------------------------------------------------------- | ------------------------------------------------------------------ |
+| `ENVIRONMENT`                                            | `development` / `production`                                       |
+| `PORT`                                                   | HTTP port for the Go control plane (default `5000`)                |
+| `LOG_LEVEL`, `LOG_FORMAT`                                | Log level and `json` / `text` format                               |
+| `DATABASE_URL`                                           | PostgreSQL connection string                                       |
+| `REDIS_ADDR`, `REDIS_PASSWORD`, `REDIS_DB`               | Redis connection (`REDIS_URL` is also supported)                   |
+| `KAFKA_BROKERS`, `KAFKA_GROUP_ID`                        | Kafka broker(s) and consumer group                                 |
+| `INFERENCE_WORKER_ADDR`                                  | Python worker gRPC address (default `localhost:50051`)             |
+| `JWT_SECRET`                                             | Signs JWTs **and** derives the AES-256-GCM key for BYOK secrets    |
+| `JWT_ISSUER`, `ACCESS_TOKEN_EXPIRY`, `REFRESH_TOKEN_EXPIRY` | Token issuer and lifetimes                                      |
+| `RESEND_API_KEY`, `RESEND_FROM_ADDR`                     | Resend credentials for OTP / notification email                    |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Google OAuth 2.0 credentials                              |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_REDIRECT_URI` | GitHub OAuth 2.0 credentials                              |
+| `WORKER_ID`, `GRPC_HOST`, `GRPC_PORT`, `GRPC_MAX_WORKERS` | Python inference worker settings (read by the worker process)     |
 
-### Frontend: see [`frontend/.env.example`](frontend/.env.example)
+> There is no separate `ENCRYPTION_KEY`: BYOK provider keys are encrypted with a key derived from `JWT_SECRET`. Rotating `JWT_SECRET` makes existing stored provider keys unreadable.
 
-| Variable       | Description                    |
-| -------------- | ------------------------------ |
-| `VITE_API_URL` | Base URL of the Go backend API |
+### Frontend: see [`frontend/.env`](frontend/.env)
+
+| Variable            | Description                                                                 |
+| ------------------- | --------------------------------------------------------------------------- |
+| `VITE_API_BASE_URL` | Base URL of the Go API, including the `/api/v1` suffix (defaults to `/api/v1` for the Vite dev proxy) |
 
 ---
 
@@ -593,4 +644,4 @@ cd frontend
 npm run lint
 ```
 
-Load testing scripts are in `backend/scripts/`. Measured results are documented in `backend/test/load/results/`. No results are fabricated.
+Load testing scripts live in `backend/scripts/` and `backend/test/load-test.js`. No performance results are published in the repository.
