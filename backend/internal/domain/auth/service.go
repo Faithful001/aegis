@@ -910,9 +910,9 @@ func (s *AuthService) HandleOAuthCallback(
 		return nil, errors.New("OAuth provider did not return an email")
 	}
 
-	if !profile.EmailVerified {
-		return nil, ErrOAuthEmailNotVerified
-	}
+	// if !profile.EmailVerified {
+	// 	return nil, ErrOAuthEmailNotVerified
+	// }
 
 	var userEntity *user.User
 
