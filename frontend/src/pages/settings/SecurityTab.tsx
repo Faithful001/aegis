@@ -56,7 +56,7 @@ const SecurityTab = () => {
 
   useEffect(() => {
     if (alertSettings) {
-      setBudgetEnabled(alertSettings.budget_alert_enabled);
+      setBudgetEnabled(alertSettings.is_budget_alert_enabled);
       setBudgetUSD(
         alertSettings.monthly_budget_usd ? alertSettings.monthly_budget_usd.toString() : "50.00"
       );
@@ -168,9 +168,7 @@ const SecurityTab = () => {
     >
       <Card hover={false} className="p-5 space-y-4 !bg-sidebar">
         <div className="space-y-0.5">
-          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-            Password
-          </h3>
+          <h3 className="text-sm font-semibold text-white flex items-center gap-2">Password</h3>
           <p className="text-xs text-zinc-400">
             Update your account password. Choose a strong password with at least 8 characters.
           </p>
