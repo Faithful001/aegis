@@ -5,7 +5,11 @@ import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext';
 import { AegisProvider } from './context/AegisContext';
 import { AppRouter } from './router';
+import { preloadWhisperModel } from './services/whisper';
 import './index.css';
+
+// Preload and cache Whisper model in the background once application mounts
+preloadWhisperModel();
 
 export const queryClient = new QueryClient({
   defaultOptions: {

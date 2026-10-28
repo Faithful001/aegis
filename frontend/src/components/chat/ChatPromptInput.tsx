@@ -3,12 +3,15 @@ import {
   CaretDownIcon,
   CheckIcon,
   MicrophoneIcon,
+  MicrophoneSlashIcon,
   PaperPlaneRightIcon,
   PlusIcon,
+  XIcon,
 } from "@phosphor-icons/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAegis } from "../../context/AegisContext";
 import { useLocation } from "@tanstack/react-router";
+import { useSpeechRecognition } from "../../hooks/useSpeechRecognition";
 
 interface ChatPromptInputProps {
   onSendMessage: (prompt: string) => void;
@@ -20,6 +23,25 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { selectedModel, setSelectedModel, models } = useAegis();
+
+  // Local flag that flips synchronously on click, before the async hook work begins
+  const [isStopping, setIsStopping] = useState(false);
+
+  const { isListening, isTranscribing, startListening, stopListening, cancelListening } = useSpeechRecognition({
+    onResult: (text) => {
+      setInput(text);
+      setIsStopping(false);
+    },
+  });
+
+  // Once hook finishes transcribing (success or error), clear local stopping flag
+  useEffect(() => {
+    if (!isTranscribing) {
+      setIsStopping(false);
+    }
+  }, [isTranscribing]);
+
+  const showLoader = isStopping || isTranscribing;
 
   const { pathname } = useLocation();
 
@@ -48,6 +70,9 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
 
   const submit = () => {
     if (!input.trim() || disabled) return;
+    if (isListening) {
+      stopListening();
+    }
     onSendMessage(input.trim());
     setInput("");
   };
@@ -61,7 +86,15 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={pathname === "/" ? "How can I help you today?" : "Write a message..."}
+          placeholder={
+            showLoader
+              ? "Transcribing with Whisper..."
+              : isListening
+              ? "Listening... Click mic to stop"
+              : pathname === "/"
+              ? "How can I help you today?"
+              : "Write a message..."
+          }
           disabled={disabled}
           className="w-full bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none resize-none px-2 py-1 min-h-[48px]"
         />
@@ -158,11 +191,64 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
               </AnimatePresence>
             </div>
 
+            {/* Cancel voice input button */}
+            <AnimatePresence>
+              {(isListening || showLoader) && (
+                <motion.button
+                  key="cancel-voice-btn"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.15 }}
+                  type="button"
+                  onClick={() => {
+                    setIsStopping(false);
+                    cancelListening();
+                  }}
+                  title="Cancel voice input"
+                  aria-label="Cancel voice input"
+                  className="p-1.5 rounded-full text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+                >
+                  <XIcon className="w-4 h-4" />
+                </motion.button>
+              )}
+            </AnimatePresence>
+
             <button
               type="button"
-              className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+              onClick={() => {
+                if (isListening) {
+                  // Flip local flag synchronously — spinner renders THIS render tick
+                  setIsStopping(true);
+                  stopListening();
+                } else if (!showLoader) {
+                  startListening(input);
+                }
+              }}
+              disabled={disabled || showLoader}
+              title={isListening ? "Click to finish recording" : "Use speech to text"}
+              aria-label={isListening ? "Stop recording" : "Start speech to text"}
+              className={`p-1.5 rounded-full transition-all relative ${
+                isListening
+                  ? "text-red-400 bg-red-500/20 ring-1 ring-red-500/50 hover:bg-red-500/30"
+                  : showLoader
+                  ? "text-zinc-200 bg-transparent cursor-default"
+                  : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+              }`}
             >
-              <MicrophoneIcon className="w-4 h-4" />
+              {showLoader ? (
+                <div className="w-4 h-4 border-2 border-zinc-200 border-t-transparent rounded-full animate-spin bg-transparent" />
+              ) : isListening ? (
+                <>
+                  <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                  </span>
+                  <MicrophoneSlashIcon className="w-4 h-4 animate-pulse" />
+                </>
+              ) : (
+                <MicrophoneIcon className="w-4 h-4" />
+              )}
             </button>
 
             <button

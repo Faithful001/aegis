@@ -38,6 +38,10 @@ interface AegisContextType {
   sendMessage: (promptText: string, targetThreadId?: string) => Promise<void>;
 }
 
+const EMPTY_THREADS: ChatThread[] = [];
+const EMPTY_PROVIDERS: ProviderMeta[] = [];
+const EMPTY_MODELS: DiscoveredModel[] = [];
+
 const AegisContext = createContext<AegisContextType | undefined>(undefined);
 
 export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -50,7 +54,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // TanStack Query for threads
   const {
-    data: rawThreads = [],
+    data: rawThreads,
     isLoading: isLoadingThreads,
     refetch: refetchThreadsQuery,
   } = useQuery<ChatThread[]>({
@@ -73,7 +77,13 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Keep chatThreads in sync with fetched threads from backend
   useEffect(() => {
-    if (rawThreads.length > 0) {
+    if (!isAuthenticated) {
+      setChatThreads((prev) => (prev.length === 0 ? prev : EMPTY_THREADS));
+      setActiveThreadId((prev) => (prev === null ? null : null));
+      return;
+    }
+
+    if (rawThreads) {
       setChatThreads(rawThreads);
       setActiveThreadId((prev) => {
         // If the URL already targets /c/:id or /chat/:id, respect that
@@ -86,18 +96,12 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         return rawThreads[0]?.id || null;
       });
-    } else if (!isAuthenticated) {
-      setChatThreads([]);
-      setActiveThreadId(null);
-    } else {
-      setChatThreads([]);
-      setActiveThreadId(null);
     }
   }, [rawThreads, isAuthenticated]);
 
   // TanStack Query for supported providers metadata (carries is_configured per user)
   const {
-    data: rawSupportedProviders = [],
+    data: rawSupportedProviders,
     isLoading: isLoadingProviders,
     isFetching: isFetchingProviders,
     refetch: refetchProvidersQuery,
@@ -111,11 +115,11 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     staleTime: 0, // always fresh after credential changes
   });
 
-  const supportedProviders = Array.isArray(rawSupportedProviders) ? rawSupportedProviders : [];
+  const supportedProviders = rawSupportedProviders || EMPTY_PROVIDERS;
 
   // TanStack Query for models (retrieves active models from DB level)
   const {
-    data: rawModels = [],
+    data: rawModels,
     isLoading: isLoadingModels,
     refetch: refetchModelsQuery,
   } = useQuery<DiscoveredModel[]>({
@@ -128,7 +132,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     staleTime: 1000 * 60,
   });
 
-  const models = Array.isArray(rawModels) ? rawModels : [];
+  const models = rawModels || EMPTY_MODELS;
 
   // Automatically adjust selectedModel when models update
   useEffect(() => {
@@ -140,7 +144,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return models[0]?.id || "";
       });
     } else if (!isAuthenticated) {
-      setSelectedModel("");
+      setSelectedModel((prev) => (prev === "" ? prev : ""));
     }
   }, [models, isAuthenticated]);
 
