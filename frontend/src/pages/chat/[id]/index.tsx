@@ -7,6 +7,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { AddCredentialModal } from "../../../components/modals/AddCredentialModal";
 import { AuthModal } from "../../../components/modals/AuthModal";
 import { toast } from "sonner";
+import { AttachmentItem } from "../../../types/api";
 
 interface Props {
   id?: string;
@@ -49,14 +50,14 @@ export const DynamicChatThreadPage: React.FC<Props> = ({ id }) => {
   const selectedModelMeta =
     modelList.find((m) => m.id === selectedModel) || (modelList.length > 0 ? modelList[0] : null);
 
-  const handleSendMessage = async (promptText: string) => {
+  const handleSendMessage = async (promptText: string, attachments?: AttachmentItem[]) => {
     if (!isAuthenticated) {
       toast.info("Please sign in to continue");
       setAuthModalOpen(true);
       return;
     }
 
-    await sendMessage(promptText, targetId);
+    await sendMessage(promptText, targetId, attachments);
   };
 
   return (

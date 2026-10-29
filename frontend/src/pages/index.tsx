@@ -8,6 +8,7 @@ import { AddCredentialModal } from "../components/modals/AddCredentialModal";
 import { AuthModal } from "../components/modals/AuthModal";
 import { toast } from "sonner";
 import { router } from "@/router";
+import { AttachmentItem } from "../types/api";
 
 const ROTATING_WORDS = ["explore", "search", "discover", "build"];
 
@@ -35,7 +36,7 @@ export const HomePage: React.FC = () => {
   const selectedModelMeta =
     modelList.find((m) => m.id === selectedModel) || (modelList.length > 0 ? modelList[0] : null);
 
-  const handleSendMessage = async (promptText: string) => {
+  const handleSendMessage = async (promptText: string, attachments?: AttachmentItem[]) => {
     if (!isAuthenticated) {
       toast.info("Please sign in to continue");
       setAuthModalOpen(true);
@@ -44,7 +45,7 @@ export const HomePage: React.FC = () => {
 
     const newThreadId = await createNewThread(promptText, selectedModel);
     router.navigate({ to: `/c/${newThreadId}` });
-    sendMessage(promptText, newThreadId);
+    sendMessage(promptText, newThreadId, attachments);
   };
 
   return (

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/Faithful001/aegis/internal/domain/inference/dto"
@@ -93,12 +94,46 @@ func (s *InferenceService) selectWorker(ctx context.Context, req dto.ChatComplet
 	return nil
 }
 
+func preprocessChatRequest(req dto.ChatCompletionRequest) dto.ChatCompletionRequest {
+	for i, m := range req.Messages {
+		if len(m.Attachments) > 0 {
+			var docContext strings.Builder
+			for _, att := range m.Attachments {
+				if att.FileType == "document" || att.FileType == "file" || (att.FileType != "image" && att.Content != "") {
+					docContext.WriteString(fmt.Sprintf("\n\n[Attached File: %s]\n```\n%s\n```\n", att.Filename, att.Content))
+				}
+			}
+			if docContext.Len() > 0 {
+				if m.Content != "" {
+					req.Messages[i].Content = docContext.String() + "\n" + m.Content
+				} else {
+					req.Messages[i].Content = strings.TrimSpace(docContext.String())
+				}
+			}
+			if req.Messages[i].Content == "" {
+				hasImages := false
+				for _, att := range m.Attachments {
+					if att.FileType == "image" {
+						hasImages = true
+						break
+					}
+				}
+				if hasImages {
+					req.Messages[i].Content = "Please analyze the attached image."
+				}
+			}
+		}
+	}
+	return req
+}
+
 func (s *InferenceService) ExecuteChatCompletion(
 	ctx context.Context,
 	reqID string,
 	userID uuid.UUID,
 	req dto.ChatCompletionRequest,
 ) (*dto.ChatCompletionResponse, error) {
+	req = preprocessChatRequest(req)
 	startTime := time.Now()
 	if reqID == "" {
 		reqID = fmt.Sprintf("req_%s", uuid.New().String())
@@ -218,6 +253,7 @@ func (s *InferenceService) ExecuteStreamChatCompletion(
 	userID uuid.UUID,
 	req dto.ChatCompletionRequest,
 ) (<-chan StreamChunk, *InferenceJob, error) {
+	req = preprocessChatRequest(req)
 	startTime := time.Now()
 	if reqID == "" {
 		reqID = fmt.Sprintf("req_%s", uuid.New().String())

@@ -17,6 +17,7 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/provider"
 	"github.com/Faithful001/aegis/internal/domain/scheduler"
 	"github.com/Faithful001/aegis/internal/domain/thread"
+	"github.com/Faithful001/aegis/internal/domain/upload"
 	"github.com/Faithful001/aegis/internal/domain/usage"
 	"github.com/Faithful001/aegis/internal/domain/user"
 	"github.com/Faithful001/aegis/internal/domain/worker"
@@ -57,6 +58,7 @@ func main() {
 			&provider.UserModel{},
 			&thread.Thread{},
 			&thread.Message{},
+			&upload.UploadedFile{},
 			&auth.UserSession{},
 			&user.AlertSettings{},
 		}
@@ -101,6 +103,7 @@ func main() {
 	threadRepo := thread.NewThreadRepository(database)
 	sessionRepo := auth.NewSessionRepository(database)
 	alertRepo := user.NewAlertSettingsRepository(database)
+	uploadRepo := upload.NewUploadRepository(database)
 
 	// initialize domain hasher, generators and services
 	hasher := infraAuth.NewBcryptHasher(0)
@@ -191,6 +194,7 @@ func main() {
 	logger.Info("BYOK Frontier Provider Gateway initialized (OpenAI, Anthropic, Gemini, Mistral AI, OpenRouter)")
 
 	threadService := thread.NewThreadService(threadRepo)
+	uploadService := upload.NewUploadService(uploadRepo)
 
 	// initialize domain controllers
 	authController := auth.NewAuthController(authService)
@@ -199,6 +203,7 @@ func main() {
 	providerController := provider.NewProviderController(providerService)
 	userController := user.NewUserController(userService)
 	threadController := thread.NewThreadController(threadService)
+	uploadController := upload.NewUploadController(uploadService)
 
 	// setup http engine
 	engine := router.SetupRouter(router.RouterConfig{
@@ -209,6 +214,7 @@ func main() {
 		ProviderController:  providerController,
 		UserController:      userController,
 		ThreadController:    threadController,
+		UploadController:    uploadController,
 		EventProducer:       eventProducer,
 	})
 

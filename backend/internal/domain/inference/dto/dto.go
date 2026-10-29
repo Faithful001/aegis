@@ -1,8 +1,18 @@
 package dto
 
+type AttachmentDTO struct {
+	ID       string `json:"id,omitempty"`
+	Filename string `json:"filename"`
+	MimeType string `json:"mime_type"`
+	FileType string `json:"file_type"` // "image" or "document"
+	URL      string `json:"url,omitempty"`
+	Content  string `json:"content,omitempty"` // base64 for images or text for documents
+}
+
 type ChatMessageDTO struct {
-	Role    string `json:"role" binding:"required"`
-	Content string `json:"content" binding:"required"`
+	Role        string          `json:"role" binding:"required"`
+	Content     string          `json:"content"`
+	Attachments []AttachmentDTO `json:"attachments,omitempty"`
 }
 
 type ChatCompletionRequest struct {

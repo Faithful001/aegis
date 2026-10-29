@@ -42,8 +42,14 @@ func (a *GeminiAdapter) getEndpoint(baseURL, model, action string) string {
 	return fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:%s", model, action)
 }
 
+type geminiInlineData struct {
+	MimeType string `json:"mimeType"`
+	Data     string `json:"data"`
+}
+
 type geminiPart struct {
-	Text string `json:"text"`
+	Text       string            `json:"text,omitempty"`
+	InlineData *geminiInlineData `json:"inlineData,omitempty"`
 }
 
 type geminiContent struct {
@@ -94,9 +100,26 @@ func (a *GeminiAdapter) formatRequest(req dto.ChatCompletionRequest) (geminiRequ
 			} else {
 				role = "user"
 			}
+			var parts []geminiPart
+			if m.Content != "" {
+				parts = append(parts, geminiPart{Text: m.Content})
+			}
+			for _, att := range m.Attachments {
+				if att.FileType == "image" && att.Content != "" {
+					parts = append(parts, geminiPart{
+						InlineData: &geminiInlineData{
+							MimeType: att.MimeType,
+							Data:     att.Content,
+						},
+					})
+				}
+			}
+			if len(parts) == 0 {
+				parts = []geminiPart{{Text: m.Content}}
+			}
 			contents = append(contents, geminiContent{
 				Role:  role,
-				Parts: []geminiPart{{Text: m.Content}},
+				Parts: parts,
 			})
 		}
 	}

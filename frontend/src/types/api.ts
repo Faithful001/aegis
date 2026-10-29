@@ -59,11 +59,22 @@ export interface UsageMetric {
   }[];
 }
 
+export interface AttachmentItem {
+  id?: string;
+  filename: string;
+  mime_type: string;
+  file_type: "image" | "document";
+  size?: number;
+  url?: string;
+  content?: string;
+}
+
 export interface ChatMessage {
   id: string;
   thread_id?: string;
   role: "system" | "user" | "assistant";
   content: string;
+  attachments?: AttachmentItem[];
   timestamp?: Date | string;
   created_at?: string;
   model?: string;
@@ -81,7 +92,11 @@ export interface ChatThread {
 
 export interface ChatCompletionRequest {
   model: string;
-  messages: { role: string; content: string }[];
+  messages: {
+    role: string;
+    content: string;
+    attachments?: AttachmentItem[];
+  }[];
   temperature?: number;
   max_tokens?: number;
   stream?: boolean;

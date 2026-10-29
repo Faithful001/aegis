@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   CaretDownIcon,
   CheckIcon,
+  CircleNotchIcon,
+  FileTextIcon,
   MicrophoneIcon,
   MicrophoneSlashIcon,
   PaperPlaneRightIcon,
@@ -12,27 +14,52 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAegis } from "../../context/AegisContext";
 import { useLocation } from "@tanstack/react-router";
 import { useSpeechRecognition } from "../../hooks/useSpeechRecognition";
+import { uploadApi } from "../../api/upload";
+import { AttachmentItem } from "../../types/api";
+import { toast } from "sonner";
+
+const ALLOWED_PHOTO_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
+const ALLOWED_PHOTO_MIMES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+
+const ALLOWED_DOC_EXTS = [
+  ".pdf", ".doc", ".docx", ".txt", ".md", ".csv", ".json",
+  ".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs",
+  ".c", ".cpp", ".h", ".hpp", ".html", ".css",
+  ".yaml", ".yml", ".sh", ".sql",
+];// Combined accept string for a single input that handles both images and documents
+const COMBINED_ACCEPT = [
+  "image/png,image/jpeg,image/webp,image/gif",
+  ".pdf,.doc,.docx,.txt,.md,.csv,.json",
+  ".py,.js,.ts,.tsx,.jsx,.go,.rs,.c,.cpp,.h,.hpp",
+  ".html,.css,.yaml,.yml,.sh,.sql",
+].join(",");
 
 interface ChatPromptInputProps {
-  onSendMessage: (prompt: string) => void;
+  onSendMessage: (prompt: string, attachments?: AttachmentItem[]) => void;
   disabled?: boolean;
 }
 
 export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage, disabled }) => {
   const [input, setInput] = useState("");
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const combinedInputRef = useRef<HTMLInputElement>(null);
+
   const { selectedModel, setSelectedModel, models } = useAegis();
 
   // Local flag that flips synchronously on click, before the async hook work begins
   const [isStopping, setIsStopping] = useState(false);
 
-  const { isListening, isTranscribing, startListening, stopListening, cancelListening } = useSpeechRecognition({
-    onResult: (text) => {
-      setInput(text);
-      setIsStopping(false);
-    },
-  });
+  const { isListening, isTranscribing, startListening, stopListening, cancelListening } =
+    useSpeechRecognition({
+      onResult: (text) => {
+        setInput(text);
+        setIsStopping(false);
+      },
+    });
 
   // Once hook finishes transcribing (success or error), clear local stopping flag
   useEffect(() => {
@@ -61,6 +88,91 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
     };
   }, []);
 
+  // Auto-detect file type from extension/mime and validate
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const fileList = Array.from(files);
+    const photoFiles: File[] = [];
+    const docFiles: File[] = [];
+
+    for (const file of fileList) {
+      const ext = "." + file.name.split(".").pop()?.toLowerCase();
+      const isPhoto = ALLOWED_PHOTO_EXTS.includes(ext) || ALLOWED_PHOTO_MIMES.includes(file.type);
+      const isDoc = ALLOWED_DOC_EXTS.includes(ext);
+
+      if (isPhoto) {
+        if (file.size > 15 * 1024 * 1024) {
+          toast.error(`"${file.name}" exceeds the 15MB photo size limit.`);
+          continue;
+        }
+        photoFiles.push(file);
+      } else if (isDoc) {
+        if (file.size > 30 * 1024 * 1024) {
+          toast.error(`"${file.name}" exceeds the 30MB file size limit.`);
+          continue;
+        }
+        docFiles.push(file);
+      } else {
+        toast.error(`"${file.name}" is not a supported format.`);
+      }
+    }
+
+    if (photoFiles.length === 0 && docFiles.length === 0) {
+      e.target.value = "";
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const results: AttachmentItem[] = [];
+
+      if (photoFiles.length > 0) {
+        const uploaded = await uploadApi.uploadMultiple(photoFiles, "photo");
+        results.push(...uploaded.map((u) => ({
+          id: u.id,
+          filename: u.filename,
+          mime_type: u.mime_type,
+          file_type: u.file_type,
+          size: u.size,
+          url: u.url,
+          content: u.content,
+        })));
+      }
+
+      if (docFiles.length > 0) {
+        const uploaded = await uploadApi.uploadMultiple(docFiles, "file");
+        results.push(...uploaded.map((u) => ({
+          id: u.id,
+          filename: u.filename,
+          mime_type: u.mime_type,
+          file_type: u.file_type,
+          size: u.size,
+          url: u.url,
+          content: u.content,
+        })));
+      }
+
+      setAttachments((prev) => [...prev, ...results]);
+      toast.success(
+        results.length === 1
+          ? `Attached "${results[0].filename}"`
+          : `Attached ${results.length} files`
+      );
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to upload files");
+    } finally {
+      setIsUploading(false);
+    }
+
+    e.target.value = "";
+  };
+
+  const removeAttachment = (indexToRemove: number) => {
+    setAttachments((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -69,17 +181,69 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
   };
 
   const submit = () => {
-    if (!input.trim() || disabled) return;
+    if ((!input.trim() && attachments.length === 0) || disabled || isUploading) return;
     if (isListening) {
       stopListening();
     }
-    onSendMessage(input.trim());
+    onSendMessage(input.trim(), attachments);
     setInput("");
+    setAttachments([]);
   };
 
   return (
     <div className="w-full max-w-3xl mx-auto px-3 sm:px-4">
       <div className="relative bg-surface-card/90 border border-surface-border rounded-3xl p-3 sm:p-3.5 shadow-glow-card transition-all focus-within:border-zinc-600 focus-within:ring-1 focus-within:ring-zinc-600">
+        {/* Attachment preview chips */}
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-2 px-1">
+            {attachments.map((att, idx) => (
+              <div
+                key={att.id || idx}
+                className="group relative flex items-center gap-2 bg-zinc-800/90 border border-zinc-700/80 rounded-xl px-2.5 py-1.5 text-xs text-zinc-200 shadow-sm transition-all hover:border-zinc-600"
+              >
+                {att.file_type === "image" ? (
+                  <div className="w-6 h-6 rounded-lg overflow-hidden bg-zinc-900 shrink-0 border border-zinc-700/50">
+                    <img
+                      src={
+                        att.url ||
+                        (att.content ? `data:${att.mime_type};base64,${att.content}` : "")
+                      }
+                      alt={att.filename}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <FileTextIcon className="w-4 h-4 text-emerald-400 shrink-0" />
+                )}
+                <div className="flex flex-col min-w-0 max-w-[130px] sm:max-w-[180px]">
+                  <span className="truncate text-xs font-medium">{att.filename}</span>
+                  {att.size && (
+                    <span className="text-[10px] text-zinc-400">
+                      {(att.size / 1024).toFixed(0)} KB
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(idx)}
+                  className="p-1 rounded-full text-zinc-400 hover:text-red-400 hover:bg-zinc-700/60 transition-colors ml-0.5"
+                  title="Remove attachment"
+                  aria-label="Remove attachment"
+                >
+                  <XIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+
+            {isUploading && (
+              <div className="flex items-center gap-1.5 text-xs text-zinc-400 px-2 py-1 bg-zinc-800/40 rounded-xl border border-zinc-700/40">
+                <CircleNotchIcon className="w-3.5 h-3.5 animate-spin text-zinc-300" />
+                <span>Uploading...</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Main Textarea */}
         <textarea
           rows={2}
@@ -90,10 +254,10 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
             showLoader
               ? "Transcribing with Whisper..."
               : isListening
-              ? "Listening... Click mic to stop"
-              : pathname === "/"
-              ? "How can I help you today?"
-              : "Write a message..."
+                ? "Listening... Click mic to stop"
+                : pathname === "/"
+                  ? "How can I help you today?"
+                  : "Write a message..."
           }
           disabled={disabled}
           className="w-full bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none resize-none px-2 py-1 min-h-[48px]"
@@ -101,13 +265,27 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
 
         {/* Bottom Bar Controls inside prompt box */}
         <div className="flex items-center justify-between pt-2 border-t border-surface-border/40 px-1 gap-1">
-          {/* Left Attachment Button */}
-          <button
-            type="button"
-            className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors shrink-0"
-          >
-            <PlusIcon className="w-4 h-4" />
-          </button>
+          {/* Left: single "Add photos/files" button */}
+          <div>
+            {/* Single hidden input that accepts both images and documents */}
+            <input
+              ref={combinedInputRef}
+              type="file"
+              accept={COMBINED_ACCEPT}
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <button
+              type="button"
+              onClick={() => combinedInputRef.current?.click()}
+              className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors shrink-0"
+              title="Add photos/files"
+              aria-label="Add photos/files"
+            >
+              <PlusIcon className="w-4 h-4" />
+            </button>
+          </div>
 
           {/* Right Action Icons: Model Selector Dropdown, Mic Icon, Send */}
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
@@ -232,8 +410,8 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
                 isListening
                   ? "text-red-400 bg-red-500/20 ring-1 ring-red-500/50 hover:bg-red-500/30"
                   : showLoader
-                  ? "text-zinc-200 bg-transparent cursor-default"
-                  : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                    ? "text-zinc-200 bg-transparent cursor-default"
+                    : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
               }`}
             >
               {showLoader ? (
@@ -254,7 +432,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
             <button
               type="button"
               onClick={submit}
-              disabled={disabled || !input.trim()}
+              disabled={disabled || (!input.trim() && attachments.length === 0) || isUploading}
               className="w-8 h-8 rounded-full bg-white hover:bg-white text-black flex items-center justify-center transition-all disabled:opacity-40 disabled:hover:bg-white"
             >
               <PaperPlaneRightIcon className="w-3.5 h-3.5" />

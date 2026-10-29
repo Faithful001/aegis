@@ -45,8 +45,8 @@ func (a *AnthropicAdapter) getEndpoint(baseURL string) string {
 }
 
 type anthropicMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role    string      `json:"role"`
+	Content interface{} `json:"content"`
 }
 
 type anthropicRequest struct {
@@ -57,9 +57,16 @@ type anthropicRequest struct {
 	Stream    bool               `json:"stream,omitempty"`
 }
 
+type anthropicImageSource struct {
+	Type      string `json:"type"` // "base64"
+	MediaType string `json:"media_type"`
+	Data      string `json:"data"`
+}
+
 type anthropicContentBlock struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
+	Type   string                `json:"type"`
+	Text   string                `json:"text,omitempty"`
+	Source *anthropicImageSource `json:"source,omitempty"`
 }
 
 type anthropicUsage struct {
@@ -93,10 +100,45 @@ func (a *AnthropicAdapter) formatRequest(req dto.ChatCompletionRequest) (anthrop
 			if role != "user" && role != "assistant" {
 				role = "user"
 			}
-			messages = append(messages, anthropicMessage{
-				Role:    role,
-				Content: m.Content,
-			})
+
+			var hasImages bool
+			for _, att := range m.Attachments {
+				if att.FileType == "image" && att.Content != "" {
+					hasImages = true
+					break
+				}
+			}
+
+			if hasImages {
+				var blocks []anthropicContentBlock
+				for _, att := range m.Attachments {
+					if att.FileType == "image" && att.Content != "" {
+						blocks = append(blocks, anthropicContentBlock{
+							Type: "image",
+							Source: &anthropicImageSource{
+								Type:      "base64",
+								MediaType: att.MimeType,
+								Data:      att.Content,
+							},
+						})
+					}
+				}
+				if m.Content != "" {
+					blocks = append(blocks, anthropicContentBlock{
+						Type: "text",
+						Text: m.Content,
+					})
+				}
+				messages = append(messages, anthropicMessage{
+					Role:    role,
+					Content: blocks,
+				})
+			} else {
+				messages = append(messages, anthropicMessage{
+					Role:    role,
+					Content: m.Content,
+				})
+			}
 		}
 	}
 

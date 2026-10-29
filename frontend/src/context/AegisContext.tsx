@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChatThread, ChatMessage, DiscoveredModel, ProviderMeta } from "../types/api";
+import { ChatThread, ChatMessage, DiscoveredModel, ProviderMeta, AttachmentItem } from "../types/api";
 import { credentialsApi } from "../api/credentials";
 import { threadsApi } from "../api/threads";
 import { streamChatCompletion } from "../api/chat";
@@ -35,7 +35,7 @@ interface AegisContextType {
   fetchThreadById: (id: string) => Promise<ChatThread | null>;
   refetchThreads: () => Promise<void>;
   isStreaming: boolean;
-  sendMessage: (promptText: string, targetThreadId?: string) => Promise<void>;
+  sendMessage: (promptText: string, targetThreadId?: string, attachments?: AttachmentItem[]) => Promise<void>;
 }
 
 const EMPTY_THREADS: ChatThread[] = [];
@@ -384,7 +384,11 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [isStreaming, setIsStreaming] = useState(false);
 
-  const sendMessage = async (promptText: string, targetThreadId?: string): Promise<void> => {
+  const sendMessage = async (
+    promptText: string,
+    targetThreadId?: string,
+    attachments?: AttachmentItem[]
+  ): Promise<void> => {
     let currentThreadId = targetThreadId || activeThreadId;
     if (!currentThreadId) {
       currentThreadId = await createNewThread(promptText, selectedModel);
@@ -394,6 +398,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       id: "msg-" + Date.now(),
       role: "user",
       content: promptText,
+      attachments: attachments && attachments.length > 0 ? attachments : undefined,
       timestamp: new Date(),
     };
 
@@ -423,6 +428,7 @@ export const AegisProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         messages: [...currentMessages, userMsg].map((m) => ({
           role: m.role,
           content: m.content,
+          attachments: m.attachments,
         })),
       },
       (chunk) => {

@@ -42,13 +42,82 @@ func (a *OpenAIAdapter) getEndpoint(baseURL string) string {
 	return "https://api.openai.com/v1/chat/completions"
 }
 
+type openAIMessage struct {
+	Role    string      `json:"role"`
+	Content interface{} `json:"content"`
+}
+
+type openAIRequest struct {
+	Model       string          `json:"model"`
+	Messages    []openAIMessage `json:"messages"`
+	MaxTokens   int             `json:"max_tokens,omitempty"`
+	Temperature float32         `json:"temperature,omitempty"`
+	Stream      bool            `json:"stream,omitempty"`
+}
+
+func formatOpenAIRequest(req dto.ChatCompletionRequest, stream bool) openAIRequest {
+	oaiReq := openAIRequest{
+		Model:       req.Model,
+		MaxTokens:   req.MaxTokens,
+		Temperature: req.Temperature,
+		Stream:      stream,
+		Messages:    make([]openAIMessage, len(req.Messages)),
+	}
+
+	for i, m := range req.Messages {
+		var hasImages bool
+		for _, att := range m.Attachments {
+			if att.FileType == "image" && (att.Content != "" || att.URL != "") {
+				hasImages = true
+				break
+			}
+		}
+
+		if hasImages {
+			var parts []map[string]interface{}
+			if m.Content != "" {
+				parts = append(parts, map[string]interface{}{
+					"type": "text",
+					"text": m.Content,
+				})
+			}
+			for _, att := range m.Attachments {
+				if att.FileType == "image" {
+					imgURL := att.URL
+					if att.Content != "" {
+						imgURL = fmt.Sprintf("data:%s;base64,%s", att.MimeType, att.Content)
+					}
+					if imgURL != "" {
+						parts = append(parts, map[string]interface{}{
+							"type": "image_url",
+							"image_url": map[string]string{
+								"url": imgURL,
+							},
+						})
+					}
+				}
+			}
+			oaiReq.Messages[i] = openAIMessage{
+				Role:    m.Role,
+				Content: parts,
+			}
+		} else {
+			oaiReq.Messages[i] = openAIMessage{
+				Role:    m.Role,
+				Content: m.Content,
+			}
+		}
+	}
+	return oaiReq
+}
+
 func (a *OpenAIAdapter) Generate(
 	ctx context.Context,
 	apiKey, baseURL string,
 	req dto.ChatCompletionRequest,
 ) (*dto.ChatCompletionResponse, error) {
-	req.Stream = false
-	bodyBytes, err := json.Marshal(req)
+	oaiReq := formatOpenAIRequest(req, false)
+	bodyBytes, err := json.Marshal(oaiReq)
 	if err != nil {
 		return nil, err
 	}
@@ -85,8 +154,8 @@ func (a *OpenAIAdapter) StreamGenerate(
 	apiKey, baseURL string,
 	req dto.ChatCompletionRequest,
 ) (<-chan inference.StreamChunk, error) {
-	req.Stream = true
-	bodyBytes, err := json.Marshal(req)
+	oaiReq := formatOpenAIRequest(req, true)
+	bodyBytes, err := json.Marshal(oaiReq)
 	if err != nil {
 		return nil, err
 	}

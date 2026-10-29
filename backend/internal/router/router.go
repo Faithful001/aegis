@@ -10,6 +10,7 @@ import (
 	"github.com/Faithful001/aegis/internal/domain/inference"
 	"github.com/Faithful001/aegis/internal/domain/provider"
 	"github.com/Faithful001/aegis/internal/domain/thread"
+	"github.com/Faithful001/aegis/internal/domain/upload"
 	"github.com/Faithful001/aegis/internal/domain/usage"
 	"github.com/Faithful001/aegis/internal/domain/user"
 	"github.com/Faithful001/aegis/internal/infra/db"
@@ -29,6 +30,7 @@ type RouterConfig struct {
 	UsageController     *usage.UsageController
 	ProviderController  *provider.ProviderController
 	ThreadController    *thread.ThreadController
+	UploadController    *upload.UploadController
 	RateLimiter         ratelimiter.RateLimiter
 	AdmissionService    *admission.AdmissionService
 	EventProducer       events.EventProducer
@@ -167,6 +169,15 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 				protected.DELETE("/threads/:id", cfg.ThreadController.DeleteThread)
 				protected.GET("/threads/:id/messages", cfg.ThreadController.ListMessages)
 				protected.POST("/threads/:id/messages", cfg.ThreadController.AddMessage)
+			}
+
+			// File & Photo Uploads
+			if cfg.UploadController != nil {
+				protected.POST("/upload", cfg.UploadController.UploadFile)
+				protected.POST("/upload/multiple", cfg.UploadController.UploadMultipleFiles)
+				protected.POST("/uploads", cfg.UploadController.UploadMultipleFiles)
+				protected.GET("/upload/:id", cfg.UploadController.GetFile)
+				protected.GET("/upload/:id/file", cfg.UploadController.ServeFile)
 			}
 
 			// User Token Usage Metering

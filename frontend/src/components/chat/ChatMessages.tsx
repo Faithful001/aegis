@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ChatMessage } from "../../types/api";
-import { Check, Copy } from "@phosphor-icons/react";
+import { Check, Copy, FileTextIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
 interface ChatMessagesProps {
@@ -28,10 +28,38 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isStreamin
     <div className="w-full max-w-3xl mx-auto px-4 py-8 space-y-8">
       {messages.map((msg) => {
         if (msg.role === "user") {
+          const hasAttachments = msg.attachments && msg.attachments.length > 0;
           return (
             <div key={msg.id} className="flex justify-end w-full">
-              <div className="bg-[#1c1c1f] text-zinc-100 text-[15px] px-4 py-2.5 rounded-[18px] max-w-[80%] leading-relaxed border border-zinc-800/80 shadow-sm select-text font-sans">
-                {msg.content}
+              <div className="bg-[#1c1c1f] text-zinc-100 text-[15px] px-4 py-2.5 rounded-[18px] max-w-[85%] sm:max-w-[80%] leading-relaxed border border-zinc-800/80 shadow-sm select-text font-sans">
+                {hasAttachments && (
+                  <div className="flex flex-wrap gap-2 mb-2.5">
+                    {msg.attachments!.map((att, i) => (
+                      <div key={att.id || i} className="max-w-full">
+                        {att.file_type === "image" ? (
+                          <div className="rounded-xl overflow-hidden border border-zinc-700/60 max-h-60 max-w-xs bg-zinc-950">
+                            <img
+                              src={att.url || (att.content ? `data:${att.mime_type};base64,${att.content}` : "")}
+                              alt={att.filename}
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-900/90 border border-zinc-700/60 text-xs text-zinc-200">
+                            <FileTextIcon className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span className="font-medium truncate max-w-[180px]">{att.filename}</span>
+                            {att.size && (
+                              <span className="text-[10px] text-zinc-500">
+                                {(att.size / 1024).toFixed(0)} KB
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {msg.content && <div>{msg.content}</div>}
               </div>
             </div>
           );
