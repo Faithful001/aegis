@@ -51,9 +51,6 @@ func GetDB() *gorm.DB {
 	return DB
 }
 
-func AutoMigrate(dst ...interface{}) error {
-	if DB == nil {
-		return nil
-	}
-	return DB.AutoMigrate(dst...)
+func AutoMigrate(models ...interface{}) error {
+	return DB.AutoMigrate(models...)
 }
