@@ -22,11 +22,31 @@ const ALLOWED_PHOTO_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
 const ALLOWED_PHOTO_MIMES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
 const ALLOWED_DOC_EXTS = [
-  ".pdf", ".doc", ".docx", ".txt", ".md", ".csv", ".json",
-  ".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs",
-  ".c", ".cpp", ".h", ".hpp", ".html", ".css",
-  ".yaml", ".yml", ".sh", ".sql",
-];// Combined accept string for a single input that handles both images and documents
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".txt",
+  ".md",
+  ".csv",
+  ".json",
+  ".py",
+  ".js",
+  ".ts",
+  ".tsx",
+  ".jsx",
+  ".go",
+  ".rs",
+  ".c",
+  ".cpp",
+  ".h",
+  ".hpp",
+  ".html",
+  ".css",
+  ".yaml",
+  ".yml",
+  ".sh",
+  ".sql",
+]; // Combined accept string for a single input that handles both images and documents
 const COMBINED_ACCEPT = [
   "image/png,image/jpeg,image/webp,image/gif",
   ".pdf,.doc,.docx,.txt,.md,.csv,.json",
@@ -130,28 +150,32 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
 
       if (photoFiles.length > 0) {
         const uploaded = await uploadApi.uploadMultiple(photoFiles, "photo");
-        results.push(...uploaded.map((u) => ({
-          id: u.id,
-          filename: u.filename,
-          mime_type: u.mime_type,
-          file_type: u.file_type,
-          size: u.size,
-          url: u.url,
-          content: u.content,
-        })));
+        results.push(
+          ...uploaded.map((u) => ({
+            id: u.id,
+            filename: u.filename,
+            mime_type: u.mime_type,
+            file_type: u.file_type,
+            size: u.size,
+            url: u.url,
+            content: u.content,
+          }))
+        );
       }
 
       if (docFiles.length > 0) {
         const uploaded = await uploadApi.uploadMultiple(docFiles, "file");
-        results.push(...uploaded.map((u) => ({
-          id: u.id,
-          filename: u.filename,
-          mime_type: u.mime_type,
-          file_type: u.file_type,
-          size: u.size,
-          url: u.url,
-          content: u.content,
-        })));
+        results.push(
+          ...uploaded.map((u) => ({
+            id: u.id,
+            filename: u.filename,
+            mime_type: u.mime_type,
+            file_type: u.file_type,
+            size: u.size,
+            url: u.url,
+            content: u.content,
+          }))
+        );
       }
 
       setAttachments((prev) => [...prev, ...results]);
@@ -278,7 +302,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
             />
             <button
               type="button"
-              onClick={() => combinedInputRef.current?.click()}
+              // onClick={() => combinedInputRef.current?.click()}
               className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors shrink-0"
               title="Add photos/files"
               aria-label="Add photos/files"
