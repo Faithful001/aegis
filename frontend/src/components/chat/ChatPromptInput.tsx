@@ -276,7 +276,7 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
           onKeyDown={handleKeyDown}
           placeholder={
             showLoader
-              ? "Transcribing with Whisper..."
+              ? "Transcribing..."
               : isListening
                 ? "Listening... Click mic to stop"
                 : pathname === "/"
