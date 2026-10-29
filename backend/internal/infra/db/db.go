@@ -38,7 +38,6 @@ func InitDB() {
 		return
 	}
 
-	// Connection pool settings
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
