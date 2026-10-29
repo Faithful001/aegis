@@ -418,15 +418,14 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({ onSendMessage,
 
             <button
               type="button"
-              onClick={() => {
-                if (isListening) {
-                  // Flip local flag synchronously — spinner renders THIS render tick
-                  setIsStopping(true);
-                  stopListening();
-                } else if (!showLoader) {
-                  startListening(input);
-                }
-              }}
+              // onClick={() => {
+              //   if (isListening) {
+              //     setIsStopping(true);
+              //     stopListening();
+              //   } else if (!showLoader) {
+              //     startListening(input);
+              //   }
+              // }}
               disabled={disabled || showLoader}
               title={isListening ? "Click to finish recording" : "Use speech to text"}
               aria-label={isListening ? "Stop recording" : "Start speech to text"}
